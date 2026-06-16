@@ -7,9 +7,6 @@ import 'source_edit.dart';
 final class EditCollector {
   final List<SourceEdit> _pending = [];
 
-  void add(SourceEdit edit) => _pending.add(edit);
-  void addAll(Iterable<SourceEdit> edits) => _pending.addAll(edits);
-
   bool get isEmpty => _pending.isEmpty;
   bool get isNotEmpty => _pending.isNotEmpty;
 
@@ -18,6 +15,10 @@ final class EditCollector {
     final sorted = List.of(_pending)..sort();
     return _deoverlap(sorted);
   }
+
+  void add(SourceEdit edit) => _pending.add(edit);
+
+  void addAll(Iterable<SourceEdit> edits) => _pending.addAll(edits);
 
   /// Applies all collected edits to [source] and returns the modified string.
   String apply(String source) {

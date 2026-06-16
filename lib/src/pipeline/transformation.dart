@@ -8,11 +8,11 @@ import '../engine/source_edit.dart';
 /// Each implementation must be stateless — [editsFor] may be called
 /// concurrently for different units.
 abstract interface class Transformation {
-  /// Short identifier shown in progress output, e.g. `'dot-shorthands'`.
-  String get name;
-
   /// When false the transformation is skipped for every file.
   bool get enabled;
+
+  /// Short identifier shown in progress output, e.g. `'dot-shorthands'`.
+  String get name;
 
   /// Returns the edits to apply to [unit].
   ///

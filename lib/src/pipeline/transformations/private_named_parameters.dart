@@ -6,10 +6,10 @@ import '../transformation.dart';
 /// Folds verbose constructor field boilerplate into the private named
 /// parameter form (`this._field`).
 final class PrivateNamedParameters implements Transformation {
-  const PrivateNamedParameters({required this.enabled});
-
   @override
   final bool enabled;
+
+  const PrivateNamedParameters({required this.enabled});
 
   @override
   String get name => 'private-named-parameters';

@@ -14,15 +14,17 @@ void main() {
       expect(collector.apply('Hello world'), 'Hi world');
     });
 
-    test('applies multiple non-overlapping edits regardless of insertion order',
-        () {
-      final collector = EditCollector()
-        ..addAll([
-          const SourceEdit(offset: 7, length: 5, replacement: 'Dart'),
-          const SourceEdit(offset: 0, length: 5, replacement: 'Hi'),
-        ]);
-      expect(collector.apply('Hello, World!'), 'Hi, Dart!');
-    });
+    test(
+      'applies multiple non-overlapping edits regardless of insertion order',
+      () {
+        final collector = EditCollector()
+          ..addAll([
+            const SourceEdit(offset: 7, length: 5, replacement: 'Dart'),
+            const SourceEdit(offset: 0, length: 5, replacement: 'Hi'),
+          ]);
+        expect(collector.apply('Hello, World!'), 'Hi, Dart!');
+      },
+    );
 
     test('overlapping edits: earlier-offset edit wins, later is dropped', () {
       final collector = EditCollector()

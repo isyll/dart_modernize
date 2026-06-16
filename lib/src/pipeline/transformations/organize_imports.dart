@@ -6,10 +6,10 @@ import '../transformation.dart';
 /// Sorts import and export directives into canonical order and removes
 /// directives that are unused.
 final class OrganizeImports implements Transformation {
-  const OrganizeImports({required this.enabled});
-
   @override
   final bool enabled;
+
+  const OrganizeImports({required this.enabled});
 
   @override
   String get name => 'organize-imports';

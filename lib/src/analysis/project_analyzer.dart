@@ -5,16 +5,16 @@ import 'package:analyzer/dart/analysis/results.dart';
 ///
 /// Call [initialize] once, then iterate [resolvedUnits].
 final class ProjectAnalyzer {
-  ProjectAnalyzer(this.projectPath);
-
   /// Absolute path to the project root.
   final String projectPath;
 
   AnalysisContextCollection? _collection;
 
+  ProjectAnalyzer(this.projectPath);
+
   /// Initialises the analysis context. Must be called before [resolvedUnits].
   void initialize() {
-    _collection = AnalysisContextCollection(includedPaths: [projectPath]);
+    _collection = .new(includedPaths: [projectPath]);
   }
 
   /// Yields every resolved Dart library unit in the project, in file order.

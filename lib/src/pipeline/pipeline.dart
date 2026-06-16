@@ -59,7 +59,9 @@ final class ModernizePipeline {
     }
 
     if (options.dryRun) {
-      stdout.writeln('$filesChanged file(s) would change (dry run — nothing written).');
+      stdout.writeln(
+        '$filesChanged file(s) would change (dry run — nothing written).',
+      );
       return;
     }
 

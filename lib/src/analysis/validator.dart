@@ -25,9 +25,7 @@ void _checkPubspec(String projectPath) {
 
   final environment = raw['environment'];
   if (environment is! YamlMap) {
-    throw ModernizeException(
-      'pubspec.yaml is missing an environment section.',
-    );
+    throw ModernizeException('pubspec.yaml is missing an environment section.');
   }
 
   final sdk = environment['sdk']?.toString();

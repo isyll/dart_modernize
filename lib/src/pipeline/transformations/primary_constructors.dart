@@ -6,10 +6,10 @@ import '../transformation.dart';
 /// Promotes eligible classes to the primary constructor form when it is
 /// provably safe — i.e. the class has no logic other than field assignment.
 final class PrimaryConstructors implements Transformation {
-  const PrimaryConstructors({required this.enabled});
-
   @override
   final bool enabled;
+
+  const PrimaryConstructors({required this.enabled});
 
   @override
   String get name => 'primary-constructors';

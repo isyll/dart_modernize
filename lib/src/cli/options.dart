@@ -1,47 +1,6 @@
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
-/// Parsed and validated CLI options, passed through the pipeline.
-final class CliOptions {
-  const CliOptions({
-    required this.path,
-    required this.dryRun,
-    required this.dotShorthands,
-    required this.privateNamedParameters,
-    required this.primaryConstructors,
-    required this.organizeImports,
-    required this.sortMembers,
-    required this.fixAll,
-  });
-
-  factory CliOptions.fromResults(ArgResults results) {
-    final rest = results.rest;
-    return CliOptions(
-      path: p.absolute(rest.isNotEmpty ? rest.first : p.current),
-      dryRun: results['dry-run'] as bool,
-      dotShorthands: results['dot-shorthands'] as bool,
-      privateNamedParameters: results['private-named-parameters'] as bool,
-      primaryConstructors: results['primary-constructors'] as bool,
-      organizeImports: results['organize-imports'] as bool,
-      sortMembers: results['sort-members'] as bool,
-      fixAll: results['fix-all'] as bool,
-    );
-  }
-
-  /// Absolute path to the project root to modernize.
-  final String path;
-
-  /// When true, only prints a diff — no files are written.
-  final bool dryRun;
-
-  final bool dotShorthands;
-  final bool privateNamedParameters;
-  final bool primaryConstructors;
-  final bool organizeImports;
-  final bool sortMembers;
-  final bool fixAll;
-}
-
 /// Builds the [ArgParser] for the `dart_modernize` CLI.
 ArgParser buildArgParser() {
   return ArgParser()
@@ -95,4 +54,46 @@ ArgParser buildArgParser() {
       defaultsTo: true,
       help: 'Apply bulk fixes equivalent to `dart fix`.',
     );
+}
+
+/// Parsed and validated CLI options, passed through the pipeline.
+final class CliOptions {
+  /// Absolute path to the project root to modernize.
+  final String path;
+
+  /// When true, only prints a diff — no files are written.
+  final bool dryRun;
+
+  final bool dotShorthands;
+
+  final bool privateNamedParameters;
+
+  final bool primaryConstructors;
+  final bool organizeImports;
+  final bool sortMembers;
+  final bool fixAll;
+  const CliOptions({
+    required this.path,
+    required this.dryRun,
+    required this.dotShorthands,
+    required this.privateNamedParameters,
+    required this.primaryConstructors,
+    required this.organizeImports,
+    required this.sortMembers,
+    required this.fixAll,
+  });
+
+  factory CliOptions.fromResults(ArgResults results) {
+    final rest = results.rest;
+    return .new(
+      path: p.absolute(rest.isNotEmpty ? rest.first : p.current),
+      dryRun: results['dry-run'] as bool,
+      dotShorthands: results['dot-shorthands'] as bool,
+      privateNamedParameters: results['private-named-parameters'] as bool,
+      primaryConstructors: results['primary-constructors'] as bool,
+      organizeImports: results['organize-imports'] as bool,
+      sortMembers: results['sort-members'] as bool,
+      fixAll: results['fix-all'] as bool,
+    );
+  }
 }
