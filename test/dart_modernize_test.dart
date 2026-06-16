@@ -1,16 +1,10 @@
-import 'package:dart_modernize/dart_modernize.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('A group of tests', () {
-    final awesome = Awesome();
-
-    setUp(() {
-      // Additional setup goes here.
-    });
-
-    test('First Test', () {
-      expect(awesome.isAwesome, isTrue);
+  group('dart_modernize', () {
+    test('placeholder', () {
+      // Tests will be added alongside logic in lib/src/.
+      expect(true, isTrue);
     });
   });
 }
