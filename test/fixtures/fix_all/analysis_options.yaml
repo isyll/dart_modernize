@@ -1,0 +1,9 @@
+# Lints the fix-all pass keys off. `dart fix` only rewrites code for diagnostics
+# that are actually reported, so the golden specs enable exactly the lints they
+# exercise. Kept minimal and non-overlapping so each fixture's expected output
+# is deterministic.
+linter:
+  rules:
+    - annotate_overrides
+    - prefer_final_locals
+    - unnecessary_new

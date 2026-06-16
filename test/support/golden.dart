@@ -129,6 +129,27 @@ String? _featureFile(String feature, String name) {
   return file.existsSync() ? file.readAsStringSync() : null;
 }
 
+/// Collects support files — `<name>.support.dart` — placed under
+/// `test/fixtures/<feature>/`. These are copied into the project as
+/// `lib/<name>.dart` *verbatim* and are never asserted on. They exist so a case
+/// can `import` a sibling library (e.g. to exercise relative-import grouping).
+Map<String, String> _supportFiles(String feature) {
+  final dir = Directory(p.join(_fixturesRoot, feature));
+  if (!dir.existsSync()) return const {};
+  final files = <String, String>{};
+  for (final entity in dir.listSync()) {
+    if (entity is! File) continue;
+    final fileName = p.basename(entity.path);
+    if (!fileName.endsWith('.support.dart')) continue;
+    final stem = fileName.substring(
+      0,
+      fileName.length - '.support.dart'.length,
+    );
+    files['lib/$stem.dart'] = entity.readAsStringSync();
+  }
+  return files;
+}
+
 /// Defines a complete golden-test group for [feature].
 ///
 /// Call once per feature from a `_test.dart` file. It discovers the cases,
@@ -159,6 +180,7 @@ void defineGoldenSuite(String feature) {
       result = await runCli(
         files: {
           for (final c in cases) c.projectFile: c.input,
+          ..._supportFiles(feature),
           'analysis_options.yaml': ?analysisOptions,
         },
         args: onlyFeatureArgs(feature),

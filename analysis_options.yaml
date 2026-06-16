@@ -5,6 +5,11 @@ analyzer:
     strict-casts: true
     strict-inference: true
     strict-raw-types: true
+  # Golden fixtures are deliberate "before/after" snapshots: inputs hold
+  # non-idiomatic code on purpose, and expected outputs use language features
+  # newer than this package's own version. They are specs, not project sources.
+  exclude:
+    - test/fixtures/**
 
 linter:
   rules:
