@@ -1,4 +1,12 @@
 {
+  // Code Spell Checker (streetsidesoftware.code-spell-checker)
+  "cSpell.enabled": false,
+
+  // markdownlint (DavidAnson.vscode-markdownlint)
+  "markdownlint.config": {
+    "default": false
+  },
+
   "[dart]": {
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
