@@ -1,0 +1,62 @@
+name: Transformation Proposal
+description: Propose a new code modernization rule
+title: "[Rule]: "
+labels: ["transformation", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose a new rewrite rule. A concrete before/after example is essential — it
+        lets us evaluate safety, scope, and implementation difficulty before writing any code.
+
+  - type: textarea
+    id: before
+    attributes:
+      label: Before
+      description: The pattern to detect and rewrite.
+      render: dart
+    validations:
+      required: true
+
+  - type: textarea
+    id: after
+    attributes:
+      label: After
+      description: What the rewritten code should look like.
+      render: dart
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: Why is the "after" version better? Idiomatic, shorter, safer, more readable?
+    validations:
+      required: true
+
+  - type: input
+    id: dart-version
+    attributes:
+      label: Minimum Dart SDK version
+      description: Which Dart SDK version introduced the target syntax or API?
+      placeholder: "3.5"
+    validations:
+      required: true
+
+  - type: textarea
+    id: edge-cases
+    attributes:
+      label: Known edge cases or exclusions
+      description: When should this rule NOT apply? What could go wrong?
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checklist
+      options:
+        - label: The rewrite is purely syntactic — it cannot change runtime behavior under any input
+          required: true
+        - label: The rule can be disabled with a --no-<name> flag
+          required: true
+        - label: Generated files (*.g.dart, *.freezed.dart, …) are excluded
