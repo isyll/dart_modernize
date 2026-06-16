@@ -104,21 +104,19 @@ final String _packageRoot = Directory.current.absolute.path;
 /// Path to the CLI entry point, relative to [_packageRoot].
 const String _binPath = 'bin/dart_modernize.dart';
 
-/// Creates a throwaway project containing [files] and runs the CLI against it.
+/// Creates a throwaway project containing [files] and a [pubspec].
 ///
 /// [files] maps a path *relative to the project root* (e.g. `'lib/a.dart'`) to
-/// its contents. [args] are CLI flags; the project path is appended
-/// automatically, so callers never pass it. [pubspec] overrides the default
-/// pubspec — useful for features (e.g. primary constructors) that require a
-/// higher language version.
+/// its contents. The directory is registered for deletion via [addTearDown], so
+/// this must be called from a test body (or `setUp`).
 ///
-/// Must be called from within a test body (or `setUp`): the temporary project
-/// is registered for deletion via [addTearDown].
-Future<CliResult> runCli({
+/// Use this with [invokeCli] when a test needs to run the CLI more than once
+/// against the same project (e.g. idempotence). For the common single-run case,
+/// prefer [runCli].
+Directory createProject({
   required Map<String, String> files,
-  List<String> args = const [],
   String pubspec = defaultPubspec,
-}) async {
+}) {
   final project = Directory.systemTemp.createTempSync('dm_test_');
   addTearDown(() {
     if (project.existsSync()) project.deleteSync(recursive: true);
@@ -131,6 +129,17 @@ Future<CliResult> runCli({
     file.writeAsStringSync(contents);
   });
 
+  return project;
+}
+
+/// Runs the CLI once against an existing [project].
+///
+/// [args] are CLI flags; the project path is appended automatically, so callers
+/// never pass it.
+Future<CliResult> invokeCli(
+  Directory project, {
+  List<String> args = const [],
+}) async {
   final result = await Process.run(
     Platform.resolvedExecutable, // the `dart` binary running these tests
     ['run', _binPath, ...args, project.path],
@@ -139,10 +148,24 @@ Future<CliResult> runCli({
     stderrEncoding: systemEncoding,
   );
 
-  return .new(
+  return CliResult(
     project: project,
     exitCode: result.exitCode,
     stdout: result.stdout as String,
     stderr: result.stderr as String,
   );
+}
+
+/// Creates a throwaway project containing [files] and runs the CLI against it.
+///
+/// Convenience wrapper over [createProject] + [invokeCli] for the common
+/// single-run case. [pubspec] overrides the default pubspec — useful for
+/// features (e.g. primary constructors) that require a higher language version.
+Future<CliResult> runCli({
+  required Map<String, String> files,
+  List<String> args = const [],
+  String pubspec = defaultPubspec,
+}) {
+  final project = createProject(files: files, pubspec: pubspec);
+  return invokeCli(project, args: args);
 }
