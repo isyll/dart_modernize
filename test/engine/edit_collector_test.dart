@@ -19,8 +19,8 @@ void main() {
       () {
         final collector = EditCollector()
           ..addAll([
-            const SourceEdit(offset: 7, length: 5, replacement: 'Dart'),
-            const SourceEdit(offset: 0, length: 5, replacement: 'Hi'),
+            const .new(offset: 7, length: 5, replacement: 'Dart'),
+            const .new(offset: 0, length: 5, replacement: 'Hi'),
           ]);
         expect(collector.apply('Hello, World!'), 'Hi, Dart!');
       },
@@ -29,8 +29,8 @@ void main() {
     test('overlapping edits: earlier-offset edit wins, later is dropped', () {
       final collector = EditCollector()
         ..addAll([
-          const SourceEdit(offset: 0, length: 5, replacement: 'A'),
-          const SourceEdit(offset: 2, length: 3, replacement: 'B'),
+          const .new(offset: 0, length: 5, replacement: 'A'),
+          const .new(offset: 2, length: 3, replacement: 'B'),
         ]);
       // 'B' starts inside 'A', so 'A' wins and 'B' is dropped.
       expect(collector.apply('Hello world'), 'A world');
@@ -39,13 +39,13 @@ void main() {
     test('isEmpty reflects whether edits have been added', () {
       final collector = EditCollector();
       expect(collector.isEmpty, isTrue);
-      collector.add(const SourceEdit(offset: 0, length: 1, replacement: ''));
+      collector.add(const .new(offset: 0, length: 1, replacement: ''));
       expect(collector.isEmpty, isFalse);
     });
 
     test('clear removes all pending edits', () {
       final collector = EditCollector()
-        ..add(const SourceEdit(offset: 0, length: 3, replacement: 'x'));
+        ..add(const .new(offset: 0, length: 3, replacement: 'x'));
       collector.clear();
       expect(collector.isEmpty, isTrue);
       expect(collector.apply('abc'), 'abc');
@@ -54,9 +54,9 @@ void main() {
     test('resolved returns edits sorted by offset', () {
       final collector = EditCollector()
         ..addAll([
-          const SourceEdit(offset: 10, length: 1, replacement: ''),
-          const SourceEdit(offset: 2, length: 1, replacement: ''),
-          const SourceEdit(offset: 6, length: 1, replacement: ''),
+          const .new(offset: 10, length: 1, replacement: ''),
+          const .new(offset: 2, length: 1, replacement: ''),
+          const .new(offset: 6, length: 1, replacement: ''),
         ]);
       final offsets = collector.resolved.map((e) => e.offset).toList();
       expect(offsets, [2, 6, 10]);
