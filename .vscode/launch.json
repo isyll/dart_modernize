@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "dart_modernize (help)",
+      "request": "launch",
+      "type": "dart",
+      "program": "bin/dart_modernize.dart",
+      "args": ["--help"]
+    },
+    {
+      "name": "dart_modernize (current folder)",
+      "request": "launch",
+      "type": "dart",
+      "program": "bin/dart_modernize.dart",
+      "args": ["${workspaceFolder}"]
+    }
+  ]
+}
