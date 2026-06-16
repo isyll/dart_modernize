@@ -66,6 +66,30 @@ class Point(int _x, int _y);
 
 </td>
 </tr>
+<tr>
+<td>
+
+```dart
+const allowed = <Permission>{
+  Permission.camera,
+  Permission.microphone,
+  Permission.storage,
+};
+```
+
+</td>
+<td>
+
+```dart
+const allowed = <Permission>{
+  .camera,
+  .microphone,
+  .storage,
+};
+```
+
+</td>
+</tr>
 </table>
 
 <div align="center"><sub>Same types. Same elements. Same behavior. Just modern.</sub></div>
