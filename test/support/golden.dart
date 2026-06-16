@@ -3,9 +3,12 @@
 /// A *golden test* pins the exact output of a transformation for a given input.
 /// Cases live under `test/fixtures/<feature>/` and come in two shapes:
 ///
-///   * **A pair** — `<case>.input.dart` plus `<case>.expected.dart`.
+///   * **A pair** — `<case>.input.dart` plus `<case>.expected`.
 ///     The tool is run over the input and the result must equal the expected
-///     file, byte for byte.
+///     file, byte for byte. The expected file deliberately drops the `.dart`
+///     extension so it is treated as plain data: `dart format`/`dart analyze`
+///     never touch it, which lets it hold output that uses language features
+///     newer than this package's own version (e.g. primary constructors).
 ///
 ///   * **A negative case** — a single `<case>.unchanged.dart`.
 ///     The transformation must *not* apply, so the expected output is the input
@@ -84,11 +87,11 @@ List<GoldenCase> discoverCases(String feature) {
         0,
         fileName.length - '.input.dart'.length,
       );
-      final expectedFile = File(p.join(dir.path, '$stem.expected.dart'));
+      final expectedFile = File(p.join(dir.path, '$stem.expected'));
       if (!expectedFile.existsSync()) {
         throw StateError(
-          'Golden case "$stem" in $feature is missing $stem.expected.dart. '
-          'Every *.input.dart needs a matching *.expected.dart.',
+          'Golden case "$stem" in $feature is missing $stem.expected. '
+          'Every *.input.dart needs a matching *.expected file.',
         );
       }
       cases.add(
@@ -165,7 +168,7 @@ void defineGoldenSuite(String feature) {
         isNotEmpty,
         reason:
             'No fixtures found in test/fixtures/$feature/. Add a '
-            '<case>.input.dart + <case>.expected.dart pair, or a '
+            '<case>.input.dart + <case>.expected pair, or a '
             '<case>.unchanged.dart negative case.',
       );
     });
@@ -198,7 +201,7 @@ void defineGoldenSuite(String feature) {
               ? 'Negative case "${c.name}": the transformation fired but the '
                     'context does not support it — output must equal input.'
               : 'Golden case "${c.name}" did not match '
-                    'test/fixtures/$feature/${c.name}.expected.dart.',
+                    'test/fixtures/$feature/${c.name}.expected.',
         );
       });
     }

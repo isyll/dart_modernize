@@ -1,0 +1,13 @@
+# Most of this suite drives the real dart_modernize CLI as a subprocess
+# (`dart run`, plus `dart pub get` / `dart analyze` for the semantic check).
+# Those processes are heavy and the analyzer's first run is slow to start, so:
+#
+#   * concurrency is capped to avoid a subprocess storm that starves individual
+#     `dart run` calls and makes them flakily time out; and
+#   * the per-test timeout is raised to comfortably cover cold analyzer startup
+#     on a contended machine.
+#
+# Pure unit tests (engine, options) are unaffected by these limits in practice —
+# they finish near-instantly.
+concurrency: 2
+timeout: 2m
