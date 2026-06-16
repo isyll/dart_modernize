@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(rm *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(type *)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}
