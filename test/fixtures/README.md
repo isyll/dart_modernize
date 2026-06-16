@@ -7,14 +7,14 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 
 ## Folder = feature
 
-| Folder                       | CLI flag                     |
-| ---------------------------- | ---------------------------- |
-| `dot_shorthands/`            | `--dot-shorthands`           |
-| `private_named_parameters/`  | `--private-named-parameters` |
-| `primary_constructors/`      | `--primary-constructors`     |
-| `organize_imports/`          | `--organize-imports`         |
-| `sort_members/`              | `--sort-members`             |
-| `fix_all/`                   | `--fix-all`                  |
+| Folder                      | CLI flag                     |
+| --------------------------- | ---------------------------- |
+| `dot_shorthands/`           | `--dot-shorthands`           |
+| `private_named_parameters/` | `--private-named-parameters` |
+| `primary_constructors/`     | `--primary-constructors`     |
+| `organize_imports/`         | `--organize-imports`         |
+| `sort_members/`             | `--sort-members`             |
+| `fix_all/`                  | `--fix-all`                  |
 
 ## Adding a case = adding files (no code)
 
