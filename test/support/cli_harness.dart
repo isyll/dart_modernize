@@ -106,7 +106,7 @@ Future<CliResult> invokeCli(
     stderrEncoding: systemEncoding,
   );
 
-  return CliResult(
+  return .new(
     project: project,
     exitCode: result.exitCode,
     stdout: result.stdout as String,
