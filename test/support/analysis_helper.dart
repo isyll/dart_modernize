@@ -8,9 +8,6 @@ library;
 
 import 'dart:io';
 
-/// The result of running `dart analyze` over a project.
-typedef AnalysisOutcome = ({int exitCode, String output});
-
 /// Runs `dart analyze` on [project] and returns its exit code and combined
 /// output.
 ///
@@ -39,3 +36,6 @@ Future<AnalysisOutcome> analyzeProject(Directory project) async {
     output: '${result.stdout}${result.stderr}',
   );
 }
+
+/// The result of running `dart analyze` over a project.
+typedef AnalysisOutcome = ({int exitCode, String output});
