@@ -15,26 +15,6 @@ import 'package:test/test.dart';
 import '../support/analysis_helper.dart';
 import '../support/cli_harness.dart';
 
-/// Idiomatic, warning-free code that several passes would still modernize
-/// (dot shorthands on `Mode.fast`, a private named parameter for `_name`).
-const String _sample = '''
-import 'dart:convert';
-
-enum Mode { fast, slow }
-
-class Settings {
-  final String _name;
-
-  Settings({required String name}) : _name = name;
-
-  String get name => _name;
-
-  Mode mode() => Mode.fast;
-
-  String encode() => jsonEncode({'name': _name});
-}
-''';
-
 void main() {
   test('a modernized project still analyzes without errors', () async {
     final project = createProject(files: {'lib/app.dart': _sample});
@@ -60,3 +40,23 @@ void main() {
     );
   });
 }
+
+/// Idiomatic, warning-free code that several passes would still modernize
+/// (dot shorthands on `Mode.fast`, a private named parameter for `_name`).
+const String _sample = '''
+import 'dart:convert';
+
+enum Mode { fast, slow }
+
+class Settings {
+  final String _name;
+
+  Settings({required String name}) : _name = name;
+
+  String get name => _name;
+
+  Mode mode() => Mode.fast;
+
+  String encode() => jsonEncode({'name': _name});
+}
+''';
