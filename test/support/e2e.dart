@@ -29,7 +29,7 @@ import 'golden.dart';
 /// All passes except primary constructors — whose output needs an experimental,
 /// newer language version than the fixture projects opt into, so it cannot be
 /// re-analyzed cleanly here. Primary constructors keep their own golden suite.
-const List<String> allStablePasses = ['--no-primary-constructors'];
+const allStablePasses = <String>['--no-primary-constructors'];
 
 /// Absolute path to `test/fixtures`, resolved from the package root.
 final String _fixturesRoot = p.join(
