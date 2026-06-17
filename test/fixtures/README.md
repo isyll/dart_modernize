@@ -12,9 +12,37 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 | `dot_shorthands/`           | `--dot-shorthands`           |
 | `private_named_parameters/` | `--private-named-parameters` |
 | `primary_constructors/`     | `--primary-constructors`     |
+| `switch_expressions/`       | `--switch-expressions`       |
 | `organize_imports/`         | `--organize-imports`         |
 | `sort_members/`             | `--sort-members`             |
 | `fix_all/`                  | `--fix-all`                  |
+
+## Pending features (spec-only, no flag yet)
+
+These folders hold fixtures for transformations that are **specified but not yet
+implemented or wired to a CLI flag**. Each still has a golden suite under
+[`test/golden/`](../golden/), but because the feature has no pass, the runner
+executes with every existing pass disabled (see `onlyFeatureArgs`): every input
+is left byte-for-byte unchanged. The upshot is exactly the intended TDD state:
+
+- `<case>.unchanged.dart` negatives **pass** (the tool already leaves them alone),
+  and
+- `<case>.input.dart` / `<case>.expected` positives **fail** until the pass is
+  built. The failing assertion names the fixture and its expected output, so the
+  fixtures are the spec the implementation must satisfy.
+
+| Folder                   | Transformation                                  |
+| ------------------------ | ----------------------------------------------- |
+| `null_aware_elements/`   | `if (x != null) x` → `?x` (single-eval guarded) |
+| `null_aware_spread/`     | `if (l != null) ...l` → `...?l`                 |
+| `cascades/`              | repeated member writes → `..` cascade           |
+| `super_parameters/`      | forwarded params → `super.x`                    |
+| `expression_bodies/`     | single-`return` block bodies → `=>`             |
+| `string_interpolation/`  | `'a ' + b` concat chains → `'a $b'`             |
+
+When a pass is implemented, add its `--flag` to `buildArgParser`, register it in
+`featureFlags`/`allFeatures` (with a trigger), and move its row into the table
+above; the same fixtures then verify the real pass in isolation.
 
 ## Adding a case = adding files (no code)
 
