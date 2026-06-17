@@ -7,19 +7,20 @@ import '../analysis/validator.dart';
 import '../cli/options.dart';
 import '../engine/edit_collector.dart';
 import '../engine/file_filter.dart';
+import '../engine/unified_diff.dart';
 import 'transformation.dart';
 
 /// Orchestrates the full modernization pipeline.
 ///
 /// Stages: **validate** → **resolve** → **transform** → **finalize**.
 final class ModernizePipeline {
+  final CliOptions options;
+
+  final List<Transformation> transformations;
   const ModernizePipeline({
     required this.options,
     required this.transformations,
   });
-
-  final CliOptions options;
-  final List<Transformation> transformations;
 
   Future<void> run() async {
     // 1. Validate: fast-fail before touching the analyzer.
@@ -34,8 +35,7 @@ final class ModernizePipeline {
     }
 
     // 3. Resolve and transform, file by file.
-    final analyzer = ProjectAnalyzer(options.path);
-    analyzer.initialize();
+    final analyzer = ProjectAnalyzer(options.path)..initialize();
 
     var filesChanged = 0;
     await for (final unit in analyzer.resolvedUnits()) {
@@ -83,13 +83,8 @@ final class ModernizePipeline {
   }
 
   void _printDiff(String filePath, String original, String modified) {
-    final rel = p.relative(filePath, from: options.path);
-    stdout.writeln('--- a/$rel');
-    stdout.writeln('+++ b/$rel');
-    // TODO: unified diff output
-    final origLines = original.split('\n').length;
-    final modLines = modified.split('\n').length;
-    stdout.writeln('@@ $origLines → $modLines lines @@');
+    final rel = p.relative(filePath, from: options.path).replaceAll(r'\', '/');
+    stdout.write(unifiedDiff('a/$rel', 'b/$rel', original, modified));
     stdout.writeln();
   }
 }
