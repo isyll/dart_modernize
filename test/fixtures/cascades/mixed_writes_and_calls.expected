@@ -1,0 +1,16 @@
+class Config {
+  String name = '';
+  int timeout = 0;
+  final List<String> flags = [];
+
+  void enable(String flag) => flags.add(flag);
+}
+
+Config defaults() {
+  final config = Config()
+    ..name = 'app'
+    ..enable('verbose')
+    ..timeout = 30
+    ..enable('color');
+  return config;
+}
