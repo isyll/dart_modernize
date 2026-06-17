@@ -9,28 +9,6 @@ import 'package:test/test.dart';
 
 import '../support/cli_harness.dart';
 
-/// Exercises several passes at once (import pruning + sorting, dot shorthands,
-/// private named parameters, and member sorting) so idempotence is checked
-/// across passes, not just one.
-const String _multiPass = '''
-import 'dart:math';
-import 'dart:convert';
-
-enum Mode { fast, slow }
-
-class Config {
-  final int _retries;
-
-  Config({required int retries}) : _retries = retries;
-
-  Mode mode() => Mode.fast;
-
-  int get retries => _retries;
-}
-
-String dump(Object o) => jsonEncode(o);
-''';
-
 void main() {
   test('running twice produces no second-run changes', () async {
     final project = createProject(files: {'lib/a.dart': _multiPass});
@@ -56,3 +34,25 @@ void main() {
     );
   });
 }
+
+/// Exercises several passes at once (import pruning + sorting, dot shorthands,
+/// private named parameters, and member sorting) so idempotence is checked
+/// across passes, not just one.
+const String _multiPass = '''
+import 'dart:math';
+import 'dart:convert';
+
+enum Mode { fast, slow }
+
+class Config {
+  final int _retries;
+
+  Config({required int retries}) : _retries = retries;
+
+  Mode mode() => Mode.fast;
+
+  int get retries => _retries;
+}
+
+String dump(Object o) => jsonEncode(o);
+''';
