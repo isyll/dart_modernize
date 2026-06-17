@@ -68,7 +68,7 @@ CliOptions _options({
   bool organizeImports = true,
   bool sortMembers = true,
   bool fixAll = true,
-}) => CliOptions(
+}) => .new(
   path: '.',
   dryRun: false,
   dotShorthands: dotShorthands,
