@@ -21,22 +21,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// The machine-readable CLI flag name for each transformation feature.
-///
-/// Keyed by the *fixture folder* name (snake_case, mirroring
-/// `test/fixtures/<feature>/`); the value is the `--<flag>` spelling accepted
-/// by the CLI. Keeping the mapping in one place means a new feature is wired up
-/// by adding a single entry here.
-const featureFlags = <String, String>{
-  'dot_shorthands': 'dot-shorthands',
-  'private_named_parameters': 'private-named-parameters',
-  'primary_constructors': 'primary-constructors',
-  'switch_expressions': 'switch-expressions',
-  'organize_imports': 'organize-imports',
-  'sort_members': 'sort-members',
-  'fix_all': 'fix-all',
-};
-
 /// Every feature folder name, in the order the pipeline documents.
 const allFeatures = <String>[
   'dot_shorthands',
@@ -56,55 +40,27 @@ environment:
   sdk: ">=3.12.0 <4.0.0"
 ''';
 
-/// CLI flags that enable **only** [feature], disabling every other pass.
+/// The machine-readable CLI flag name for each transformation feature.
 ///
-/// Produces, e.g. for `dot_shorthands`:
-/// `['--no-private-named-parameters', '--no-primary-constructors', ...]`.
-List<String> onlyFeatureArgs(String feature) => [
-  for (final entry in featureFlags.entries)
-    if (entry.key != feature) '--no-${entry.value}',
-];
-
-/// CLI flags that disable a single [feature], leaving all others enabled.
-List<String> withoutFeatureArgs(String feature) => [
-  '--no-${featureFlags[feature]}',
-];
-
-/// The outcome of a single CLI invocation against a throwaway project.
-final class CliResult {
-  CliResult({
-    required this.project,
-    required this.exitCode,
-    required this.stdout,
-    required this.stderr,
-  });
-
-  /// Root directory of the throwaway project the tool ran against.
-  final Directory project;
-
-  /// Process exit code (`0` on success).
-  final int exitCode;
-
-  /// Captured standard output.
-  final String stdout;
-
-  /// Captured standard error.
-  final String stderr;
-
-  /// Reads back a file by its path relative to the project root.
-  String read(String relativePath) =>
-      File(p.join(project.path, relativePath)).readAsStringSync();
-
-  /// Whether a file relative to the project root exists.
-  bool exists(String relativePath) =>
-      File(p.join(project.path, relativePath)).existsSync();
-}
-
-/// Absolute path to the package under test (the `dart test` working directory).
-final String _packageRoot = Directory.current.absolute.path;
+/// Keyed by the *fixture folder* name (snake_case, mirroring
+/// `test/fixtures/<feature>/`); the value is the `--<flag>` spelling accepted
+/// by the CLI. Keeping the mapping in one place means a new feature is wired up
+/// by adding a single entry here.
+const featureFlags = <String, String>{
+  'dot_shorthands': 'dot-shorthands',
+  'private_named_parameters': 'private-named-parameters',
+  'primary_constructors': 'primary-constructors',
+  'switch_expressions': 'switch-expressions',
+  'organize_imports': 'organize-imports',
+  'sort_members': 'sort-members',
+  'fix_all': 'fix-all',
+};
 
 /// Path to the CLI entry point, relative to [_packageRoot].
 const String _binPath = 'bin/dart_modernize.dart';
+
+/// Absolute path to the package under test (the `dart test` working directory).
+final String _packageRoot = Directory.current.absolute.path;
 
 /// Creates a throwaway project containing [files] and a [pubspec].
 ///
@@ -158,6 +114,15 @@ Future<CliResult> invokeCli(
   );
 }
 
+/// CLI flags that enable **only** [feature], disabling every other pass.
+///
+/// Produces, e.g. for `dot_shorthands`:
+/// `['--no-private-named-parameters', '--no-primary-constructors', ...]`.
+List<String> onlyFeatureArgs(String feature) => [
+  for (final entry in featureFlags.entries)
+    if (entry.key != feature) '--no-${entry.value}',
+];
+
 /// Creates a throwaway project containing [files] and runs the CLI against it.
 ///
 /// Convenience wrapper over [createProject] + [invokeCli] for the common
@@ -170,4 +135,39 @@ Future<CliResult> runCli({
 }) {
   final project = createProject(files: files, pubspec: pubspec);
   return invokeCli(project, args: args);
+}
+
+/// CLI flags that disable a single [feature], leaving all others enabled.
+List<String> withoutFeatureArgs(String feature) => [
+  '--no-${featureFlags[feature]}',
+];
+
+/// The outcome of a single CLI invocation against a throwaway project.
+final class CliResult {
+  /// Root directory of the throwaway project the tool ran against.
+  final Directory project;
+
+  /// Process exit code (`0` on success).
+  final int exitCode;
+
+  /// Captured standard output.
+  final String stdout;
+
+  /// Captured standard error.
+  final String stderr;
+
+  CliResult({
+    required this.project,
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+  });
+
+  /// Whether a file relative to the project root exists.
+  bool exists(String relativePath) =>
+      File(p.join(project.path, relativePath)).existsSync();
+
+  /// Reads back a file by its path relative to the project root.
+  String read(String relativePath) =>
+      File(p.join(project.path, relativePath)).readAsStringSync();
 }
