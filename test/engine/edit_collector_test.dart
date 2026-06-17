@@ -10,7 +10,7 @@ void main() {
 
     test('applies a single edit', () {
       final collector = EditCollector()
-        ..add(const SourceEdit(offset: 0, length: 5, replacement: 'Hi'));
+        ..add(const .new(offset: 0, length: 5, replacement: 'Hi'));
       expect(collector.apply('Hello world'), 'Hi world');
     });
 
