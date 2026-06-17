@@ -116,6 +116,33 @@ final label = switch (status) {
 
 </td>
 </tr>
+<tr>
+<td>
+
+```dart
+final p = Paint();
+p.color = accent;
+p.strokeWidth = 2.0;
+
+final tags = [
+  'base',
+  if (extra != null) extra,
+];
+```
+
+</td>
+<td>
+
+```dart
+final p = Paint()
+  ..color = accent
+  ..strokeWidth = 2.0;
+
+final tags = ['base', ?extra];
+```
+
+</td>
+</tr>
 </table>
 
 <div align="center"><sub>Same types. Same elements. Same behavior. Just modern.</sub></div>
@@ -124,25 +151,37 @@ final label = switch (status) {
 
 ## 🚀 What it does
 
+Thirteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
+
 | | Feature | Description |
 |:--:|:--|:--|
 | 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous, including return positions, typed variables, arguments, and collection literals. |
+| 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
+| ➡️ | **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
+| 🧵 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into clean `'a $b c'` interpolation. |
+| 🌊 | **Cascades** | Collapses a run of member writes on a fresh local into a single `..` cascade. |
+| ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
+| ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
 | 🏗️ | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
-| 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
+| ⬆️ | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | 📦 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | 🔤 | **Sort members** | Reorders members into the canonical order. |
 | 🩹 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
 
-> Every edit is type checked before it lands. The tool **never** changes the resolved type, the targeted element, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves your code alone.
+> Every edit is type checked before it lands. The tool **never** changes the resolved type, the targeted element, the evaluation count, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves your code alone.
 
 <br>
 
 ## 🔬 Every transformation, before & after
 
-### 🎯 Dot shorthands
+Each pass is shown as a minimal before/after, paired with the safety rule that decides when it stays its hand.
 
-Collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous.
+### 🧠 Type-aware syntax
+
+Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
+
+**🎯 Dot shorthands** — collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous.
 
 ```dart
 // before
@@ -172,49 +211,9 @@ final routes = <Route>[.new(home), .new(settings)];
 List<Widget> build() => [.new(a: a, b: b), .new(a: 'genial')];
 ```
 
-It refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable, anywhere the shortened form would not resolve to the exact same element.
+> Refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable, anywhere the shortened form would not resolve to the exact same element.
 
-### 🔒 Private named parameters
-
-Folds the old "public param, private field" boilerplate into a private named parameter.
-
-```dart
-// before
-class User {
-  final String _name;
-  User({required String name}) : _name = name;
-}
-
-// after
-class User {
-  final String _name;
-  User({required this._name});
-}
-```
-
-It leaves the constructor alone when the parameter is transformed, renamed, or reused elsewhere in the initializer list.
-
-### 🏗️ Primary constructors
-
-Promotes a class whose only job is to bind constructor parameters to fields.
-
-```dart
-// before
-class Point {
-  final int x;
-  final int y;
-  Point(this.x, this.y);
-}
-
-// after
-class Point(final int x, final int y);
-```
-
-Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter.
-
-### 🔀 Switch expressions
-
-Rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
+**🔀 Switch expressions** — rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
 
 ```dart
 // before
@@ -239,11 +238,143 @@ final token = switch (charCode) {
 };
 ```
 
-It also handles the `return`-per-case form, producing `return switch (…) { … };`. A switch is left untouched when an arm runs more than one statement, branches assign different targets, it has side effects, or it is not exhaustive: anything where the expression form would change behavior.
+> Also handles the `return`-per-case form, producing `return switch (…) { … };`. Left untouched when an arm runs more than one statement, branches assign different targets, breaks or continues to a label, has side effects, or is not exhaustive: anything where the expression form would change behavior.
 
-### 📦 Organize imports
+### ✂️ Concise expressions
 
-Sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
+Trimming ceremony from bodies, strings, and builder sequences without moving a single value.
+
+**➡️ Expression bodies** — turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
+
+```dart
+// before
+int square(int x) {
+  return x * x;
+}
+
+// after
+int square(int x) => x * x;
+```
+
+> Kept as a block when it holds more than one statement, or a comment the arrow form would silently drop.
+
+**🧵 String interpolation** — rewrites `+` concatenation chains into interpolation.
+
+```dart
+// before
+String greet(String name) => 'Hello, ' + name + '!';
+String row(String a, String b) => '| ' + a + ' | ' + b + ' |';
+
+// after
+String greet(String name) => 'Hello, $name!';
+String row(String a, String b) => '| $a | $b |';
+```
+
+> Only when every piece is a side-effect-free `String`. Arithmetic `+` and method-call operands are left exactly as written.
+
+**🌊 Cascades** — collapses a run of member writes and calls on a freshly declared local into a single cascade.
+
+```dart
+// before
+final paint = Paint();
+paint.color = accent;
+paint.strokeWidth = 2.0;
+paint.style = PaintingStyle.stroke;
+
+// after
+final paint = Paint()
+  ..color = accent
+  ..strokeWidth = 2.0
+  ..style = PaintingStyle.stroke;
+```
+
+> Applies only when the target is not reassigned, read, or passed as an argument anywhere in the run, and no right-hand side reads the target itself.
+
+### ❓ Null-aware collections
+
+The Dart 3.8 null-aware collection syntax, applied only when the rewrite preserves single evaluation.
+
+**❓ Null-aware elements** — folds a null guard inside a collection into `?x`.
+
+```dart
+// before
+List<int> build(int? a) => [if (a != null) a];
+
+// after
+List<int> build(int? a) => [?a];
+```
+
+**❔ Null-aware spread** — folds a guarded spread into `...?l`.
+
+```dart
+// before
+List<int> build(List<int>? extra) => [0, if (extra != null) ...extra];
+
+// after
+List<int> build(List<int>? extra) => [0, ...?extra];
+```
+
+> `?expr` evaluates the operand **once**, where the old `if`/value form evaluated it twice. So these apply only to a stable, side-effect-free reference (a local or const). Getters, method calls, and index lookups are left alone.
+
+### 🧱 Constructor sugar
+
+Folding constructor boilerplate into the shorthands the language now provides.
+
+**🔒 Private named parameters** — folds the old "public param, private field" boilerplate into a private named parameter.
+
+```dart
+// before
+class User {
+  final String _name;
+  User({required String name}) : _name = name;
+}
+
+// after
+class User {
+  final String _name;
+  User({required this._name});
+}
+```
+
+> Left alone when the parameter is transformed, renamed, or reused elsewhere in the initializer list.
+
+**🏗️ Primary constructors** — promotes a class whose only job is to bind constructor parameters to fields.
+
+```dart
+// before
+class Point {
+  final int x;
+  final int y;
+  Point(this.x, this.y);
+}
+
+// after
+class Point(final int x, final int y);
+```
+
+> Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter.
+
+**⬆️ Super parameters** — forwards a constructor parameter straight to the superclass.
+
+```dart
+// before
+class MyWidget extends Widget {
+  const MyWidget({Key? key}) : super(key: key);
+}
+
+// after
+class MyWidget extends Widget {
+  const MyWidget({super.key});
+}
+```
+
+> Only when the parameter is passed through unchanged and not otherwise read, renamed, or given a different default.
+
+### 🧹 Project hygiene
+
+Whole-file cleanup that runs after the structural passes settle.
+
+**📦 Organize imports** — sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
 
 ```dart
 // before
@@ -257,9 +388,7 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-### 🔤 Sort members
-
-Reorders class members into canonical order (fields, constructors, getters/setters, then methods), keeping the original order stable within each group.
+**🔤 Sort members** — reorders class members into canonical order (fields, constructors, getters/setters, then methods), keeping the original order stable within each group.
 
 ```dart
 // before
@@ -277,9 +406,7 @@ class Account {
 }
 ```
 
-### 🩹 Fix all
-
-Applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, preferring `final` locals, and more.
+**🩹 Fix all** — applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, preferring `final` locals, and more.
 
 ```dart
 // before
@@ -374,6 +501,7 @@ Run it twice and the second run changes nothing. It is **idempotent** by design.
 * 🔍 **Dry run first.** Produces a full diff before touching any file.
 * 🚫 **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs.
 * ⚖️ **Refuses ambiguity.** Will not apply a shorthand when the context type is too imprecise to guarantee an identical result.
+* 🔁 **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
 * ✅ **Verifies after every pass.** The project must still analyze without errors.
 
 Run on a clean working tree, review the diff, then commit with confidence.
