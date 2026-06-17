@@ -37,38 +37,67 @@ import 'package:test/test.dart';
 
 import 'cli_harness.dart';
 
-/// One golden case: the file as it lands in the project plus its expected text.
-final class GoldenCase {
-  GoldenCase({
-    required this.name,
-    required this.projectFile,
-    required this.input,
-    required this.expected,
-    required this.isNegative,
-  });
-
-  /// Human-readable case name (the fixture stem), used as the test description.
-  final String name;
-
-  /// Path of the file inside the throwaway project, e.g. `lib/obvious.dart`.
-  final String projectFile;
-
-  /// Source written into the project before running the tool.
-  final String input;
-
-  /// Source the file must contain after the tool runs.
-  final String expected;
-
-  /// True for `*.unchanged.dart` cases where `expected == input`.
-  final bool isNegative;
-}
-
 /// Absolute path to `test/fixtures`, resolved from the package root.
 final String _fixturesRoot = p.join(
   Directory.current.absolute.path,
   'test',
   'fixtures',
 );
+
+/// Defines a complete golden-test group for [feature].
+///
+/// Call once per feature from a `_test.dart` file. It discovers the cases,
+/// runs the CLI a single time with only [feature] enabled, and emits one
+/// assertion per case.
+void defineGoldenSuite(String feature) {
+  group('golden: $feature', () {
+    final cases = discoverCases(feature);
+
+    test('has at least one fixture case', () {
+      expect(
+        cases,
+        isNotEmpty,
+        reason:
+            'No fixtures found in test/fixtures/$feature/. Add a '
+            '<case>.input.dart + <case>.expected pair, or a '
+            '<case>.unchanged.dart negative case.',
+      );
+    });
+
+    if (cases.isEmpty) return;
+
+    late CliResult result;
+
+    setUpAll(() async {
+      final pubspec = _featureFile(feature, 'pubspec.yaml');
+      final analysisOptions = _featureFile(feature, 'analysis_options.yaml');
+      result = await runCli(
+        files: {
+          for (final c in cases) c.projectFile: c.input,
+          ..._supportFiles(feature),
+          'analysis_options.yaml': ?analysisOptions,
+        },
+        args: onlyFeatureArgs(feature),
+        pubspec: pubspec ?? defaultPubspec,
+      );
+    });
+
+    for (final c in cases) {
+      final label = c.isNegative ? '${c.name} (must not change)' : c.name;
+      test(label, () {
+        expect(
+          result.read(c.projectFile),
+          c.expected,
+          reason: c.isNegative
+              ? 'Negative case "${c.name}": the transformation fired but the '
+                    'context does not support it — output must equal input.'
+              : 'Golden case "${c.name}" did not match '
+                    'test/fixtures/$feature/${c.name}.expected.',
+        );
+      });
+    }
+  });
+}
 
 /// Discovers every golden case under `test/fixtures/[feature]/`.
 ///
@@ -153,57 +182,28 @@ Map<String, String> _supportFiles(String feature) {
   return files;
 }
 
-/// Defines a complete golden-test group for [feature].
-///
-/// Call once per feature from a `_test.dart` file. It discovers the cases,
-/// runs the CLI a single time with only [feature] enabled, and emits one
-/// assertion per case.
-void defineGoldenSuite(String feature) {
-  group('golden: $feature', () {
-    final cases = discoverCases(feature);
+/// One golden case: the file as it lands in the project plus its expected text.
+final class GoldenCase {
+  /// Human-readable case name (the fixture stem), used as the test description.
+  final String name;
 
-    test('has at least one fixture case', () {
-      expect(
-        cases,
-        isNotEmpty,
-        reason:
-            'No fixtures found in test/fixtures/$feature/. Add a '
-            '<case>.input.dart + <case>.expected pair, or a '
-            '<case>.unchanged.dart negative case.',
-      );
-    });
+  /// Path of the file inside the throwaway project, e.g. `lib/obvious.dart`.
+  final String projectFile;
 
-    if (cases.isEmpty) return;
+  /// Source written into the project before running the tool.
+  final String input;
 
-    late CliResult result;
+  /// Source the file must contain after the tool runs.
+  final String expected;
 
-    setUpAll(() async {
-      final pubspec = _featureFile(feature, 'pubspec.yaml');
-      final analysisOptions = _featureFile(feature, 'analysis_options.yaml');
-      result = await runCli(
-        files: {
-          for (final c in cases) c.projectFile: c.input,
-          ..._supportFiles(feature),
-          'analysis_options.yaml': ?analysisOptions,
-        },
-        args: onlyFeatureArgs(feature),
-        pubspec: pubspec ?? defaultPubspec,
-      );
-    });
+  /// True for `*.unchanged.dart` cases where `expected == input`.
+  final bool isNegative;
 
-    for (final c in cases) {
-      final label = c.isNegative ? '${c.name} (must not change)' : c.name;
-      test(label, () {
-        expect(
-          result.read(c.projectFile),
-          c.expected,
-          reason: c.isNegative
-              ? 'Negative case "${c.name}": the transformation fired but the '
-                    'context does not support it — output must equal input.'
-              : 'Golden case "${c.name}" did not match '
-                    'test/fixtures/$feature/${c.name}.expected.',
-        );
-      });
-    }
+  GoldenCase({
+    required this.name,
+    required this.projectFile,
+    required this.input,
+    required this.expected,
+    required this.isNegative,
   });
 }
