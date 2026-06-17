@@ -1,7 +1,7 @@
 /// Minimal source snippets that each exercise exactly **one** transformation
 /// pass, used by the CLI behaviour tests.
 ///
-/// Every trigger is crafted so that only its own pass would modify it — each
+/// Every trigger is crafted so that only its own pass would modify it; each
 /// other pass must leave it byte-for-byte unchanged. That property is what makes
 /// "disabling a flag skips exactly its pass" observable: run with `--no-<flag>`
 /// (every other pass still on) and the trigger must be untouched.

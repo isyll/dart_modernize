@@ -3,14 +3,14 @@
 ## What this is
 
 `dart_modernize` is a Dart CLI tool that modernizes Dart and Flutter codebases.
-It is **not a library** — the public surface is `bin/dart_modernize.dart`.
+It is **not a library**; the public surface is `bin/dart_modernize.dart`.
 
 ## Structure
 
 ```
-bin/dart_modernize.dart      entry point — calls run() from lib/, nothing else
+bin/dart_modernize.dart      entry point: calls run() from lib/, nothing else
 lib/
-  dart_modernize.dart        barrel — re-exports lib/src/
+  dart_modernize.dart        barrel: re-exports lib/src/
   src/
     runner.dart              CLI argument parsing and dispatch
 test/                        mirrors lib/src/ structure
@@ -24,7 +24,7 @@ test/                        mirrors lib/src/ structure
 - Strict analyzer: `strict-casts`, `strict-inference`, `strict-raw-types` are all on.
 - `dart format`, `dart analyze --fatal-infos`, `dart test` must pass before every commit.
 
-## Commit rules — MANDATORY, no exceptions
+## Commit rules: MANDATORY, no exceptions
 
 - **Simple, plain message only.** No conventional commit prefixes (`fix:`, `feat:`, `ci:`, `chore:`, etc.).
 - **No `Co-Authored-By`, no `Signed-off-by`, no trailer lines of any kind.** Never append AI attribution or tool metadata.

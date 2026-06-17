@@ -1,6 +1,6 @@
 /// Helper for the semantic-safety test: confirm a project analyzes cleanly.
 ///
-/// Modernization must be a *syntactic* change only — it may never introduce a
+/// Modernization must be a *syntactic* change only; it may never introduce a
 /// new analyzer error. [analyzeProject] runs the real `dart analyze` over a
 /// project and reports the outcome so a test can assert the transformed code is
 /// still well-typed and valid.
@@ -13,7 +13,7 @@ import 'dart:io';
 ///
 /// A best-effort `dart pub get` runs first so package resolution exists; it is
 /// offline and instant for the dependency-free fixture projects used here, and
-/// its failure (e.g. no network) is ignored — `dart analyze` still resolves SDK
+/// its failure (e.g. no network) is ignored; `dart analyze` still resolves SDK
 /// (`dart:`) libraries on its own.
 ///
 /// `dart analyze` exits non-zero on any error or warning, so an exit code of `0`

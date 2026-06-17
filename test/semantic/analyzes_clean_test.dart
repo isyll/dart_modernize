@@ -1,7 +1,7 @@
 /// Semantic-safety spec: modernization changes syntax, never meaning.
 ///
 /// A clean, hand-written sample is analyzed (it must start clean), modernized by
-/// the real CLI, then analyzed again — and it must *still* analyze without any
+/// the real CLI, then analyzed again, and it must *still* analyze without any
 /// error or warning. This guards against a transformation that produces output
 /// which no longer compiles or type-checks.
 ///

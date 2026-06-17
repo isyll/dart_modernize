@@ -68,7 +68,7 @@ final class CliOptions {
   /// Absolute path to the project root to modernize.
   final String path;
 
-  /// When true, only prints a diff — no files are written.
+  /// When true, only prints a diff; no files are written.
   final bool dryRun;
 
   final bool dotShorthands;

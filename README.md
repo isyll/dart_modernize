@@ -126,10 +126,10 @@ final label = switch (status) {
 
 | | Feature | Description |
 |:--:|:--|:--|
-| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous — including return positions, typed variables, arguments, and collection literals. |
+| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous, including return positions, typed variables, arguments, and collection literals. |
 | 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
 | 🏗️ | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
-| 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax — fall-through cases become `\|\|` patterns and `default` becomes `_`. |
+| 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
 | 📦 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | 🔤 | **Sort members** | Reorders members into the canonical order. |
 | 🩹 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
@@ -142,7 +142,7 @@ final label = switch (status) {
 
 ### 🎯 Dot shorthands
 
-Collapses redundant type names — enum values, static members, named constructors, and unnamed constructors (`.new`) — wherever the context type is unambiguous.
+Collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous.
 
 ```dart
 // before
@@ -160,7 +160,7 @@ Service create() => .new();
 Widget child(Event e) => dispatch(.new());
 ```
 
-In collection literals the element type flows down to each element — and an untyped literal is given an explicit type so the shorthand is well defined:
+In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 
 ```dart
 // before
@@ -172,7 +172,7 @@ final routes = <Route>[.new(home), .new(settings)];
 List<Widget> build() => [.new(a: a, b: b), .new(a: 'genial')];
 ```
 
-It refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable — anywhere the shortened form would not resolve to the exact same element.
+It refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable, anywhere the shortened form would not resolve to the exact same element.
 
 ### 🔒 Private named parameters
 
@@ -239,7 +239,7 @@ final token = switch (charCode) {
 };
 ```
 
-It also handles the `return`-per-case form, producing `return switch (…) { … };`. A switch is left untouched when an arm runs more than one statement, branches assign different targets, it has side effects, or it is not exhaustive — anything where the expression form would change behavior.
+It also handles the `return`-per-case form, producing `return switch (…) { … };`. A switch is left untouched when an arm runs more than one statement, branches assign different targets, it has side effects, or it is not exhaustive: anything where the expression form would change behavior.
 
 ### 📦 Organize imports
 
@@ -259,7 +259,7 @@ import 'models.dart';
 
 ### 🔤 Sort members
 
-Reorders class members into canonical order — fields, constructors, getters/setters, then methods — keeping the original order stable within each group.
+Reorders class members into canonical order (fields, constructors, getters/setters, then methods), keeping the original order stable within each group.
 
 ```dart
 // before
@@ -279,7 +279,7 @@ class Account {
 
 ### 🩹 Fix all
 
-Applies the same bulk fixes as `dart fix` in the same pass — adding `@override`, dropping `new`, preferring `final` locals, and more.
+Applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, preferring `final` locals, and more.
 
 ```dart
 // before

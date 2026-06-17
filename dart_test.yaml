@@ -7,7 +7,7 @@
 #   * the per-test timeout is raised to comfortably cover cold analyzer startup
 #     on a contended machine.
 #
-# Pure unit tests (engine, options) are unaffected by these limits in practice —
+# Pure unit tests (engine, options) are unaffected by these limits in practice;
 # they finish near-instantly.
 concurrency: 2
 timeout: 2m

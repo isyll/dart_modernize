@@ -10,8 +10,8 @@
 ///   4. returns a [CliResult] exposing the exit code, captured output, and a
 ///      way to read the (possibly rewritten) files back.
 ///
-/// Assertions are made on **observable behaviour** — the bytes the tool leaves
-/// on disk and what it prints — never on private methods. This keeps the test
+/// Assertions are made on **observable behaviour**: the bytes the tool leaves
+/// on disk and what it prints, never on private methods. This keeps the test
 /// suite a faithful specification of what the tool does, independent of how the
 /// transformations are eventually implemented.
 library;
@@ -126,7 +126,7 @@ List<String> onlyFeatureArgs(String feature) => [
 /// Creates a throwaway project containing [files] and runs the CLI against it.
 ///
 /// Convenience wrapper over [createProject] + [invokeCli] for the common
-/// single-run case. [pubspec] overrides the default pubspec — useful for
+/// single-run case. [pubspec] overrides the default pubspec, useful for
 /// features (e.g. primary constructors) that require a higher language version.
 Future<CliResult> runCli({
   required Map<String, String> files,

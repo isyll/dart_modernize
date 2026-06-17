@@ -3,7 +3,7 @@ import 'source_edit.dart';
 /// Accumulates [SourceEdit]s for a single file and applies them safely.
 ///
 /// Edits are sorted by offset before application. Overlapping edits are
-/// silently dropped — the earlier-offset edit wins.
+/// silently dropped; the earlier-offset edit wins.
 final class EditCollector {
   final List<SourceEdit> _pending = [];
 

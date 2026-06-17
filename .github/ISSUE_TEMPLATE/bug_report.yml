@@ -68,4 +68,4 @@ body:
     id: extra
     attributes:
       label: Additional context
-      description: Stack traces, related issues, screenshots — anything else that helps.
+      description: Stack traces, related issues, screenshots, or anything else that helps.

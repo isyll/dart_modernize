@@ -3,19 +3,19 @@
 /// A *golden test* pins the exact output of a transformation for a given input.
 /// Cases live under `test/fixtures/<feature>/` and come in two shapes:
 ///
-///   * **A pair** — `<case>.input.dart` plus `<case>.expected`.
+///   * **A pair**: `<case>.input.dart` plus `<case>.expected`.
 ///     The tool is run over the input and the result must equal the expected
 ///     file, byte for byte. The expected file deliberately drops the `.dart`
 ///     extension so it is treated as plain data: `dart format`/`dart analyze`
 ///     never touch it, which lets it hold output that uses language features
 ///     newer than this package's own version (e.g. primary constructors).
 ///
-///   * **A negative case** — a single `<case>.unchanged.dart`.
+///   * **A negative case**: a single `<case>.unchanged.dart`.
 ///     The transformation must *not* apply, so the expected output is the input
 ///     itself. One file documents intent ("this should stay as-is") with no
 ///     duplicated content to drift out of sync.
 ///
-/// Adding a case is therefore just adding one or two files — no Dart code.
+/// Adding a case is therefore just adding one or two files; no Dart code.
 ///
 /// All of a feature's input files are dropped into a single throwaway package
 /// and the real CLI is run **once** with only that feature's pass enabled (see
@@ -90,7 +90,7 @@ void defineGoldenSuite(String feature) {
           c.expected,
           reason: c.isNegative
               ? 'Negative case "${c.name}": the transformation fired but the '
-                    'context does not support it — output must equal input.'
+                    'context does not support it; output must equal input.'
               : 'Golden case "${c.name}" did not match '
                     'test/fixtures/$feature/${c.name}.expected.',
         );
@@ -161,7 +161,7 @@ String? _featureFile(String feature, String name) {
   return file.existsSync() ? file.readAsStringSync() : null;
 }
 
-/// Collects support files — `<name>.support.dart` — placed under
+/// Collects support files (`<name>.support.dart`) placed under
 /// `test/fixtures/<feature>/`. These are copied into the project as
 /// `lib/<name>.dart` *verbatim* and are never asserted on. They exist so a case
 /// can `import` a sibling library (e.g. to exercise relative-import grouping).

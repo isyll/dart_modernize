@@ -40,7 +40,7 @@
 
 - name: pinned
   color: 0e8a16
-  description: Pinned — will not go stale
+  description: Pinned, will not go stale
 
 - name: wontfix
   color: ffffff

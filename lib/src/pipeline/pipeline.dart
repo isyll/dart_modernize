@@ -22,14 +22,14 @@ final class ModernizePipeline {
   final List<Transformation> transformations;
 
   Future<void> run() async {
-    // 1. Validate — fast-fail before touching the analyzer.
+    // 1. Validate: fast-fail before touching the analyzer.
     await validateProject(options.path);
     stdout.writeln('✓ Project validated.');
 
     // 2. Filter to only enabled transformations.
     final active = transformations.where((t) => t.enabled).toList();
     if (active.isEmpty) {
-      stdout.writeln('No transformations enabled — nothing to do.');
+      stdout.writeln('No transformations enabled; nothing to do.');
       return;
     }
 
@@ -60,14 +60,14 @@ final class ModernizePipeline {
 
     if (options.dryRun) {
       stdout.writeln(
-        '$filesChanged file(s) would change (dry run — nothing written).',
+        '$filesChanged file(s) would change (dry run, nothing written).',
       );
       return;
     }
 
     stdout.writeln('$filesChanged file(s) changed.');
 
-    // 4. Finalize — only when files were actually written.
+    // 4. Finalize: only when files were actually written.
     if (filesChanged > 0) {
       await _finalize();
     }

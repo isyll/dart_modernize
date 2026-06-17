@@ -31,7 +31,7 @@ void _checkPubspec(String projectPath) {
   final sdk = environment['sdk']?.toString();
   if (sdk == null) {
     throw ModernizeException(
-      'pubspec.yaml is missing an SDK constraint — cannot determine Dart version.',
+      'pubspec.yaml is missing an SDK constraint; cannot determine Dart version.',
     );
   }
 

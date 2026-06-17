@@ -1,6 +1,6 @@
 /// Behavioural spec: the tool is idempotent.
 ///
-/// Modernization must converge — running it on already-modernized code makes no
+/// Modernization must converge: running it on already-modernized code makes no
 /// further edits. The test runs the CLI twice against the same project: the
 /// first pass must change something, the second pass must change nothing.
 library;

@@ -7,7 +7,7 @@
 ///   * with `--no-<flag>` (every other pass still enabled), the trigger is left
 ///     byte-for-byte unchanged.
 ///
-/// Together these prove a flag toggles exactly its own pass — no more, no less.
+/// Together these prove a flag toggles exactly its own pass, no more, no less.
 library;
 
 import 'package:test/test.dart';

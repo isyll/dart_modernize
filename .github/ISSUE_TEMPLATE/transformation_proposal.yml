@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Propose a new rewrite rule. A concrete before/after example is essential — it
+        Propose a new rewrite rule. A concrete before/after example is essential; it
         lets us evaluate safety, scope, and implementation difficulty before writing any code.
 
   - type: textarea
@@ -55,7 +55,7 @@ body:
     attributes:
       label: Safety checklist
       options:
-        - label: The rewrite is purely syntactic — it cannot change runtime behavior under any input
+        - label: The rewrite is purely syntactic: it cannot change runtime behavior under any input
           required: true
         - label: The rule can be disabled with a --no-<name> flag
           required: true

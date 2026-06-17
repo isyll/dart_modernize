@@ -3,11 +3,11 @@
 ///
 /// Two shapes are provided:
 ///
-///   * [defineCombinedGoldenSuite] — exact before/after on curated files that
+///   * [defineCombinedGoldenSuite]: exact before/after on curated files that
 ///     deliberately combine several transformations, plus semantic-safety and
 ///     idempotency checks. Use when the precise converged output matters.
 ///
-///   * [defineRobustnessSuite] — runs every pass over already-modern files
+///   * [defineRobustnessSuite]: runs every pass over already-modern files
 ///     (records, patterns, sealed classes, …) and asserts only that the tool
 ///     runs cleanly, the result still analyzes, and a second run is a no-op. No
 ///     byte-golden: this proves the tool never *breaks* modern code.
@@ -26,7 +26,7 @@ import 'analysis_helper.dart';
 import 'cli_harness.dart';
 import 'golden.dart';
 
-/// All passes except primary constructors — whose output needs an experimental,
+/// All passes except primary constructors, whose output needs an experimental,
 /// newer language version than the fixture projects opt into, so it cannot be
 /// re-analyzed cleanly here. Primary constructors keep their own golden suite.
 const allStablePasses = <String>['--no-primary-constructors'];
@@ -102,7 +102,7 @@ void defineCombinedGoldenSuite({
         expect(
           secondRun.read(c.projectFile),
           firstRun.read(c.projectFile),
-          reason: '"${c.name}" changed on the second run — not idempotent',
+          reason: '"${c.name}" changed on the second run; not idempotent',
         );
       }
     });
@@ -114,7 +114,7 @@ void defineCombinedGoldenSuite({
 ///
 /// Every file is modernized with [args] in one project. The suite asserts the
 /// run succeeds, the project still analyzes without errors, and a second run is
-/// a no-op. It deliberately does **not** pin exact output — its job is to prove
+/// a no-op. It deliberately does **not** pin exact output; its job is to prove
 /// the tool handles modern syntax without corrupting it.
 void defineRobustnessSuite({
   required String label,
@@ -165,7 +165,7 @@ void defineRobustnessSuite({
         expect(
           secondRun.read(rel),
           firstRun.read(rel),
-          reason: '$rel changed on the second run — not idempotent',
+          reason: '$rel changed on the second run; not idempotent',
         );
       }
     });
