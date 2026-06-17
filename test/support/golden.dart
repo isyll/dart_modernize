@@ -124,7 +124,7 @@ List<GoldenCase> discoverCases(String feature) {
         );
       }
       cases.add(
-        GoldenCase(
+        .new(
           name: stem,
           projectFile: 'lib/$stem.dart',
           input: entity.readAsStringSync(),
@@ -139,7 +139,7 @@ List<GoldenCase> discoverCases(String feature) {
       );
       final content = entity.readAsStringSync();
       cases.add(
-        GoldenCase(
+        .new(
           name: stem,
           projectFile: 'lib/$stem.dart',
           input: content,
