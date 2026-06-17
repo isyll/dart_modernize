@@ -4,3 +4,7 @@
 *.yml text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+
+# Golden fixtures (incl. extensionless *.expected snapshots) are byte-compared
+# by the test suite. Pin LF so a checkout matches on every platform.
+test/fixtures/** text eol=lf
