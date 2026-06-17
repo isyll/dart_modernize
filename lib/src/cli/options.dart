@@ -40,6 +40,13 @@ ArgParser buildArgParser() {
       help: 'Promote eligible classes to primary constructor form when safe.',
     )
     ..addFlag(
+      'switch-expressions',
+      defaultsTo: true,
+      help:
+          'Rewrite eligible statement switches as switch expressions using '
+          'modern pattern syntax.',
+    )
+    ..addFlag(
       'organize-imports',
       defaultsTo: true,
       help: 'Sort, group, and prune import directives.',
@@ -69,6 +76,7 @@ final class CliOptions {
   final bool privateNamedParameters;
 
   final bool primaryConstructors;
+  final bool switchExpressions;
   final bool organizeImports;
   final bool sortMembers;
   final bool fixAll;
@@ -78,6 +86,7 @@ final class CliOptions {
     required this.dotShorthands,
     required this.privateNamedParameters,
     required this.primaryConstructors,
+    required this.switchExpressions,
     required this.organizeImports,
     required this.sortMembers,
     required this.fixAll,
@@ -91,6 +100,7 @@ final class CliOptions {
       dotShorthands: results['dot-shorthands'] as bool,
       privateNamedParameters: results['private-named-parameters'] as bool,
       primaryConstructors: results['primary-constructors'] as bool,
+      switchExpressions: results['switch-expressions'] as bool,
       organizeImports: results['organize-imports'] as bool,
       sortMembers: results['sort-members'] as bool,
       fixAll: results['fix-all'] as bool,

@@ -34,6 +34,20 @@ class P {
 }
 ''';
 
+const String switchExpressionsTrigger = '''
+int classify(int code) {
+  int result;
+  switch (code) {
+    case 0:
+      result = 10;
+      break;
+    default:
+      result = 20;
+  }
+  return result;
+}
+''';
+
 const String organizeImportsTrigger = '''
 import 'dart:math';
 import 'dart:convert';
@@ -64,6 +78,7 @@ const Map<String, String> triggers = {
   'dot_shorthands': dotShorthandsTrigger,
   'private_named_parameters': privateNamedParametersTrigger,
   'primary_constructors': primaryConstructorsTrigger,
+  'switch_expressions': switchExpressionsTrigger,
   'organize_imports': organizeImportsTrigger,
   'sort_members': sortMembersTrigger,
   'fix_all': fixAllTrigger,

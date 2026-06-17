@@ -10,8 +10,20 @@ void main() {
       expect(options.dotShorthands, isTrue);
       expect(options.privateNamedParameters, isTrue);
       expect(options.primaryConstructors, isTrue);
+      expect(options.switchExpressions, isTrue);
       expect(options.organizeImports, isTrue);
       expect(options.sortMembers, isTrue);
+      expect(options.fixAll, isTrue);
+    });
+
+    test('--no-switch-expressions disables only that transformation', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--no-switch-expressions']),
+      );
+      expect(options.switchExpressions, isFalse);
+      // others unaffected
+      expect(options.dotShorthands, isTrue);
+      expect(options.primaryConstructors, isTrue);
       expect(options.fixAll, isTrue);
     });
 
