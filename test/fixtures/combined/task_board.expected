@@ -1,0 +1,29 @@
+import 'dart:collection';
+import 'dart:math';
+
+enum Priority { low, high }
+
+class Task {
+  final String _name;
+  final Priority priority;
+
+  Task({required this._name, required this.priority});
+
+  String get name => _name;
+}
+
+int weightOf(int code) {
+  final result = switch (code) {
+    0 => 1,
+    _ => 5,
+  };
+  return result;
+}
+
+Queue<Task> pending() {
+  final q = Queue<Task>();
+  q.add(.new(name: 'seed', priority: .low));
+  return q;
+}
+
+int roll() => Random().nextInt(6);
