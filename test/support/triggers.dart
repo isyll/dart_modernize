@@ -15,6 +15,41 @@ enum E { a, b }
 E pick() => E.a;
 ''';
 
+/// Analysis options enabling the lints the fix-all trigger relies on.
+const String fixAllLints = '''
+linter:
+  rules:
+    - annotate_overrides
+    - prefer_final_locals
+    - unnecessary_new
+''';
+
+const String fixAllTrigger = '''
+class A {
+  String f() => '';
+}
+
+class B extends A {
+  String f() => 'x';
+}
+''';
+
+const String organizeImportsTrigger = '''
+import 'dart:math';
+import 'dart:convert';
+
+String f(Object o) => jsonEncode(o);
+''';
+
+const String primaryConstructorsTrigger = '''
+class P {
+  final int x;
+  final int y;
+
+  P(this.x, this.y);
+}
+''';
+
 const String privateNamedParametersTrigger = '''
 class C {
   final int _x;
@@ -25,12 +60,18 @@ class C {
 }
 ''';
 
-const String primaryConstructorsTrigger = '''
-class P {
-  final int x;
-  final int y;
+/// A pubspec opting into the language version primary constructors require.
+const String pubspec313 = '''
+name: fixture_project
+environment:
+  sdk: ">=3.13.0 <4.0.0"
+''';
 
-  P(this.x, this.y);
+const String sortMembersTrigger = '''
+class S {
+  void m() {}
+
+  final int x = 0;
 }
 ''';
 
@@ -48,31 +89,6 @@ int classify(int code) {
 }
 ''';
 
-const String organizeImportsTrigger = '''
-import 'dart:math';
-import 'dart:convert';
-
-String f(Object o) => jsonEncode(o);
-''';
-
-const String sortMembersTrigger = '''
-class S {
-  void m() {}
-
-  final int x = 0;
-}
-''';
-
-const String fixAllTrigger = '''
-class A {
-  String f() => '';
-}
-
-class B extends A {
-  String f() => 'x';
-}
-''';
-
 /// Trigger source keyed by feature folder name.
 const Map<String, String> triggers = {
   'dot_shorthands': dotShorthandsTrigger,
@@ -83,22 +99,6 @@ const Map<String, String> triggers = {
   'sort_members': sortMembersTrigger,
   'fix_all': fixAllTrigger,
 };
-
-/// Analysis options enabling the lints the fix-all trigger relies on.
-const String fixAllLints = '''
-linter:
-  rules:
-    - annotate_overrides
-    - prefer_final_locals
-    - unnecessary_new
-''';
-
-/// A pubspec opting into the language version primary constructors require.
-const String pubspec313 = '''
-name: fixture_project
-environment:
-  sdk: ">=3.13.0 <4.0.0"
-''';
 
 /// Project files for [feature]'s isolated trigger (source plus any extra config
 /// that pass needs to fire).
