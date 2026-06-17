@@ -11,36 +11,6 @@ import 'package:dart_modernize/dart_modernize.dart';
 import 'package:dart_modernize/src/pipeline/transformations.dart';
 import 'package:test/test.dart';
 
-const List<String> _documentedOrder = [
-  'dot-shorthands',
-  'private-named-parameters',
-  'primary-constructors',
-  'switch-expressions',
-  'organize-imports',
-  'sort-members',
-  'fix-all',
-];
-
-CliOptions _options({
-  bool dotShorthands = true,
-  bool privateNamedParameters = true,
-  bool primaryConstructors = true,
-  bool switchExpressions = true,
-  bool organizeImports = true,
-  bool sortMembers = true,
-  bool fixAll = true,
-}) => CliOptions(
-  path: '.',
-  dryRun: false,
-  dotShorthands: dotShorthands,
-  privateNamedParameters: privateNamedParameters,
-  primaryConstructors: primaryConstructors,
-  switchExpressions: switchExpressions,
-  organizeImports: organizeImports,
-  sortMembers: sortMembers,
-  fixAll: fixAll,
-);
-
 void main() {
   group('pipeline order', () {
     test('passes are built in the fixed documented order', () {
@@ -79,3 +49,33 @@ void main() {
     });
   });
 }
+
+const List<String> _documentedOrder = [
+  'dot-shorthands',
+  'private-named-parameters',
+  'primary-constructors',
+  'switch-expressions',
+  'organize-imports',
+  'sort-members',
+  'fix-all',
+];
+
+CliOptions _options({
+  bool dotShorthands = true,
+  bool privateNamedParameters = true,
+  bool primaryConstructors = true,
+  bool switchExpressions = true,
+  bool organizeImports = true,
+  bool sortMembers = true,
+  bool fixAll = true,
+}) => CliOptions(
+  path: '.',
+  dryRun: false,
+  dotShorthands: dotShorthands,
+  privateNamedParameters: privateNamedParameters,
+  primaryConstructors: primaryConstructors,
+  switchExpressions: switchExpressions,
+  organizeImports: organizeImports,
+  sortMembers: sortMembers,
+  fixAll: fixAll,
+);
