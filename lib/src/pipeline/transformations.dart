@@ -1,6 +1,7 @@
 import '../cli/options.dart';
 import 'transformation.dart';
 import 'transformations/dot_shorthands.dart';
+import 'transformations/expression_bodies.dart';
 import 'transformations/fix_all.dart';
 import 'transformations/organize_imports.dart';
 import 'transformations/primary_constructors.dart';
@@ -9,6 +10,7 @@ import 'transformations/sort_members.dart';
 import 'transformations/switch_expressions.dart';
 
 export 'transformations/dot_shorthands.dart';
+export 'transformations/expression_bodies.dart';
 export 'transformations/fix_all.dart';
 export 'transformations/organize_imports.dart';
 export 'transformations/primary_constructors.dart';
@@ -26,6 +28,7 @@ List<Transformation> buildTransformations(CliOptions options) => [
   PrivateNamedParameters(enabled: options.privateNamedParameters),
   PrimaryConstructors(enabled: options.primaryConstructors),
   SwitchExpressions(enabled: options.switchExpressions),
+  ExpressionBodies(enabled: options.expressionBodies),
   OrganizeImports(enabled: options.organizeImports),
   SortMembers(enabled: options.sortMembers),
   FixAll(enabled: options.fixAll),

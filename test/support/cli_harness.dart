@@ -51,6 +51,7 @@ const featureFlags = <String, String>{
   'private_named_parameters': 'private-named-parameters',
   'primary_constructors': 'primary-constructors',
   'switch_expressions': 'switch-expressions',
+  'expression_bodies': 'expression-bodies',
   'organize_imports': 'organize-imports',
   'sort_members': 'sort-members',
   'fix_all': 'fix-all',

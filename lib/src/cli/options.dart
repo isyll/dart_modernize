@@ -46,6 +46,13 @@ ArgParser buildArgParser() => .new()
         'modern pattern syntax.',
   )
   ..addFlag(
+    'expression-bodies',
+    defaultsTo: true,
+    help:
+        'Collapse single-statement block bodies into concise => bodies for '
+        'functions, methods, getters, and closures.',
+  )
+  ..addFlag(
     'organize-imports',
     defaultsTo: true,
     help: 'Sort, group, and prune import directives.',
@@ -75,6 +82,7 @@ final class CliOptions {
 
   final bool primaryConstructors;
   final bool switchExpressions;
+  final bool expressionBodies;
   final bool organizeImports;
   final bool sortMembers;
   final bool fixAll;
@@ -85,6 +93,7 @@ final class CliOptions {
     required this.privateNamedParameters,
     required this.primaryConstructors,
     required this.switchExpressions,
+    required this.expressionBodies,
     required this.organizeImports,
     required this.sortMembers,
     required this.fixAll,
@@ -99,6 +108,7 @@ final class CliOptions {
       privateNamedParameters: results['private-named-parameters'] as bool,
       primaryConstructors: results['primary-constructors'] as bool,
       switchExpressions: results['switch-expressions'] as bool,
+      expressionBodies: results['expression-bodies'] as bool,
       organizeImports: results['organize-imports'] as bool,
       sortMembers: results['sort-members'] as bool,
       fixAll: results['fix-all'] as bool,
