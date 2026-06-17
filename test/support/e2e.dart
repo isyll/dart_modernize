@@ -38,26 +38,6 @@ final String _fixturesRoot = p.join(
   'fixtures',
 );
 
-/// Plain `*.dart` files in `test/fixtures/[dir]/` (not `.input`/`.expected`/
-/// `.unchanged`/`.support`), mapped to their in-project path `lib/<name>.dart`.
-Map<String, String> _plainDartFiles(String dir) {
-  final directory = Directory(p.join(_fixturesRoot, dir));
-  if (!directory.existsSync()) return const {};
-  final files = <String, String>{};
-  for (final entity in directory.listSync()) {
-    if (entity is! File) continue;
-    final name = p.basename(entity.path);
-    if (!name.endsWith('.dart')) continue;
-    if (name.endsWith('.input.dart') ||
-        name.endsWith('.unchanged.dart') ||
-        name.endsWith('.support.dart')) {
-      continue;
-    }
-    files['lib/$name'] = entity.readAsStringSync();
-  }
-  return files;
-}
-
 /// Defines a combined golden suite over `test/fixtures/[dir]/`.
 ///
 /// Each `<case>.input.dart` / `<case>.expected` pair is dropped into one project,
@@ -190,4 +170,24 @@ void defineRobustnessSuite({
       }
     });
   });
+}
+
+/// Plain `*.dart` files in `test/fixtures/[dir]/` (not `.input`/`.expected`/
+/// `.unchanged`/`.support`), mapped to their in-project path `lib/<name>.dart`.
+Map<String, String> _plainDartFiles(String dir) {
+  final directory = Directory(p.join(_fixturesRoot, dir));
+  if (!directory.existsSync()) return const {};
+  final files = <String, String>{};
+  for (final entity in directory.listSync()) {
+    if (entity is! File) continue;
+    final name = p.basename(entity.path);
+    if (!name.endsWith('.dart')) continue;
+    if (name.endsWith('.input.dart') ||
+        name.endsWith('.unchanged.dart') ||
+        name.endsWith('.support.dart')) {
+      continue;
+    }
+    files['lib/$name'] = entity.readAsStringSync();
+  }
+  return files;
 }
