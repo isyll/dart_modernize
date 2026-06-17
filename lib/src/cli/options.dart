@@ -2,66 +2,64 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 /// Builds the [ArgParser] for the `dart_modernize` CLI.
-ArgParser buildArgParser() {
-  return ArgParser()
-    ..addFlag(
-      'help',
-      abbr: 'h',
-      help: 'Show this usage information.',
-      negatable: false,
-    )
-    ..addFlag(
-      'version',
-      abbr: 'v',
-      help: 'Print the version number.',
-      negatable: false,
-    )
-    ..addFlag(
-      'dry-run',
-      abbr: 'n',
-      help: 'Preview changes without writing any files.',
-      negatable: false,
-    )
-    ..addSeparator('Transformations (all enabled by default):')
-    ..addFlag(
-      'dot-shorthands',
-      defaultsTo: true,
-      help:
-          'Collapse ClassName.member to .member where the context type is unambiguous.',
-    )
-    ..addFlag(
-      'private-named-parameters',
-      defaultsTo: true,
-      help: 'Fold constructor boilerplate into private named parameter form.',
-    )
-    ..addFlag(
-      'primary-constructors',
-      defaultsTo: true,
-      help: 'Promote eligible classes to primary constructor form when safe.',
-    )
-    ..addFlag(
-      'switch-expressions',
-      defaultsTo: true,
-      help:
-          'Rewrite eligible statement switches as switch expressions using '
-          'modern pattern syntax.',
-    )
-    ..addFlag(
-      'organize-imports',
-      defaultsTo: true,
-      help: 'Sort, group, and prune import directives.',
-    )
-    ..addFlag(
-      'sort-members',
-      defaultsTo: true,
-      help: 'Reorder class members into canonical order.',
-    )
-    ..addFlag(
-      'fix-all',
-      defaultsTo: true,
-      help: 'Apply bulk fixes equivalent to `dart fix`.',
-    );
-}
+ArgParser buildArgParser() => .new()
+  ..addFlag(
+    'help',
+    abbr: 'h',
+    help: 'Show this usage information.',
+    negatable: false,
+  )
+  ..addFlag(
+    'version',
+    abbr: 'v',
+    help: 'Print the version number.',
+    negatable: false,
+  )
+  ..addFlag(
+    'dry-run',
+    abbr: 'n',
+    help: 'Preview changes without writing any files.',
+    negatable: false,
+  )
+  ..addSeparator('Transformations (all enabled by default):')
+  ..addFlag(
+    'dot-shorthands',
+    defaultsTo: true,
+    help:
+        'Collapse ClassName.member to .member where the context type is unambiguous.',
+  )
+  ..addFlag(
+    'private-named-parameters',
+    defaultsTo: true,
+    help: 'Fold constructor boilerplate into private named parameter form.',
+  )
+  ..addFlag(
+    'primary-constructors',
+    defaultsTo: true,
+    help: 'Promote eligible classes to primary constructor form when safe.',
+  )
+  ..addFlag(
+    'switch-expressions',
+    defaultsTo: true,
+    help:
+        'Rewrite eligible statement switches as switch expressions using '
+        'modern pattern syntax.',
+  )
+  ..addFlag(
+    'organize-imports',
+    defaultsTo: true,
+    help: 'Sort, group, and prune import directives.',
+  )
+  ..addFlag(
+    'sort-members',
+    defaultsTo: true,
+    help: 'Reorder class members into canonical order.',
+  )
+  ..addFlag(
+    'fix-all',
+    defaultsTo: true,
+    help: 'Apply bulk fixes equivalent to `dart fix`.',
+  );
 
 /// Parsed and validated CLI options, passed through the pipeline.
 final class CliOptions {
