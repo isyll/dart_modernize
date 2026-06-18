@@ -181,7 +181,7 @@ Each pass is shown as a minimal before/after, paired with the safety rule that d
 
 Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-**🎯 Dot shorthands** — collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous.
+**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous.
 
 ```dart
 // before
@@ -213,7 +213,7 @@ List<Widget> build() => [.new(a: a, b: b), .new(a: 'genial')];
 
 > Refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable, anywhere the shortened form would not resolve to the exact same element.
 
-**🔀 Switch expressions** — rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
+**🔀 Switch expressions**: rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
 
 ```dart
 // before
@@ -244,7 +244,7 @@ final token = switch (charCode) {
 
 Trimming ceremony from bodies, strings, and builder sequences without moving a single value.
 
-**➡️ Expression bodies** — turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
+**➡️ Expression bodies**: turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
 
 ```dart
 // before
@@ -258,7 +258,7 @@ int square(int x) => x * x;
 
 > Kept as a block when it holds more than one statement, or a comment the arrow form would silently drop.
 
-**🧵 String interpolation** — rewrites `+` concatenation chains into interpolation.
+**🧵 String interpolation**: rewrites `+` concatenation chains into interpolation.
 
 ```dart
 // before
@@ -272,7 +272,7 @@ String row(String a, String b) => '| $a | $b |';
 
 > Only when every piece is a side-effect-free `String`. Arithmetic `+` and method-call operands are left exactly as written.
 
-**🌊 Cascades** — collapses a run of member writes and calls on a freshly declared local into a single cascade.
+**🌊 Cascades**: collapses a run of member writes and calls on a freshly declared local into a single cascade.
 
 ```dart
 // before
@@ -294,7 +294,7 @@ final paint = Paint()
 
 The Dart 3.8 null-aware collection syntax, applied only when the rewrite preserves single evaluation.
 
-**❓ Null-aware elements** — folds a null guard inside a collection into `?x`.
+**❓ Null-aware elements**: folds a null guard inside a collection into `?x`.
 
 ```dart
 // before
@@ -304,7 +304,7 @@ List<int> build(int? a) => [if (a != null) a];
 List<int> build(int? a) => [?a];
 ```
 
-**❔ Null-aware spread** — folds a guarded spread into `...?l`.
+**❔ Null-aware spread**: folds a guarded spread into `...?l`.
 
 ```dart
 // before
@@ -320,7 +320,7 @@ List<int> build(List<int>? extra) => [0, ...?extra];
 
 Folding constructor boilerplate into the shorthands the language now provides.
 
-**🔒 Private named parameters** — folds the old "public param, private field" boilerplate into a private named parameter.
+**🔒 Private named parameters**: folds the old "public param, private field" boilerplate into a private named parameter.
 
 ```dart
 // before
@@ -338,7 +338,7 @@ class User {
 
 > Left alone when the parameter is transformed, renamed, or reused elsewhere in the initializer list.
 
-**🏗️ Primary constructors** — promotes a class whose only job is to bind constructor parameters to fields.
+**🏗️ Primary constructors**: promotes a class whose only job is to bind constructor parameters to fields.
 
 ```dart
 // before
@@ -354,7 +354,7 @@ class Point(final int x, final int y);
 
 > Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter.
 
-**⬆️ Super parameters** — forwards a constructor parameter straight to the superclass.
+**⬆️ Super parameters**: forwards a constructor parameter straight to the superclass.
 
 ```dart
 // before
@@ -374,7 +374,7 @@ class MyWidget extends Widget {
 
 Whole-file cleanup that runs after the structural passes settle.
 
-**📦 Organize imports** — sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
+**📦 Organize imports**: sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
 
 ```dart
 // before
@@ -388,7 +388,7 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**🔤 Sort members** — reorders class members into canonical order (fields, constructors, getters/setters, then methods), keeping the original order stable within each group.
+**🔤 Sort members**: reorders class members into canonical order (fields, constructors, getters/setters, then methods), keeping the original order stable within each group.
 
 ```dart
 // before
@@ -406,7 +406,7 @@ class Account {
 }
 ```
 
-**🩹 Fix all** — applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, preferring `final` locals, and more.
+**🩹 Fix all**: applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, preferring `final` locals, and more.
 
 ```dart
 // before

@@ -15,12 +15,12 @@ import '../transformation.dart';
 /// It deliberately stays its hand when the arrow form would change meaning or
 /// lose information:
 ///
-///   * more than one statement, an empty body, or a bare `return;` — there is
+///   * more than one statement, an empty body, or a bare `return;`: there is
 ///     no single value for `=>` to carry;
-///   * a comment anywhere inside the braces — the arrow form would drop it;
-///   * setters, constructors, and `async`/`sync*` bodies — out of scope, or the
+///   * a comment anywhere inside the braces: the arrow form would drop it;
+///   * setters, constructors, and `async`/`sync*` bodies: out of scope, or the
 ///     arrow form would be wrong;
-///   * a returned expression that itself contains a closure — the inner closure
+///   * a returned expression that itself contains a closure: the inner closure
 ///     is collapsed instead, which keeps every edit non-overlapping and the
 ///     pass idempotent.
 final class ExpressionBodies implements Transformation {

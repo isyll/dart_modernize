@@ -17,14 +17,14 @@ import '../transformation.dart';
 ///
 /// The rewrite is deliberately conservative. A parameter is folded only when:
 ///
-///   * its value reaches `super(...)` verbatim — a bare identifier, never an
+///   * its value reaches `super(...)` verbatim: a bare identifier, never an
 ///     expression like `key ?? const Key()` or `id * 2`;
 ///   * it is referenced exactly once in the whole constructor (the forward),
 ///     so a parameter that is also read, reassigned, or used in another
 ///     initializer is left alone;
 ///   * for a named argument, the local name already matches the super
-///     parameter's name — renaming would change the constructor's public API;
-///   * it carries no local default value — a default that differs from the
+///     parameter's name: renaming would change the constructor's public API;
+///   * it carries no local default value: a default that differs from the
 ///     super's would silently change behaviour.
 ///
 /// The explicit type is dropped only when it is provably identical to the super
@@ -140,7 +140,7 @@ class _SuperParameterVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// Rebuilds the `super(...)` argument list with only the unfolded arguments,
-  /// for the case where some — but not all — arguments are forwarded.
+  /// for the case where some, but not all, arguments are forwarded.
   SourceEdit _keepRemainingArguments(
     SuperConstructorInvocation superCall,
     List<_Fold> folds,
@@ -236,7 +236,7 @@ class _SuperParameterVisitor extends RecursiveAstVisitor<void> {
     // A local default could differ from the super's; keep the explicit forward.
     if (param.defaultClause != null) return null;
 
-    // Used only as the forward — never read, reassigned, or used elsewhere.
+    // Used only as the forward; never read, reassigned, or used elsewhere.
     if ((counts[referenced] ?? 0) != 1) return null;
 
     // For a named argument, folding to `super.<label>` renames the parameter
