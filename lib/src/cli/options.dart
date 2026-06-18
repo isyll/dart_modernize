@@ -39,6 +39,13 @@ ArgParser buildArgParser() => .new()
     help: 'Promote eligible classes to primary constructor form when safe.',
   )
   ..addFlag(
+    'super-parameters',
+    defaultsTo: true,
+    help:
+        'Forward constructor parameters to the superclass with super.x when '
+        'passed through unchanged.',
+  )
+  ..addFlag(
     'switch-expressions',
     defaultsTo: true,
     help:
@@ -81,6 +88,7 @@ final class CliOptions {
   final bool privateNamedParameters;
 
   final bool primaryConstructors;
+  final bool superParameters;
   final bool switchExpressions;
   final bool expressionBodies;
   final bool organizeImports;
@@ -92,6 +100,7 @@ final class CliOptions {
     required this.dotShorthands,
     required this.privateNamedParameters,
     required this.primaryConstructors,
+    required this.superParameters,
     required this.switchExpressions,
     required this.expressionBodies,
     required this.organizeImports,
@@ -107,6 +116,7 @@ final class CliOptions {
       dotShorthands: results['dot-shorthands'] as bool,
       privateNamedParameters: results['private-named-parameters'] as bool,
       primaryConstructors: results['primary-constructors'] as bool,
+      superParameters: results['super-parameters'] as bool,
       switchExpressions: results['switch-expressions'] as bool,
       expressionBodies: results['expression-bodies'] as bool,
       organizeImports: results['organize-imports'] as bool,

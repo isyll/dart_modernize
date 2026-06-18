@@ -50,6 +50,7 @@ const featureFlags = <String, String>{
   'dot_shorthands': 'dot-shorthands',
   'private_named_parameters': 'private-named-parameters',
   'primary_constructors': 'primary-constructors',
+  'super_parameters': 'super-parameters',
   'switch_expressions': 'switch-expressions',
   'expression_bodies': 'expression-bodies',
   'organize_imports': 'organize-imports',
