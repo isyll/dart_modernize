@@ -75,6 +75,18 @@ class S {
 }
 ''';
 
+const String superParametersTrigger = '''
+class Base {
+  final int id;
+
+  Base({required this.id});
+}
+
+class Derived extends Base {
+  Derived({required int id}) : super(id: id);
+}
+''';
+
 const String switchExpressionsTrigger = '''
 int classify(int code) {
   int result;
@@ -89,12 +101,20 @@ int classify(int code) {
 }
 ''';
 
+const String expressionBodiesTrigger = '''
+int square(int x) {
+  return x * x;
+}
+''';
+
 /// Trigger source keyed by feature folder name.
 const Map<String, String> triggers = {
   'dot_shorthands': dotShorthandsTrigger,
   'private_named_parameters': privateNamedParametersTrigger,
   'primary_constructors': primaryConstructorsTrigger,
+  'super_parameters': superParametersTrigger,
   'switch_expressions': switchExpressionsTrigger,
+  'expression_bodies': expressionBodiesTrigger,
   'organize_imports': organizeImportsTrigger,
   'sort_members': sortMembersTrigger,
   'fix_all': fixAllTrigger,
