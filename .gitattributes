@@ -8,3 +8,7 @@
 # Golden fixtures (incl. extensionless *.expected snapshots) are byte-compared
 # by the test suite. Pin LF so a checkout matches on every platform.
 test/fixtures/** text eol=lf
+
+# Help GitHub render extensionless golden snapshots as Dart without changing
+# local Dart tooling behavior.
+test/fixtures/**/*.expected linguist-language=Dart
