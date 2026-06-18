@@ -73,6 +73,32 @@ ArgParser buildArgParser() => .new()
     'fix-all',
     defaultsTo: true,
     help: 'Apply bulk fixes equivalent to `dart fix`.',
+  )
+  ..addFlag(
+    'cascades',
+    defaultsTo: true,
+    help:
+        'Collapse sequential writes to a fresh local into a cascade chain '
+        '(.. operator).',
+  )
+  ..addFlag(
+    'string-interpolation',
+    defaultsTo: true,
+    help: 'Rewrite string concatenation chains as string interpolation.',
+  )
+  ..addFlag(
+    'null-aware-spread',
+    defaultsTo: true,
+    help:
+        'Replace `if (x != null) ...x` spread guards with the `...?x` '
+        'null-aware spread.',
+  )
+  ..addFlag(
+    'null-aware-elements',
+    defaultsTo: true,
+    help:
+        'Replace `if (x != null) x` collection-element guards with the '
+        '`?x` null-aware element syntax.',
   );
 
 /// Parsed and validated CLI options, passed through the pipeline.
@@ -94,6 +120,10 @@ final class CliOptions {
   final bool organizeImports;
   final bool sortMembers;
   final bool fixAll;
+  final bool cascades;
+  final bool stringInterpolation;
+  final bool nullAwareSpread;
+  final bool nullAwareElements;
   const CliOptions({
     required this.path,
     required this.dryRun,
@@ -106,6 +136,10 @@ final class CliOptions {
     required this.organizeImports,
     required this.sortMembers,
     required this.fixAll,
+    required this.cascades,
+    required this.stringInterpolation,
+    required this.nullAwareSpread,
+    required this.nullAwareElements,
   });
 
   factory CliOptions.fromResults(ArgResults results) {
@@ -122,6 +156,10 @@ final class CliOptions {
       organizeImports: results['organize-imports'] as bool,
       sortMembers: results['sort-members'] as bool,
       fixAll: results['fix-all'] as bool,
+      cascades: results['cascades'] as bool,
+      stringInterpolation: results['string-interpolation'] as bool,
+      nullAwareSpread: results['null-aware-spread'] as bool,
+      nullAwareElements: results['null-aware-elements'] as bool,
     );
   }
 }

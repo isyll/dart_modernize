@@ -1,22 +1,30 @@
 import '../cli/options.dart';
 import 'transformation.dart';
+import 'transformations/cascades.dart';
 import 'transformations/dot_shorthands.dart';
 import 'transformations/expression_bodies.dart';
 import 'transformations/fix_all.dart';
+import 'transformations/null_aware_elements.dart';
+import 'transformations/null_aware_spread.dart';
 import 'transformations/organize_imports.dart';
 import 'transformations/primary_constructors.dart';
 import 'transformations/private_named_parameters.dart';
 import 'transformations/sort_members.dart';
+import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
 import 'transformations/switch_expressions.dart';
 
+export 'transformations/cascades.dart';
 export 'transformations/dot_shorthands.dart';
 export 'transformations/expression_bodies.dart';
 export 'transformations/fix_all.dart';
+export 'transformations/null_aware_elements.dart';
+export 'transformations/null_aware_spread.dart';
 export 'transformations/organize_imports.dart';
 export 'transformations/primary_constructors.dart';
 export 'transformations/private_named_parameters.dart';
 export 'transformations/sort_members.dart';
+export 'transformations/string_interpolation.dart';
 export 'transformations/super_parameters.dart';
 export 'transformations/switch_expressions.dart';
 
@@ -31,7 +39,11 @@ List<Transformation> buildTransformations(CliOptions options) => [
   PrimaryConstructors(enabled: options.primaryConstructors),
   SuperParameters(enabled: options.superParameters),
   SwitchExpressions(enabled: options.switchExpressions),
+  Cascades(enabled: options.cascades),
   ExpressionBodies(enabled: options.expressionBodies),
+  StringInterpolation(enabled: options.stringInterpolation),
+  NullAwareSpread(enabled: options.nullAwareSpread),
+  NullAwareElements(enabled: options.nullAwareElements),
   OrganizeImports(enabled: options.organizeImports),
   SortMembers(enabled: options.sortMembers),
   FixAll(enabled: options.fixAll),
