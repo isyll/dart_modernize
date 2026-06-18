@@ -11,6 +11,11 @@ void main() {
       expect(options.privateNamedParameters, isTrue);
       expect(options.primaryConstructors, isTrue);
       expect(options.switchExpressions, isTrue);
+      expect(options.cascades, isTrue);
+      expect(options.expressionBodies, isTrue);
+      expect(options.stringInterpolation, isTrue);
+      expect(options.nullAwareSpread, isTrue);
+      expect(options.nullAwareElements, isTrue);
       expect(options.organizeImports, isTrue);
       expect(options.sortMembers, isTrue);
       expect(options.fixAll, isTrue);
@@ -70,6 +75,42 @@ void main() {
         buildArgParser().parse(['/some/project']),
       );
       expect(options.path, endsWith('some/project'));
+    });
+
+    test('--no-cascades disables only that transformation', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--no-cascades']),
+      );
+      expect(options.cascades, isFalse);
+      expect(options.expressionBodies, isTrue);
+      expect(options.dotShorthands, isTrue);
+    });
+
+    test('--no-string-interpolation disables only that transformation', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--no-string-interpolation']),
+      );
+      expect(options.stringInterpolation, isFalse);
+      expect(options.cascades, isTrue);
+      expect(options.nullAwareSpread, isTrue);
+    });
+
+    test('--no-null-aware-spread disables only that transformation', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--no-null-aware-spread']),
+      );
+      expect(options.nullAwareSpread, isFalse);
+      expect(options.stringInterpolation, isTrue);
+      expect(options.nullAwareElements, isTrue);
+    });
+
+    test('--no-null-aware-elements disables only that transformation', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--no-null-aware-elements']),
+      );
+      expect(options.nullAwareElements, isFalse);
+      expect(options.nullAwareSpread, isTrue);
+      expect(options.organizeImports, isTrue);
     });
 
     test('unknown flag throws FormatException', () {

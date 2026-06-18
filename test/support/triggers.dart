@@ -107,6 +107,41 @@ int square(int x) {
 }
 ''';
 
+const String cascadesTrigger = '''
+class Box {
+  int width = 0;
+  int height = 0;
+}
+
+Box makeBox() {
+  var b = Box();
+  b.width = 10;
+  b.height = 20;
+  return b;
+}
+''';
+
+const String stringInterpolationTrigger = '''
+String greet(String name) {
+  final msg = 'Hello, ' + name + '!';
+  return msg;
+}
+''';
+
+const String nullAwareSpreadTrigger = '''
+List<int> merge(List<int> base, List<int>? extra) {
+  final result = [...base, if (extra != null) ...extra];
+  return result;
+}
+''';
+
+const String nullAwareElementsTrigger = '''
+List<int?> pack(int? a) {
+  final result = [if (a != null) a];
+  return result;
+}
+''';
+
 /// Trigger source keyed by feature folder name.
 const Map<String, String> triggers = {
   'dot_shorthands': dotShorthandsTrigger,
@@ -114,7 +149,11 @@ const Map<String, String> triggers = {
   'primary_constructors': primaryConstructorsTrigger,
   'super_parameters': superParametersTrigger,
   'switch_expressions': switchExpressionsTrigger,
+  'cascades': cascadesTrigger,
   'expression_bodies': expressionBodiesTrigger,
+  'string_interpolation': stringInterpolationTrigger,
+  'null_aware_spread': nullAwareSpreadTrigger,
+  'null_aware_elements': nullAwareElementsTrigger,
   'organize_imports': organizeImportsTrigger,
   'sort_members': sortMembersTrigger,
   'fix_all': fixAllTrigger,

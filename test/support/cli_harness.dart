@@ -28,11 +28,28 @@ const allFeatures = <String>[
   'primary_constructors',
   'super_parameters',
   'switch_expressions',
+  'cascades',
   'expression_bodies',
+  'string_interpolation',
+  'null_aware_spread',
+  'null_aware_elements',
   'organize_imports',
   'sort_members',
   'fix_all',
 ];
+
+/// Features whose transformation logic is not yet implemented.
+///
+/// These are wired into the pipeline as stubs (return no edits). The
+/// [flag_disables_pass_test] verifies that `--no-<flag>` is recognised and
+/// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
+/// applies" half because a stub never produces output.
+const stubFeatures = <String>{
+  'cascades',
+  'string_interpolation',
+  'null_aware_spread',
+  'null_aware_elements',
+};
 
 /// A minimal, dependency-free pubspec that satisfies the tool's validator and
 /// lets the analyzer resolve SDK (`dart:`) types without a `pub get`.
@@ -54,7 +71,11 @@ const featureFlags = <String, String>{
   'primary_constructors': 'primary-constructors',
   'super_parameters': 'super-parameters',
   'switch_expressions': 'switch-expressions',
+  'cascades': 'cascades',
   'expression_bodies': 'expression-bodies',
+  'string_interpolation': 'string-interpolation',
+  'null_aware_spread': 'null-aware-spread',
+  'null_aware_elements': 'null-aware-elements',
   'organize_imports': 'organize-imports',
   'sort_members': 'sort-members',
   'fix_all': 'fix-all',
