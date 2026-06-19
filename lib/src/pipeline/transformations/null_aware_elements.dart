@@ -6,6 +6,17 @@ import 'package:analyzer/dart/element/element.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
+/// Returns the resolved element if [expr] is a side-effect-free stable
+/// reference (a local variable or parameter), otherwise `null`.
+Element? _safeRef(Expression expr) {
+  if (expr is! SimpleIdentifier) return null;
+  final element = expr.element;
+  if (element is LocalVariableElement || element is FormalParameterElement) {
+    return element;
+  }
+  return null;
+}
+
 /// Replaces null-guarded collection elements with the `?element` syntax.
 ///
 /// Before: `[1, if (a != null) a]`
@@ -66,37 +77,6 @@ class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
     );
   }
 
-  void _tryReplace(
-    NodeList<CollectionElement> elements,
-    int leftOffset,
-    int rightEnd,
-    String open,
-    String close,
-  ) {
-    var hasConvertible = false;
-    final parts = <String>[];
-
-    for (final elem in elements) {
-      final converted = _convert(elem);
-      if (converted != null) {
-        hasConvertible = true;
-        parts.add(converted);
-      } else {
-        parts.add(source.substring(elem.offset, elem.end));
-      }
-    }
-
-    if (!hasConvertible) return;
-
-    edits.add(
-      .new(
-        offset: leftOffset,
-        length: rightEnd - leftOffset,
-        replacement: '$open${parts.join(', ')}$close',
-      ),
-    );
-  }
-
   String? _convert(CollectionElement elem) {
     if (elem is! IfElement) return null;
     if (elem.elseElement != null) return null;
@@ -149,15 +129,35 @@ class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
 
     return '?${source.substring(scrutinee.offset, scrutinee.end)}';
   }
-}
 
-/// Returns the resolved element if [expr] is a side-effect-free stable
-/// reference (a local variable or parameter), otherwise `null`.
-Element? _safeRef(Expression expr) {
-  if (expr is! SimpleIdentifier) return null;
-  final element = expr.element;
-  if (element is LocalVariableElement || element is FormalParameterElement) {
-    return element;
+  void _tryReplace(
+    NodeList<CollectionElement> elements,
+    int leftOffset,
+    int rightEnd,
+    String open,
+    String close,
+  ) {
+    var hasConvertible = false;
+    final parts = <String>[];
+
+    for (final elem in elements) {
+      final converted = _convert(elem);
+      if (converted != null) {
+        hasConvertible = true;
+        parts.add(converted);
+      } else {
+        parts.add(source.substring(elem.offset, elem.end));
+      }
+    }
+
+    if (!hasConvertible) return;
+
+    edits.add(
+      .new(
+        offset: leftOffset,
+        length: rightEnd - leftOffset,
+        replacement: '$open${parts.join(', ')}$close',
+      ),
+    );
   }
-  return null;
 }
