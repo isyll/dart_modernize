@@ -18,6 +18,27 @@ void main() {
       expect(names, _documentedOrder);
     });
 
+    test('every structural pass precedes every cosmetic and bulk pass', () {
+      // The documented rationale (see doc/ORDERING.md): shape-changing passes
+      // run ahead of the whole-file reorderers and the bulk catch-all. Encoded
+      // as an invariant so a reordering that violates it fails here, not just
+      // the exact-list check above.
+      final order = buildTransformations(
+        _options(),
+      ).map((t) => t.name).toList();
+      final lastStructural = _structural
+          .map(order.indexOf)
+          .reduce((a, b) => a > b ? a : b);
+      final firstCosmetic = _cosmeticAndBulk
+          .map(order.indexOf)
+          .reduce((a, b) => a < b ? a : b);
+      expect(
+        lastStructural,
+        lessThan(firstCosmetic),
+        reason: 'structural passes must all come before cosmetic/bulk passes',
+      );
+    });
+
     test('disabling passes preserves the order of the rest', () {
       final transforms = buildTransformations(
         _options(privateNamedParameters: false, organizeImports: false),
@@ -55,6 +76,28 @@ void main() {
     });
   });
 }
+
+/// Shape-changing passes: they rewrite declarations and statements.
+const List<String> _structural = [
+  'dot-shorthands',
+  'private-named-parameters',
+  'primary-constructors',
+  'super-parameters',
+  'switch-expressions',
+  'cascades',
+  'expression-bodies',
+  'string-interpolation',
+  'null-aware-spread',
+  'null-aware-elements',
+];
+
+/// Whole-file reorderers and the bulk catch-all: they run after structure is
+/// settled.
+const List<String> _cosmeticAndBulk = [
+  'organize-imports',
+  'sort-members',
+  'fix-all',
+];
 
 const List<String> _documentedOrder = [
   'dot-shorthands',
