@@ -145,9 +145,23 @@ Future<CliResult> invokeCli(
 ///
 /// Produces, e.g. for `dot_shorthands`:
 /// `['--no-private-named-parameters', '--no-primary-constructors', ...]`.
-List<String> onlyFeatureArgs(String feature) => [
+List<String> onlyFeatureArgs(String feature) => onlyFeaturesArgs({feature});
+
+/// CLI flags that enable **only** the passes named in [features], disabling
+/// every other pass.
+///
+/// The multi-feature generalisation of [onlyFeatureArgs]: a pass keeps its
+/// default-on state (no `--no-` flag is emitted) exactly when its fixture-folder
+/// name is in [features]; every other pass is turned off. Keys are the
+/// snake_case folder names used throughout the harness (see [featureFlags]).
+///
+/// Use this for cross-feature interaction tests that need a specific subset of
+/// passes active at once. Names not present in [featureFlags] are ignored, so a
+/// typo silently widens the disabled set rather than throwing; callers pass
+/// literals drawn from [allFeatures].
+List<String> onlyFeaturesArgs(Set<String> features) => [
   for (final entry in featureFlags.entries)
-    if (entry.key != feature) '--no-${entry.value}',
+    if (!features.contains(entry.key)) '--no-${entry.value}',
 ];
 
 /// Creates a throwaway project containing [files] and runs the CLI against it.
