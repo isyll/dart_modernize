@@ -6,6 +6,17 @@ import 'package:analyzer/dart/element/element.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
+/// Returns the resolved element if [expr] is a side-effect-free stable
+/// reference (a local variable or parameter), otherwise `null`.
+Element? _safeRef(Expression expr) {
+  if (expr is! SimpleIdentifier) return null;
+  final element = expr.element;
+  if (element is LocalVariableElement || element is FormalParameterElement) {
+    return element;
+  }
+  return null;
+}
+
 /// Replaces null-guarded spread elements with the `...?` null-aware spread.
 ///
 /// Before: `[...base, if (extra != null) ...extra]`
@@ -61,6 +72,29 @@ class _NullAwareSpreadVisitor extends RecursiveAstVisitor<void> {
     );
   }
 
+  String? _convert(CollectionElement elem) {
+    if (elem is! IfElement) return null;
+    if (elem.elseElement != null) return null;
+
+    final condition = elem.expression;
+    if (condition is! BinaryExpression) return null;
+    if (condition.operator.lexeme != '!=') return null;
+    if (condition.rightOperand is! NullLiteral) return null;
+
+    final checkedExpr = condition.leftOperand;
+    final guardElement = _safeRef(checkedExpr);
+    if (guardElement == null) return null;
+
+    final then = elem.thenElement;
+    if (then is! SpreadElement) return null;
+
+    final spreadExpr = then.expression;
+    if (spreadExpr is! SimpleIdentifier) return null;
+    if (spreadExpr.element != guardElement) return null;
+
+    return '...?${source.substring(checkedExpr.offset, checkedExpr.end)}';
+  }
+
   void _tryReplace(
     NodeList<CollectionElement> elements,
     int leftOffset,
@@ -91,38 +125,4 @@ class _NullAwareSpreadVisitor extends RecursiveAstVisitor<void> {
       ),
     );
   }
-
-  String? _convert(CollectionElement elem) {
-    if (elem is! IfElement) return null;
-    if (elem.elseElement != null) return null;
-
-    final condition = elem.expression;
-    if (condition is! BinaryExpression) return null;
-    if (condition.operator.lexeme != '!=') return null;
-    if (condition.rightOperand is! NullLiteral) return null;
-
-    final checkedExpr = condition.leftOperand;
-    final guardElement = _safeRef(checkedExpr);
-    if (guardElement == null) return null;
-
-    final then = elem.thenElement;
-    if (then is! SpreadElement) return null;
-
-    final spreadExpr = then.expression;
-    if (spreadExpr is! SimpleIdentifier) return null;
-    if (spreadExpr.element != guardElement) return null;
-
-    return '...?${source.substring(checkedExpr.offset, checkedExpr.end)}';
-  }
-}
-
-/// Returns the resolved element if [expr] is a side-effect-free stable
-/// reference (a local variable or parameter), otherwise `null`.
-Element? _safeRef(Expression expr) {
-  if (expr is! SimpleIdentifier) return null;
-  final element = expr.element;
-  if (element is LocalVariableElement || element is FormalParameterElement) {
-    return element;
-  }
-  return null;
 }
