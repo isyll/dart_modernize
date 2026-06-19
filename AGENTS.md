@@ -8,12 +8,33 @@ It is **not a library**; the public surface is `bin/dart_modernize.dart`.
 ## Structure
 
 ```
-bin/dart_modernize.dart      entry point: calls run() from lib/, nothing else
+bin/dart_modernize.dart              entry point: delegates to lib/
 lib/
-  dart_modernize.dart        barrel: re-exports lib/src/
+  dart_modernize.dart                barrel: re-exports lib/src/
   src/
-    runner.dart              CLI argument parsing and dispatch
-test/                        mirrors lib/src/ structure
+    runner.dart                      CLI argument parsing and dispatch
+    modernize_exception.dart         exception type
+    cli/
+      options.dart                   ArgParser + CliOptions
+    analysis/
+      project_analyzer.dart          full type resolution
+      validator.dart                 pubspec / SDK validation
+    engine/
+      source_edit.dart               SourceEdit record (offset, length, replacement)
+      edit_collector.dart            collects + applies edits, detects conflicts
+      file_filter.dart               generated-file exclusion (*.g.dart etc.)
+      unified_diff.dart              dry-run diff formatter
+    pipeline/
+      pipeline.dart                  ModernizePipeline orchestrator
+      transformation.dart            Transformation interface
+      transformations.dart           buildTransformations() + re-exports
+      transformations/               one file per pass
+test/
+  cli/                               unit tests: options, flags, dry-run, idempotence
+  e2e/                               end-to-end combined and robustness tests
+  golden/                            one golden suite per transformation pass
+  fixtures/                          fixture files consumed by golden suites
+  support/                           shared harness (cli_harness, golden, triggers)
 ```
 
 ## Conventions

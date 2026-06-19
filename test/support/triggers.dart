@@ -9,10 +9,30 @@ library;
 
 import 'cli_harness.dart';
 
+const String cascadesTrigger = '''
+class Box {
+  int width = 0;
+  int height = 0;
+}
+
+Box makeBox() {
+  var b = Box();
+  b.width = 10;
+  b.height = 20;
+  return b;
+}
+''';
+
 const String dotShorthandsTrigger = '''
 enum E { a, b }
 
 E pick() => E.a;
+''';
+
+const String expressionBodiesTrigger = '''
+int square(int x) {
+  return x * x;
+}
 ''';
 
 /// Analysis options enabling the lints the fix-all trigger relies on.
@@ -31,6 +51,20 @@ class A {
 
 class B extends A {
   String f() => 'x';
+}
+''';
+
+const String nullAwareElementsTrigger = '''
+List<int?> pack(int? a) {
+  final result = [if (a != null) a];
+  return result;
+}
+''';
+
+const String nullAwareSpreadTrigger = '''
+List<int> merge(List<int> base, List<int>? extra) {
+  final result = [...base, if (extra != null) ...extra];
+  return result;
 }
 ''';
 
@@ -75,6 +109,13 @@ class S {
 }
 ''';
 
+const String stringInterpolationTrigger = '''
+String greet(String name) {
+  final msg = 'Hello, ' + name + '!';
+  return msg;
+}
+''';
+
 const String superParametersTrigger = '''
 class Base {
   final int id;
@@ -97,47 +138,6 @@ int classify(int code) {
     default:
       result = 20;
   }
-  return result;
-}
-''';
-
-const String expressionBodiesTrigger = '''
-int square(int x) {
-  return x * x;
-}
-''';
-
-const String cascadesTrigger = '''
-class Box {
-  int width = 0;
-  int height = 0;
-}
-
-Box makeBox() {
-  var b = Box();
-  b.width = 10;
-  b.height = 20;
-  return b;
-}
-''';
-
-const String stringInterpolationTrigger = '''
-String greet(String name) {
-  final msg = 'Hello, ' + name + '!';
-  return msg;
-}
-''';
-
-const String nullAwareSpreadTrigger = '''
-List<int> merge(List<int> base, List<int>? extra) {
-  final result = [...base, if (extra != null) ...extra];
-  return result;
-}
-''';
-
-const String nullAwareElementsTrigger = '''
-List<int?> pack(int? a) {
-  final result = [if (a != null) a];
   return result;
 }
 ''';

@@ -7,42 +7,32 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 
 ## Folder = feature
 
-| Folder                      | CLI flag                     |
-| --------------------------- | ---------------------------- |
-| `dot_shorthands/`           | `--dot-shorthands`           |
-| `private_named_parameters/` | `--private-named-parameters` |
-| `primary_constructors/`     | `--primary-constructors`     |
-| `switch_expressions/`       | `--switch-expressions`       |
-| `organize_imports/`         | `--organize-imports`         |
-| `sort_members/`             | `--sort-members`             |
-| `fix_all/`                  | `--fix-all`                  |
+All thirteen transformation passes have a fixtures folder and a CLI flag.
+The six passes marked **implemented** have full visitor logic; running the tool
+with only that flag enabled rewrites positive fixtures as expected and leaves
+negative (`.unchanged.dart`) fixtures byte-for-byte identical.
 
-## Pending features (spec-only, no flag yet)
+The seven passes marked **stub** return no edits. Their negative fixtures pass
+(the tool leaves them alone), but their positive fixtures fail until the pass is
+built. This is the intended TDD state: the failing assertion names the fixture
+and its expected output, so the fixtures serve as the spec the implementation
+must satisfy.
 
-These folders hold fixtures for transformations that are **specified but not yet
-implemented or wired to a CLI flag**. Each still has a golden suite under
-[`test/golden/`](../golden/), but because the feature has no pass, the runner
-executes with every existing pass disabled (see `onlyFeatureArgs`): every input
-is left byte-for-byte unchanged. The upshot is exactly the intended TDD state:
-
-- `<case>.unchanged.dart` negatives **pass** (the tool already leaves them alone),
-  and
-- `<case>.input.dart` / `<case>.expected` positives **fail** until the pass is
-  built. The failing assertion names the fixture and its expected output, so the
-  fixtures are the spec the implementation must satisfy.
-
-| Folder                   | Transformation                                  |
-| ------------------------ | ----------------------------------------------- |
-| `null_aware_elements/`   | `if (x != null) x` → `?x` (single-eval guarded) |
-| `null_aware_spread/`     | `if (l != null) ...l` → `...?l`                 |
-| `cascades/`              | repeated member writes → `..` cascade           |
-| `super_parameters/`      | forwarded params → `super.x`                    |
-| `expression_bodies/`     | single-`return` block bodies → `=>`             |
-| `string_interpolation/`  | `'a ' + b` concat chains → `'a $b'`             |
-
-When a pass is implemented, add its `--flag` to `buildArgParser`, register it in
-`featureFlags`/`allFeatures` (with a trigger), and move its row into the table
-above; the same fixtures then verify the real pass in isolation.
+| Folder                      | CLI flag                     | Status      |
+| --------------------------- | ---------------------------- | ----------- |
+| `dot_shorthands/`           | `--dot-shorthands`           | stub        |
+| `private_named_parameters/` | `--private-named-parameters` | stub        |
+| `primary_constructors/`     | `--primary-constructors`     | stub        |
+| `super_parameters/`         | `--super-parameters`         | implemented |
+| `switch_expressions/`       | `--switch-expressions`       | stub        |
+| `cascades/`                 | `--cascades`                 | implemented |
+| `expression_bodies/`        | `--expression-bodies`        | implemented |
+| `string_interpolation/`     | `--string-interpolation`     | implemented |
+| `null_aware_spread/`        | `--null-aware-spread`        | implemented |
+| `null_aware_elements/`      | `--null-aware-elements`      | implemented |
+| `organize_imports/`         | `--organize-imports`         | stub        |
+| `sort_members/`             | `--sort-members`             | stub        |
+| `fix_all/`                  | `--fix-all`                  | stub        |
 
 ## Adding a case = adding files (no code)
 
