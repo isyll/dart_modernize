@@ -44,11 +44,7 @@ const allFeatures = <String>[
 /// [flag_disables_pass_test] verifies that `--no-<flag>` is recognised and
 /// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
 /// applies" half because a stub never produces output.
-const stubFeatures = <String>{
-  'string_interpolation',
-  'null_aware_spread',
-  'null_aware_elements',
-};
+const stubFeatures = <String>{'string_interpolation'};
 
 /// A minimal, dependency-free pubspec that satisfies the tool's validator and
 /// lets the analyzer resolve SDK (`dart:`) types without a `pub get`.
