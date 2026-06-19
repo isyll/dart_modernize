@@ -19,5 +19,9 @@
       "source.fixAll": "explicit",
       "source.organizeImports": "explicit"
     }
-  }
+  },
+
+  "files.associations": {
+    "**/test/fixtures/**/*.expected": "dart"
+  },
 }
