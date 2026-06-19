@@ -45,7 +45,6 @@ const allFeatures = <String>[
 /// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
 /// applies" half because a stub never produces output.
 const stubFeatures = <String>{
-  'cascades',
   'string_interpolation',
   'null_aware_spread',
   'null_aware_elements',
