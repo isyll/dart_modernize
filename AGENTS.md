@@ -44,6 +44,7 @@ test/
 - `package:args` for argument parsing, `package:path` for path operations.
 - Strict analyzer: `strict-casts`, `strict-inference`, `strict-raw-types` are all on.
 - `dart format`, `dart analyze --fatal-infos`, `dart test` must pass before every commit.
+- NEVER add decorative comments.
 
 ## Commit rules: MANDATORY, no exceptions
 
