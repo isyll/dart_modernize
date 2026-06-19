@@ -8,11 +8,11 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 ## Folder = feature
 
 All thirteen transformation passes have a fixtures folder and a CLI flag.
-The six passes marked **implemented** have full visitor logic; running the tool
+The seven passes marked **implemented** have full visitor logic; running the tool
 with only that flag enabled rewrites positive fixtures as expected and leaves
 negative (`.unchanged.dart`) fixtures byte-for-byte identical.
 
-The seven passes marked **stub** return no edits. Their negative fixtures pass
+The six passes marked **stub** return no edits. Their negative fixtures pass
 (the tool leaves them alone), but their positive fixtures fail until the pass is
 built. This is the intended TDD state: the failing assertion names the fixture
 and its expected output, so the fixtures serve as the spec the implementation
@@ -20,7 +20,7 @@ must satisfy.
 
 | Folder                      | CLI flag                     | Status      |
 | --------------------------- | ---------------------------- | ----------- |
-| `dot_shorthands/`           | `--dot-shorthands`           | stub        |
+| `dot_shorthands/`           | `--dot-shorthands`           | implemented |
 | `private_named_parameters/` | `--private-named-parameters` | stub        |
 | `primary_constructors/`     | `--primary-constructors`     | stub        |
 | `super_parameters/`         | `--super-parameters`         | implemented |
