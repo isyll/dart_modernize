@@ -74,7 +74,7 @@ class _StringInterpolationVisitor extends RecursiveAstVisitor<void> {
         replacement: _buildInterpolation(segments),
       ),
     );
-    // Do not recurse — the whole chain is handled as a unit.
+    // Do not recurse: the whole chain is handled as a unit.
   }
 
   String _buildInterpolation(List<_Segment> segments) {

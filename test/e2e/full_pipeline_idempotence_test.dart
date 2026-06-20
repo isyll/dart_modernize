@@ -2,8 +2,8 @@
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
 /// is modernized with **all seven implemented passes** enabled at once, and the
-/// result must be (a) actually transformed by every pass, (b) idempotent — a
-/// second run changes nothing — and (c) still analyze without errors. A final
+/// result must be (a) actually transformed by every pass, (b) idempotent (a
+/// second run changes nothing), and (c) still analyze without errors. A final
 /// case proves the six stub passes are inert: enabling them on top changes
 /// nothing.
 ///
@@ -19,81 +19,6 @@ import 'package:test/test.dart';
 
 import '../support/analysis_helper.dart';
 import '../support/cli_harness.dart';
-
-/// The seven passes with real visitor logic (fixture-folder names).
-const _implemented = <String>{
-  'dot_shorthands',
-  'super_parameters',
-  'cascades',
-  'expression_bodies',
-  'string_interpolation',
-  'null_aware_spread',
-  'null_aware_elements',
-};
-
-/// super-parameters (full forward) + dot-shorthands (already-arrow methods).
-const _models = '''
-enum Mode { fast, slow }
-
-enum Status { active, idle }
-
-class Base {
-  final int id;
-
-  Base({required this.id});
-}
-
-class Worker extends Base {
-  Worker({required int id}) : super(id: id);
-
-  Mode mode() => Mode.fast;
-
-  Status get status => Status.active;
-}
-''';
-
-/// string-interpolation in an arrow body and in a multi-statement body.
-const _text = '''
-String greet(String name) => 'Hello, ' + name + '!';
-
-String label(String prefix, String value) {
-  final combined = prefix + ': ' + value;
-  return combined;
-}
-''';
-
-/// cascades, null-aware-spread, null-aware-elements, and expression-bodies, each
-/// on its own construct.
-const _build = '''
-import 'dart:collection';
-
-Queue<int> fill(int seed, int other) {
-  final q = Queue<int>();
-  q.add(seed);
-  q.add(other);
-  return q;
-}
-
-List<int> merge(List<int> base, List<int>? extra) {
-  final all = [...base, if (extra != null) ...extra];
-  return all;
-}
-
-List<int> collect(int head, int? tail) {
-  final xs = [head, if (tail != null) tail];
-  return xs;
-}
-
-int square(int x) {
-  return x * x;
-}
-''';
-
-Map<String, String> _projectFiles() => const {
-  'lib/models.dart': _models,
-  'lib/text.dart': _text,
-  'lib/build.dart': _build,
-};
 
 void main() {
   group('full pipeline over a realistic project', () {
@@ -175,3 +100,78 @@ void main() {
     );
   });
 }
+
+/// cascades, null-aware-spread, null-aware-elements, and expression-bodies, each
+/// on its own construct.
+const _build = '''
+import 'dart:collection';
+
+Queue<int> fill(int seed, int other) {
+  final q = Queue<int>();
+  q.add(seed);
+  q.add(other);
+  return q;
+}
+
+List<int> merge(List<int> base, List<int>? extra) {
+  final all = [...base, if (extra != null) ...extra];
+  return all;
+}
+
+List<int> collect(int head, int? tail) {
+  final xs = [head, if (tail != null) tail];
+  return xs;
+}
+
+int square(int x) {
+  return x * x;
+}
+''';
+
+/// The seven passes with real visitor logic (fixture-folder names).
+const _implemented = <String>{
+  'dot_shorthands',
+  'super_parameters',
+  'cascades',
+  'expression_bodies',
+  'string_interpolation',
+  'null_aware_spread',
+  'null_aware_elements',
+};
+
+/// super-parameters (full forward) + dot-shorthands (already-arrow methods).
+const _models = '''
+enum Mode { fast, slow }
+
+enum Status { active, idle }
+
+class Base {
+  final int id;
+
+  Base({required this.id});
+}
+
+class Worker extends Base {
+  Worker({required int id}) : super(id: id);
+
+  Mode mode() => Mode.fast;
+
+  Status get status => Status.active;
+}
+''';
+
+/// string-interpolation in an arrow body and in a multi-statement body.
+const _text = '''
+String greet(String name) => 'Hello, ' + name + '!';
+
+String label(String prefix, String value) {
+  final combined = prefix + ': ' + value;
+  return combined;
+}
+''';
+
+Map<String, String> _projectFiles() => const {
+  'lib/models.dart': _models,
+  'lib/text.dart': _text,
+  'lib/build.dart': _build,
+};

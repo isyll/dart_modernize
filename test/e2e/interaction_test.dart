@@ -7,13 +7,13 @@
 /// edits (see [ModernizePipeline] and `EditCollector`). Two regimes fall out of
 /// that design, and each gets its own group below.
 ///
-///   * **Compose cleanly** — passes that touch *disjoint* regions all apply in a
+///   * **Compose cleanly**: passes that touch *disjoint* regions all apply in a
 ///     single run and the result is byte-stable on re-run. Output is also
 ///     *subset-invariant*: enabling the full implemented set produces the same
 ///     bytes as enabling only the passes that own those constructs, because the
 ///     others have nothing to do.
 ///
-///   * **Converge across runs** — when two passes target *overlapping* spans of
+///   * **Converge across runs**: when two passes target *overlapping* spans of
 ///     one construct, `EditCollector` keeps the earlier-offset edit and drops
 ///     the other (it never corrupts offsets). The dropped edit simply applies on
 ///     the *next* run, so the tool converges to the fully-modernized form but is
@@ -30,45 +30,6 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import '../support/cli_harness.dart';
-
-/// The seven passes with real visitor logic (fixture-folder names).
-const _implemented = <String>{
-  'dot_shorthands',
-  'super_parameters',
-  'cascades',
-  'expression_bodies',
-  'string_interpolation',
-  'null_aware_spread',
-  'null_aware_elements',
-};
-
-const _file = 'lib/c.dart';
-
-/// Runs the CLI on [project] repeatedly until a run changes nothing, then
-/// returns that stable content. Fails if no fixpoint is reached within
-/// [maxRuns]. Each run must exit zero.
-Future<String> _runUntilStable(
-  Directory project, {
-  required List<String> args,
-  int maxRuns = 6,
-}) async {
-  String? last;
-  for (var i = 0; i < maxRuns; i++) {
-    final result = await invokeCli(project, args: args);
-    expect(result.exitCode, 0, reason: result.stderr);
-    final current = result.read(_file);
-    if (current == last) return current;
-    last = current;
-  }
-  fail('no fixpoint within $maxRuns runs; last output:\n$last');
-}
-
-/// Single run, returning the rewritten file. Asserts a zero exit.
-Future<String> _runOnce(Directory project, List<String> args) async {
-  final result = await invokeCli(project, args: args);
-  expect(result.exitCode, 0, reason: result.stderr);
-  return result.read(_file);
-}
 
 void main() {
   group('compose cleanly (disjoint edits, single-run stable)', () {
@@ -172,7 +133,7 @@ Box make() {
       expect(await _runOnce(whole, onlyFeaturesArgs(_implemented)), expected);
 
       // expression-bodies must not fire: make() has four statements, then two
-      // after the cascade fold — never a single-statement body.
+      // after the cascade fold, never a single-statement body.
       final exprOnly = createProject(files: {_file: input});
       expect(
         await _runOnce(exprOnly, onlyFeaturesArgs({'expression_bodies'})),
@@ -227,7 +188,7 @@ Flag current() => .on;
     // The first run applies one and defers the other (its edit is dropped by
     // EditCollector, never mis-applied); the second run finishes the job. The
     // tool converges to the correct, fully-modernized form, and is then stable.
-    // These are NOT single-run idempotent — the cost of one shared resolution.
+    // These are NOT single-run idempotent: the cost of one shared resolution.
     // See doc/ORDERING.md. When/if the pipeline re-resolves between passes,
     // these will converge in a single run; update the explicit run-1 assertion
     // below accordingly.
@@ -251,7 +212,7 @@ Color pick() => .red;
       // Documents the limitation: one run collapses the body but defers the
       // dot-shorthand (expression-bodies re-emits the returned expression, whose
       // span hides the dot edit). If this starts passing, the pipeline has
-      // gained single-run convergence — see the group comment.
+      // gained single-run convergence; see the group comment.
       final project = createProject(files: {_file: input});
       final afterOne = await _runOnce(project, subset);
       expect(
@@ -355,4 +316,43 @@ Palette build() {
       expect(await _runUntilStable(project, args: subset), converged);
     });
   });
+}
+
+const _file = 'lib/c.dart';
+
+/// The seven passes with real visitor logic (fixture-folder names).
+const _implemented = <String>{
+  'dot_shorthands',
+  'super_parameters',
+  'cascades',
+  'expression_bodies',
+  'string_interpolation',
+  'null_aware_spread',
+  'null_aware_elements',
+};
+
+/// Single run, returning the rewritten file. Asserts a zero exit.
+Future<String> _runOnce(Directory project, List<String> args) async {
+  final result = await invokeCli(project, args: args);
+  expect(result.exitCode, 0, reason: result.stderr);
+  return result.read(_file);
+}
+
+/// Runs the CLI on [project] repeatedly until a run changes nothing, then
+/// returns that stable content. Fails if no fixpoint is reached within
+/// [maxRuns]. Each run must exit zero.
+Future<String> _runUntilStable(
+  Directory project, {
+  required List<String> args,
+  int maxRuns = 6,
+}) async {
+  String? last;
+  for (var i = 0; i < maxRuns; i++) {
+    final result = await invokeCli(project, args: args);
+    expect(result.exitCode, 0, reason: result.stderr);
+    final current = result.read(_file);
+    if (current == last) return current;
+    last = current;
+  }
+  fail('no fixpoint within $maxRuns runs; last output:\n$last');
 }

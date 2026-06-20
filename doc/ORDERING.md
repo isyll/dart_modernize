@@ -10,7 +10,7 @@ buy us today. It is the written rationale referenced by
 
 `buildTransformations` in
 [`lib/src/pipeline/transformations.dart`](../lib/src/pipeline/transformations.dart)
-is the single source of pass order. The pipeline only ever *filters* that list
+is the single source of pass order. The pipeline only ever _filters_ that list
 by `enabled`; it never reorders. The order is:
 
 1. `dot-shorthands`
@@ -49,7 +49,7 @@ write(modified)
 
 Two properties follow directly, and both are what the tests pin:
 
-### Offset safety — one pass never invalidates another's offsets
+### Offset safety: one pass never invalidates another's offsets
 
 Every pass computes its edit offsets against the **same original source**, and
 nothing is written until **all** passes have contributed. `EditCollector` then
@@ -58,25 +58,25 @@ in a single left-to-right walk that consumes the original string by original
 coordinates ([`engine/edit_collector.dart`](../lib/src/engine/edit_collector.dart)).
 Because application never mutates the buffer the offsets refer to, an edit
 produced by pass A can never shift or invalidate an offset produced by pass B.
-Insertion order is irrelevant for non-overlapping edits — proven by
+Insertion order is irrelevant for non-overlapping edits, proven by
 `EditCollector` "applies multiple non-overlapping edits regardless of insertion
 order" and end-to-end by the interaction suite's "compose cleanly" group, where
 three passes edit one file and all three land correctly.
 
-### Overlap resolution — earliest offset wins, deterministically
+### Overlap resolution: earliest offset wins, deterministically
 
 When two edits overlap, `_deoverlap` keeps the one with the earlier offset and
 drops the other. The dropped edit is never mis-applied; the output is always
 valid source. Pass order therefore affects the final bytes **only** when two
-passes emit edits at the *exact same* offset (a tie), which is rare in practice —
+passes emit edits at the _exact same_ offset (a tie), which is rare in practice;
 distinct passes target distinct syntactic positions.
 
 ## Re-resolution: there is none between passes
 
 There is **no re-resolution between passes within a run**. All passes run
 against the one AST captured at the top of the loop. A consequence worth stating
-plainly: a later pass in the list cannot consume an earlier pass's *AST change*
-during the same run, because it never sees it — it sees the original tree. The
+plainly: a later pass in the list cannot consume an earlier pass's _AST change_
+during the same run, because it never sees it; it sees the original tree. The
 order above is thus a tie-break and a statement of intent, not a data dependency
 the current implementation exploits. Passes are assumed to operate on
 **independent constructs**.
@@ -84,18 +84,18 @@ the current implementation exploits. Passes are assumed to operate on
 ## The one thing the order does not buy us: single-run idempotence on overlaps
 
 When two passes target **overlapping spans of the same construct**, one edit is
-dropped per the overlap rule and only applies on the *next* run. The tool still
-**converges** to the correct, fully-modernized form — it is just not single-run
+dropped per the overlap rule and only applies on the _next_ run. The tool still
+**converges** to the correct, fully-modernized form; it is just not single-run
 idempotent for those constructs. This happens because several passes emit a
-replacement that *spans and re-emits* an inner expression verbatim, and that
+replacement that _spans and re-emits_ an inner expression verbatim, and that
 span hides another pass's edit nested inside it:
 
-| Construct | Passes that collide | Converges in |
-| --- | --- | --- |
-| `T f() { return T.x; }` | `expression-bodies` + `dot-shorthands` | 2 runs |
-| `String f() { return a + b; }` | `expression-bodies` + `string-interpolation` | 2 runs |
-| `C({required int x}) : super(a: A.x, x: x)` (partial forward) | `super-parameters` + `dot-shorthands` | 2 runs |
-| `p.add(A.x)` inside a folded cascade run | `cascades` + `dot-shorthands` | 2 runs |
+| Construct                                                     | Passes that collide                          | Converges in |
+| ------------------------------------------------------------- | -------------------------------------------- | ------------ |
+| `T f() { return T.x; }`                                       | `expression-bodies` + `dot-shorthands`       | 2 runs       |
+| `String f() { return a + b; }`                                | `expression-bodies` + `string-interpolation` | 2 runs       |
+| `C({required int x}) : super(a: A.x, x: x)` (partial forward) | `super-parameters` + `dot-shorthands`        | 2 runs       |
+| `p.add(A.x)` inside a folded cascade run                      | `cascades` + `dot-shorthands`                | 2 runs       |
 
 The "converge across runs" group in the interaction suite reproduces all four
 and asserts each reaches the correct fixpoint. The existing golden and combined
@@ -106,7 +106,7 @@ idempotence holds for them.
 ### Why this is acceptable today, and how to remove it
 
 It is acceptable because the output is always **valid** and the tool
-**converges** — re-running is safe and cheap. Removing it (making overlapping
+**converges**; re-running is safe and cheap. Removing it (making overlapping
 constructs converge in a single run) requires the pipeline to either
 **re-resolve between passes** or **iterate the per-file transform to a
 fixpoint**. Both are behavioural changes to the pipeline beyond this

@@ -22,8 +22,8 @@ import '../transformation.dart';
 /// unchanged. The context type is derived position by position (typed variable
 /// or field, return type, argument slot, collection element, equality
 /// right-hand side, switch case, switch pattern). Wherever the context type
-/// cannot be derived precisely — `var`, `dynamic`, `Object`, an inferred type
-/// variable, a supertype, or the left of `==` — the code is left untouched.
+/// cannot be derived precisely, with `var`, `dynamic`, `Object`, an inferred
+/// type variable, a supertype, or the left of `==`, the code is left untouched.
 final class DotShorthands implements Transformation {
   @override
   final bool enabled;
@@ -80,8 +80,8 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     super.visitPrefixedIdentifier(node);
   }
 
-  /// When a list literal has no element type to fall back on — no explicit
-  /// `<T>` and no downward context — collapsing its elements to shorthands
+  /// When a list literal has no element type to fall back on (no explicit
+  /// `<T>` and no downward context), collapsing its elements to shorthands
   /// would leave the compiler nothing to resolve against. If any element would
   /// collapse, make the inferred element type explicit (`<T>[...]`) so the
   /// shorthands stay valid.
@@ -172,7 +172,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       case ExpressionFunctionBody() when identical(parent.expression, node):
         return _enclosingReturnType(parent);
 
-      // `a == node` / `a != node` — only the right operand has a context type.
+      // `a == node` / `a != node`: only the right operand has a context type.
       case BinaryExpression()
           when (parent.operator.lexeme == '==' ||
                   parent.operator.lexeme == '!=') &&

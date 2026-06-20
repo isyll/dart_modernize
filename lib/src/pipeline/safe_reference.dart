@@ -2,7 +2,7 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 
 /// Returns the resolved element when [expr] is a side-effect-free *stable
-/// reference* — a bare local variable or formal parameter — and `null`
+/// reference* (a bare local variable or formal parameter), and `null`
 /// otherwise.
 ///
 /// The null-aware passes collapse a guarded expression such as
