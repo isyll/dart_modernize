@@ -77,29 +77,15 @@ void main() {
   });
 }
 
-/// Shape-changing passes: they rewrite declarations and statements.
-const List<String> _structural = [
-  'dot-shorthands',
-  'private-named-parameters',
-  'primary-constructors',
-  'super-parameters',
-  'switch-expressions',
-  'cascades',
-  'expression-bodies',
-  'string-interpolation',
-  'null-aware-spread',
-  'null-aware-elements',
-];
-
 /// Whole-file reorderers and the bulk catch-all: they run after structure is
 /// settled.
-const List<String> _cosmeticAndBulk = [
+const _cosmeticAndBulk = <String>[
   'organize-imports',
   'sort-members',
   'fix-all',
 ];
 
-const List<String> _documentedOrder = [
+const _documentedOrder = <String>[
   'dot-shorthands',
   'private-named-parameters',
   'primary-constructors',
@@ -113,6 +99,20 @@ const List<String> _documentedOrder = [
   'organize-imports',
   'sort-members',
   'fix-all',
+];
+
+/// Shape-changing passes: they rewrite declarations and statements.
+const _structural = <String>[
+  'dot-shorthands',
+  'private-named-parameters',
+  'primary-constructors',
+  'super-parameters',
+  'switch-expressions',
+  'cascades',
+  'expression-bodies',
+  'string-interpolation',
+  'null-aware-spread',
+  'null-aware-elements',
 ];
 
 CliOptions _options({
@@ -132,6 +132,8 @@ CliOptions _options({
 }) => .new(
   path: '.',
   dryRun: false,
+  color: null,
+  verbose: false,
   dotShorthands: dotShorthands,
   privateNamedParameters: privateNamedParameters,
   primaryConstructors: primaryConstructors,

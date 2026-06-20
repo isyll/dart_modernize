@@ -21,6 +21,19 @@ ArgParser buildArgParser() => .new()
     help: 'Preview changes without writing any files.',
     negatable: false,
   )
+  ..addFlag(
+    'color',
+    help:
+        'Use ANSI colors in output. Default: auto-detect terminal. '
+        '--no-color also disables color when NO_COLOR env var is absent.',
+    defaultsTo: null,
+  )
+  ..addFlag(
+    'verbose',
+    help: 'Print per-file progress and passes with no changes.',
+    negatable: false,
+    defaultsTo: false,
+  )
   ..addSeparator('Transformations (all enabled by default):')
   ..addFlag(
     'dot-shorthands',
@@ -109,6 +122,12 @@ final class CliOptions {
   /// When true, only prints a diff; no files are written.
   final bool dryRun;
 
+  /// null = auto-detect terminal; true = force on; false = force off.
+  final bool? color;
+
+  /// When true, emit per-file progress and passes that made no changes.
+  final bool verbose;
+
   final bool dotShorthands;
 
   final bool privateNamedParameters;
@@ -127,6 +146,8 @@ final class CliOptions {
   const CliOptions({
     required this.path,
     required this.dryRun,
+    required this.color,
+    required this.verbose,
     required this.dotShorthands,
     required this.privateNamedParameters,
     required this.primaryConstructors,
@@ -147,6 +168,8 @@ final class CliOptions {
     return .new(
       path: p.absolute(rest.isNotEmpty ? rest.first : p.current),
       dryRun: results['dry-run'] as bool,
+      color: results['color'] as bool?,
+      verbose: results['verbose'] as bool,
       dotShorthands: results['dot-shorthands'] as bool,
       privateNamedParameters: results['private-named-parameters'] as bool,
       primaryConstructors: results['primary-constructors'] as bool,

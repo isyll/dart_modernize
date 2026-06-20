@@ -4,6 +4,7 @@ import 'package:args/args.dart';
 
 import 'cli/options.dart';
 import 'modernize_exception.dart';
+import 'output/reporter.dart';
 import 'pipeline/pipeline.dart';
 import 'pipeline/transformations.dart';
 
@@ -20,8 +21,9 @@ Future<void> run(List<String> arguments) async {
   try {
     results = parser.parse(arguments);
   } on FormatException catch (e) {
-    stderr.writeln('Error: ${e.message}');
-    stderr.writeln('Run dart_modernize --help for usage.');
+    final r = Reporter(color: resolveColor(colorFlag: null), verbose: false);
+    r.error(e.message);
+    r.errorHint('Run dart_modernize --help for usage.');
     exit(64);
   }
 
@@ -36,18 +38,23 @@ Future<void> run(List<String> arguments) async {
   }
 
   final options = CliOptions.fromResults(results);
+  final reporter = Reporter(
+    color: resolveColor(colorFlag: options.color),
+    verbose: options.verbose,
+  );
   final pipeline = ModernizePipeline(
     options: options,
+    reporter: reporter,
     transformations: buildTransformations(options),
   );
 
   try {
     await pipeline.run();
   } on ModernizeException catch (e) {
-    stderr.writeln('Error: ${e.message}');
+    reporter.error(e.message);
     exit(1);
   } on Exception catch (e) {
-    stderr.writeln('Unexpected error: $e');
+    reporter.unexpectedError(e);
     exit(1);
   }
 }

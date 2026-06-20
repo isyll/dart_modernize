@@ -11,11 +11,12 @@ import '../engine/file_filter.dart';
 import '../engine/source_edit.dart';
 import '../engine/unified_diff.dart';
 import '../modernize_exception.dart';
+import '../output/reporter.dart';
 import 'transformation.dart';
 
 /// Orchestrates the full modernization pipeline.
 ///
-/// Stages: **validate** → **resolve** → **transform** → **finalize**.
+/// Stages: **validate** -> **resolve** -> **transform** -> **finalize**.
 ///
 /// The finalize order is fixed:
 ///   1. `dart fix --apply`   : fixes may remove imports, so it runs first.
@@ -24,22 +25,24 @@ import 'transformation.dart';
 ///   4. `dart format`        : always last so previous edits are formatted.
 final class ModernizePipeline {
   final CliOptions options;
-
+  final Reporter reporter;
   final List<Transformation> transformations;
+
   const ModernizePipeline({
     required this.options,
+    required this.reporter,
     required this.transformations,
   });
 
   Future<void> run() async {
     // 1. Validate: fast-fail before touching the analyzer.
     await validateProject(options.path);
-    stdout.writeln('✓ Project validated.');
+    reporter.validated();
 
     // Separate structural passes (AST visitors) from finalize passes.
     final enabled = transformations.where((t) => t.enabled).toList();
     if (enabled.isEmpty) {
-      stdout.writeln('No transformations enabled; nothing to do.');
+      reporter.nothingToDo();
       return;
     }
     final structural = enabled
@@ -48,15 +51,29 @@ final class ModernizePipeline {
     final finalize = enabled.whereType<FinalizeTransformation>().toList();
 
     // 2. Resolve and transform, file by file (structural passes only).
+    reporter.resolving();
     final analyzer = ProjectAnalyzer(options.path)..initialize();
 
+    var filesScanned = 0;
     var filesChanged = 0;
+    var totalAdded = 0;
+    var totalRemoved = 0;
+    final passFileCounts = <String, int>{};
+
     await for (final unit in analyzer.resolvedUnits()) {
       if (isGeneratedFile(unit.path)) continue;
+      filesScanned++;
 
       final collector = EditCollector();
+      final passesWithEdits = <String>[];
       for (final transform in structural) {
-        collector.addAll(await transform.editsFor(unit));
+        final edits = await transform.editsFor(unit);
+        if (edits.isNotEmpty) {
+          passesWithEdits.add(transform.name);
+          passFileCounts[transform.name] =
+              (passFileCounts[transform.name] ?? 0) + 1;
+        }
+        collector.addAll(edits);
       }
       if (collector.isEmpty) continue;
 
@@ -65,20 +82,44 @@ final class ModernizePipeline {
       filesChanged++;
 
       if (options.dryRun) {
-        _printDiff(unit.path, original, modified);
+        final rel = p
+            .relative(unit.path, from: options.path)
+            .replaceAll(r'\', '/');
+        final diffText = unifiedDiff('a/$rel', 'b/$rel', original, modified);
+
+        var fileAdded = 0;
+        var fileRemoved = 0;
+        for (final line in diffText.split('\n')) {
+          if (line.startsWith('+') && !line.startsWith('+++')) fileAdded++;
+          if (line.startsWith('-') && !line.startsWith('---')) fileRemoved++;
+        }
+        totalAdded += fileAdded;
+        totalRemoved += fileRemoved;
+
+        reporter.renderDiff(
+          rel,
+          passesWithEdits,
+          fileAdded,
+          fileRemoved,
+          diffText,
+        );
       } else {
         File(unit.path).writeAsStringSync(modified);
       }
     }
 
     if (options.dryRun) {
-      stdout.writeln(
-        '$filesChanged file(s) would change (dry run, nothing written).',
+      reporter.dryRunSummary(
+        scanned: filesScanned,
+        changed: filesChanged,
+        added: totalAdded,
+        removed: totalRemoved,
+        passCounts: passFileCounts,
       );
       return;
     }
 
-    stdout.writeln('$filesChanged file(s) changed.');
+    reporter.liveSummary(filesChanged);
 
     // 3. Finalize: run when structural changes happened OR finalize passes are
     //    enabled (they can fire even if no structural edits were made).
@@ -114,7 +155,7 @@ final class ModernizePipeline {
   }
 
   Future<void> _finalize(List<FinalizeTransformation> passes) async {
-    stdout.writeln('Finalizing…');
+    reporter.finalizing();
 
     final projectPath = options.path;
     final hasFixAll = passes.any((p) => p.name == 'fix-all');
@@ -125,7 +166,7 @@ final class ModernizePipeline {
     // Runs before import organization so that fixes that remove imports are
     // reflected before organize-imports decides what to prune.
     if (hasFixAll) {
-      stdout.writeln('  dart fix --apply…');
+      reporter.finalizingStep('dart fix --apply');
       await _ensurePubGet(projectPath);
       await _runProcess(Platform.resolvedExecutable, [
         'fix',
@@ -140,9 +181,11 @@ final class ModernizePipeline {
     // package config and dart: imports correctly.
     if (hasOrganize || hasSortMembers) {
       await _ensurePubGet(projectPath);
-      stdout.writeln(
-        '  ${[if (hasOrganize) 'organize-imports', if (hasSortMembers) 'sort-members'].join(' + ')} via analysis server…',
-      );
+      final stepLabel = [
+        if (hasOrganize) 'organize-imports',
+        if (hasSortMembers) 'sort-members',
+      ].join(' + ');
+      reporter.finalizingStep('$stepLabel via analysis server');
       // Phase 1: query every file while files are unchanged on disk.
       // Writing files during query causes CONTENT_MODIFIED errors on
       // subsequent requests because the server detects the disk changes
@@ -174,14 +217,8 @@ final class ModernizePipeline {
 
     // dart format: always last so all previous edits end up consistently
     // formatted.
-    stdout.writeln('  dart format…');
+    reporter.finalizingStep('dart format');
     await _runProcess(Platform.resolvedExecutable, ['format', projectPath]);
-  }
-
-  void _printDiff(String filePath, String original, String modified) {
-    final rel = p.relative(filePath, from: options.path).replaceAll(r'\', '/');
-    stdout.write(unifiedDiff('a/$rel', 'b/$rel', original, modified));
-    stdout.writeln();
   }
 
   Future<void> _runProcess(
