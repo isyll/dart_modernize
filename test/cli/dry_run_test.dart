@@ -50,5 +50,54 @@ void main() {
         reason: 'dry run should print a unified-diff "+++" header',
       );
     });
+
+    test(
+      'with several passes on, writes nothing but previews changes',
+      () async {
+        final result = await runCli(
+          files: {'lib/a.dart': _multiPass},
+          args: [
+            '--dry-run',
+            ...onlyFeaturesArgs({
+              'dot_shorthands',
+              'super_parameters',
+              'expression_bodies',
+            }),
+          ],
+        );
+
+        expect(result.exitCode, 0, reason: result.stderr);
+        expect(
+          result.read('lib/a.dart'),
+          _multiPass,
+          reason:
+              'a dry run must leave the file untouched even with many passes',
+        );
+        expect(result.stdout, contains('--- a/'));
+        expect(result.stdout, contains('+++ b/'));
+      },
+    );
   });
 }
+
+/// A file three implemented passes touch at once: dot-shorthands (`.fast`),
+/// super-parameters (`super.id`), and expression-bodies (`square`).
+const String _multiPass = '''
+enum Mode { fast, slow }
+
+class Base {
+  final int id;
+
+  Base({required this.id});
+}
+
+class Worker extends Base {
+  Worker({required int id}) : super(id: id);
+
+  Mode mode() => Mode.fast;
+}
+
+int square(int x) {
+  return x * x;
+}
+''';
