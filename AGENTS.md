@@ -45,6 +45,7 @@ test/
 - Strict analyzer: `strict-casts`, `strict-inference`, `strict-raw-types` are all on.
 - `dart format`, `dart analyze --fatal-infos`, `dart test` must pass before every commit.
 - NEVER add decorative comments.
+- NEVER use em dashes (—).
 
 ## Commit rules: MANDATORY, no exceptions
 
