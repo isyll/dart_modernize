@@ -1,21 +1,10 @@
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:analyzer/dart/element/element.dart';
 
 import '../../engine/source_edit.dart';
+import '../safe_reference.dart';
 import '../transformation.dart';
-
-/// Returns the resolved element if [expr] is a side-effect-free stable
-/// reference (a local variable or parameter), otherwise `null`.
-Element? _safeRef(Expression expr) {
-  if (expr is! SimpleIdentifier) return null;
-  final element = expr.element;
-  if (element is LocalVariableElement || element is FormalParameterElement) {
-    return element;
-  }
-  return null;
-}
 
 /// Replaces null-guarded collection elements with the `?element` syntax.
 ///
@@ -94,7 +83,7 @@ class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
     if (condition.rightOperand is! NullLiteral) return null;
 
     final checkedExpr = condition.leftOperand;
-    final guardElement = _safeRef(checkedExpr);
+    final guardElement = stableReference(checkedExpr);
     if (guardElement == null) return null;
 
     final then = elem.thenElement;
@@ -118,7 +107,7 @@ class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
     if (inner is! DeclaredVariablePattern) return null;
 
     final scrutinee = elem.expression;
-    if (_safeRef(scrutinee) == null) return null;
+    if (stableReference(scrutinee) == null) return null;
 
     final then = elem.thenElement;
     if (then is! SimpleIdentifier) return null;

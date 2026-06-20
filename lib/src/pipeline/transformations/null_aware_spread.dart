@@ -1,21 +1,10 @@
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:analyzer/dart/element/element.dart';
 
 import '../../engine/source_edit.dart';
+import '../safe_reference.dart';
 import '../transformation.dart';
-
-/// Returns the resolved element if [expr] is a side-effect-free stable
-/// reference (a local variable or parameter), otherwise `null`.
-Element? _safeRef(Expression expr) {
-  if (expr is! SimpleIdentifier) return null;
-  final element = expr.element;
-  if (element is LocalVariableElement || element is FormalParameterElement) {
-    return element;
-  }
-  return null;
-}
 
 /// Replaces null-guarded spread elements with the `...?` null-aware spread.
 ///
@@ -82,7 +71,7 @@ class _NullAwareSpreadVisitor extends RecursiveAstVisitor<void> {
     if (condition.rightOperand is! NullLiteral) return null;
 
     final checkedExpr = condition.leftOperand;
-    final guardElement = _safeRef(checkedExpr);
+    final guardElement = stableReference(checkedExpr);
     if (guardElement == null) return null;
 
     final then = elem.thenElement;
