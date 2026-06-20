@@ -75,7 +75,6 @@ const featureFlags = <String, String>{
 /// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
 /// applies" half because a stub never produces output.
 const stubFeatures = <String>{
-  'private_named_parameters',
   'primary_constructors',
   'switch_expressions',
   'organize_imports',
