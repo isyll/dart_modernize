@@ -52,6 +52,10 @@ final class ModernizePipeline {
 
     // 2. Resolve and transform, file by file (structural passes only).
     reporter.resolving();
+    final filter = FileFilter.forProject(
+      options.path,
+      cliExcludes: options.excludes,
+    );
     final analyzer = ProjectAnalyzer(options.path)..initialize();
 
     var filesScanned = 0;
@@ -61,7 +65,7 @@ final class ModernizePipeline {
     final passFileCounts = <String, int>{};
 
     await for (final unit in analyzer.resolvedUnits()) {
-      if (isGeneratedFile(unit.path)) continue;
+      if (filter.shouldSkip(unit.path)) continue;
       filesScanned++;
 
       final collector = EditCollector();
@@ -124,17 +128,17 @@ final class ModernizePipeline {
     // 3. Finalize: run when structural changes happened OR finalize passes are
     //    enabled (they can fire even if no structural edits were made).
     if (filesChanged > 0 || finalize.isNotEmpty) {
-      await _finalize(finalize);
+      await _finalize(finalize, filter);
     }
   }
 
-  /// Returns every non-generated `.dart` file under [projectPath].
-  List<String> _dartFiles(String projectPath) {
+  /// Returns every non-excluded `.dart` file under [projectPath].
+  List<String> _dartFiles(String projectPath, FileFilter filter) {
     return Directory(projectPath)
         .listSync(recursive: true)
         .whereType<File>()
         .map((f) => f.path)
-        .where((fp) => fp.endsWith('.dart') && !isGeneratedFile(fp))
+        .where((fp) => fp.endsWith('.dart') && !filter.shouldSkip(fp))
         .toList();
   }
 
@@ -154,7 +158,10 @@ final class ModernizePipeline {
     }
   }
 
-  Future<void> _finalize(List<FinalizeTransformation> passes) async {
+  Future<void> _finalize(
+    List<FinalizeTransformation> passes,
+    FileFilter filter,
+  ) async {
     reporter.finalizing();
 
     final projectPath = options.path;
@@ -194,7 +201,7 @@ final class ModernizePipeline {
       final pendingEdits = <String, List<SourceEdit>>{};
       final server = await AnalysisServerWrapper.start(projectPath);
       try {
-        for (final filePath in _dartFiles(projectPath)) {
+        for (final filePath in _dartFiles(projectPath, filter)) {
           final edits = <SourceEdit>[];
           if (hasOrganize) {
             edits.addAll(await server.organizeDirectives(filePath));

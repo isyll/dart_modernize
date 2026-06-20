@@ -34,6 +34,11 @@ ArgParser buildArgParser() => .new()
     negatable: false,
     defaultsTo: false,
   )
+  ..addMultiOption(
+    'exclude',
+    help: 'Additional glob patterns to exclude (can be repeated).',
+    valueHelp: 'glob',
+  )
   ..addSeparator('Transformations (all enabled by default):')
   ..addFlag(
     'dot-shorthands',
@@ -128,6 +133,9 @@ final class CliOptions {
   /// When true, emit per-file progress and passes that made no changes.
   final bool verbose;
 
+  /// Additional glob patterns supplied via `--exclude` flags.
+  final List<String> excludes;
+
   final bool dotShorthands;
 
   final bool privateNamedParameters;
@@ -148,6 +156,7 @@ final class CliOptions {
     required this.dryRun,
     required this.color,
     required this.verbose,
+    required this.excludes,
     required this.dotShorthands,
     required this.privateNamedParameters,
     required this.primaryConstructors,
@@ -170,6 +179,7 @@ final class CliOptions {
       dryRun: results['dry-run'] as bool,
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,
+      excludes: results['exclude'] as List<String>,
       dotShorthands: results['dot-shorthands'] as bool,
       privateNamedParameters: results['private-named-parameters'] as bool,
       primaryConstructors: results['primary-constructors'] as bool,

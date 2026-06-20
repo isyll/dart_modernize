@@ -134,6 +134,7 @@ CliOptions _options({
   dryRun: false,
   color: null,
   verbose: false,
+  excludes: const [],
   dotShorthands: dotShorthands,
   privateNamedParameters: privateNamedParameters,
   primaryConstructors: primaryConstructors,
