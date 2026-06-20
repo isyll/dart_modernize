@@ -3,9 +3,10 @@ import 'package:analyzer/dart/analysis/results.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
-/// Sorts import and export directives into canonical order and removes
-/// directives that are unused.
-final class OrganizeImports implements Transformation {
+/// Organizes directives via the analysis server's organizeDirectives request.
+///
+/// Runs in the finalize phase, not through [editsFor]; [editsFor] is a no-op.
+final class OrganizeImports implements FinalizeTransformation {
   @override
   final bool enabled;
 

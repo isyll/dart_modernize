@@ -16,6 +16,7 @@ dependencies:
   path: ^1.9.0
   analyzer: ^13.3.0
   yaml: ^3.1.0
+  analysis_server_client: ^2.0.1
 
 dev_dependencies:
   lints: ^6.0.0

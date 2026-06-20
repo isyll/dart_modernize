@@ -74,13 +74,7 @@ const featureFlags = <String, String>{
 /// [flag_disables_pass_test] verifies that `--no-<flag>` is recognised and
 /// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
 /// applies" half because a stub never produces output.
-const stubFeatures = <String>{
-  'primary_constructors',
-  'switch_expressions',
-  'organize_imports',
-  'sort_members',
-  'fix_all',
-};
+const stubFeatures = <String>{'primary_constructors', 'switch_expressions'};
 
 /// Path to the CLI entry point, relative to [_packageRoot].
 const String _binPath = 'bin/dart_modernize.dart';
@@ -178,8 +172,13 @@ Future<CliResult> runCli({
 }
 
 /// CLI flags that disable a single [feature], leaving all others enabled.
+///
+/// Exception: when [feature] is `organize_imports`, sort_members is also
+/// disabled because the analysis server's sortMembers request sorts import
+/// directives too, causing the two passes to overlap on that operation.
 List<String> withoutFeatureArgs(String feature) => [
   '--no-${featureFlags[feature]}',
+  if (feature == 'organize_imports') '--no-sort-members',
 ];
 
 /// The outcome of a single CLI invocation against a throwaway project.

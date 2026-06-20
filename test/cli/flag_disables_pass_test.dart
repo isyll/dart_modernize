@@ -50,7 +50,7 @@ void main() {
         final result = await runCli(
           files: triggerFiles(feature),
           args: withoutFeatureArgs(feature),
-          pubspec: triggerPubspec(feature),
+          pubspec: defaultPubspec,
         );
 
         expect(result.exitCode, 0, reason: result.stderr);

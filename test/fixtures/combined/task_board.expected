@@ -4,19 +4,23 @@ import 'dart:math';
 enum Priority { low, high }
 
 class Task {
+  String get name => _name;
+
   final String _name;
   final Priority priority;
 
   Task({required this._name, required this.priority});
-
-  String get name => _name;
 }
 
 int weightOf(int code) {
-  final result = switch (code) {
-    0 => 1,
-    _ => 5,
-  };
+  int result;
+  switch (code) {
+    case 0:
+      result = 1;
+      break;
+    default:
+      result = 5;
+  }
   return result;
 }
 

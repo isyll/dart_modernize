@@ -1,11 +1,11 @@
 /// Full-pipeline safety spec over a realistic, multi-file project.
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
-/// is modernized with **all seven implemented passes** enabled at once, and the
-/// result must be (a) actually transformed by every pass, (b) idempotent (a
-/// second run changes nothing), and (c) still analyze without errors. A final
-/// case proves the six stub passes are inert: enabling them on top changes
-/// nothing.
+/// is modernized with **all ten implemented passes** enabled at once, and the
+/// result must be (a) actually transformed by every structural pass, (b)
+/// idempotent (a second run changes nothing), and (c) still analyze without
+/// errors. A final case proves the two stub passes are inert: enabling them on
+/// top changes nothing.
 ///
 /// The fixture deliberately keeps each transformable construct owned by a single
 /// pass (no two passes target the same span), so the project converges in one
@@ -24,16 +24,16 @@ void main() {
   group('full pipeline over a realistic project', () {
     late Directory project;
     late Map<String, String> afterFirst;
-    final sevenPasses = onlyFeaturesArgs(_implemented);
+    final stablePasses = onlyFeaturesArgs(_stable);
 
     setUpAll(() async {
       project = createProject(files: _projectFiles());
-      final run1 = await invokeCli(project, args: sevenPasses);
+      final run1 = await invokeCli(project, args: stablePasses);
       expect(run1.exitCode, 0, reason: run1.stderr);
       afterFirst = {for (final f in _projectFiles().keys) f: run1.read(f)};
     });
 
-    test('every implemented pass fires across the project', () {
+    test('every implemented structural pass fires across the project', () {
       final models = afterFirst['lib/models.dart']!;
       final text = afterFirst['lib/text.dart']!;
       final build = afterFirst['lib/build.dart']!;
@@ -43,6 +43,14 @@ void main() {
       // dot-shorthands (enum value in an arrow method and a getter)
       expect(models, contains('Mode mode() => .fast;'));
       expect(models, contains('Status get status => .active;'));
+      // sort-members (getter sorted before method within Worker)
+      expect(
+        models,
+        stringContainsInOrder([
+          'Status get status => .active;',
+          'Mode mode() => .fast;',
+        ]),
+      );
       // string-interpolation (arrow body and multi-statement body)
       expect(text, contains("String greet(String name) => 'Hello, \$name!';"));
       expect(text, contains("final combined = '\$prefix: \$value';"));
@@ -60,7 +68,7 @@ void main() {
     });
 
     test('a second run changes nothing (idempotent)', () async {
-      final run2 = await invokeCli(project, args: sevenPasses);
+      final run2 = await invokeCli(project, args: stablePasses);
       expect(run2.exitCode, 0, reason: run2.stderr);
       for (final f in _projectFiles().keys) {
         expect(
@@ -82,10 +90,11 @@ void main() {
     });
 
     test(
-      'the six stub passes are inert: enabling them changes nothing',
+      'the two stub passes are inert: enabling them changes nothing',
       () async {
-        // Default args = all thirteen passes on. The six stubs return no edits, so
-        // the output must be byte-identical to the seven-implemented-only run.
+        // Default args = all thirteen passes on. The two stubs
+        // (primary_constructors and switch_expressions) return no edits, so
+        // the output must be byte-identical to the ten-stable-passes run.
         final withStubs = createProject(files: _projectFiles());
         final run = await invokeCli(withStubs);
         expect(run.exitCode, 0, reason: run.stderr);
@@ -128,17 +137,6 @@ int square(int x) {
 }
 ''';
 
-/// The seven passes with real visitor logic (fixture-folder names).
-const _implemented = <String>{
-  'dot_shorthands',
-  'super_parameters',
-  'cascades',
-  'expression_bodies',
-  'string_interpolation',
-  'null_aware_spread',
-  'null_aware_elements',
-};
-
 /// super-parameters (full forward) + dot-shorthands (already-arrow methods).
 const _models = '''
 enum Mode { fast, slow }
@@ -159,6 +157,21 @@ class Worker extends Base {
   Status get status => Status.active;
 }
 ''';
+
+/// All ten implemented passes (fixture-folder names).
+const _stable = <String>{
+  'dot_shorthands',
+  'private_named_parameters',
+  'super_parameters',
+  'cascades',
+  'expression_bodies',
+  'string_interpolation',
+  'null_aware_spread',
+  'null_aware_elements',
+  'organize_imports',
+  'sort_members',
+  'fix_all',
+};
 
 /// string-interpolation in an arrow body and in a multi-statement body.
 const _text = '''

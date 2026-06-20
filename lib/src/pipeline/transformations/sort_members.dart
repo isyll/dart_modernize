@@ -3,9 +3,10 @@ import 'package:analyzer/dart/analysis/results.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
-/// Reorders class members into the canonical Dart style order:
-/// fields → constructors → named constructors → getters/setters → methods.
-final class SortMembers implements Transformation {
+/// Reorders class members via the analysis server's sortMembers request.
+///
+/// Runs in the finalize phase, not through [editsFor]; [editsFor] is a no-op.
+final class SortMembers implements FinalizeTransformation {
   @override
   final bool enabled;
 

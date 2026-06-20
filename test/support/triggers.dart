@@ -10,23 +10,23 @@ library;
 import 'cli_harness.dart';
 
 const String cascadesTrigger = '''
-class Box {
-  int width = 0;
-  int height = 0;
-}
-
 Box makeBox() {
   var b = Box();
   b.width = 10;
   b.height = 20;
   return b;
 }
+
+class Box {
+  int width = 0;
+  int height = 0;
+}
 ''';
 
 const String dotShorthandsTrigger = '''
-enum E { a, b }
-
 E pick() => E.a;
+
+enum E { a, b }
 ''';
 
 const String expressionBodiesTrigger = '''
@@ -72,7 +72,7 @@ const String organizeImportsTrigger = '''
 import 'dart:math';
 import 'dart:convert';
 
-String f(Object o) => jsonEncode(o);
+String f(num n) => jsonEncode(n * pi);
 ''';
 
 const String primaryConstructorsTrigger = '''
