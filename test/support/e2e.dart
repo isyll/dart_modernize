@@ -53,9 +53,14 @@ void defineCombinedGoldenSuite({
   group(label, () {
     final cases = discoverCases(dir);
 
-    test('has at least one case', () {
-      expect(cases, isNotEmpty, reason: 'No fixtures in test/fixtures/$dir/.');
-    });
+    test(
+      'has at least one case',
+      () => expect(
+        cases,
+        isNotEmpty,
+        reason: 'No fixtures in test/fixtures/$dir/.',
+      ),
+    );
 
     if (cases.isEmpty) return;
 
@@ -70,20 +75,22 @@ void defineCombinedGoldenSuite({
       firstRun = await invokeCli(project, args: args);
     });
 
-    test('runs successfully', () {
-      expect(firstRun.exitCode, 0, reason: firstRun.stderr);
-    });
+    test(
+      'runs successfully',
+      () => expect(firstRun.exitCode, 0, reason: firstRun.stderr),
+    );
 
     for (final c in cases) {
-      test('${c.name}: matches golden', () {
-        expect(
+      test(
+        '${c.name}: matches golden',
+        () => expect(
           firstRun.read(c.projectFile),
           c.expected,
           reason:
               'combined output for "${c.name}" did not match '
               'test/fixtures/$dir/${c.name}.expected',
-        );
-      });
+        ),
+      );
     }
 
     test('analyzes clean after modernization', () async {
@@ -125,13 +132,14 @@ void defineRobustnessSuite({
   group(label, () {
     final files = _plainDartFiles(dir);
 
-    test('has at least one file', () {
-      expect(
+    test(
+      'has at least one file',
+      () => expect(
         files,
         isNotEmpty,
         reason: 'No .dart files in test/fixtures/$dir/.',
-      );
-    });
+      ),
+    );
 
     if (files.isEmpty) return;
 
@@ -143,9 +151,10 @@ void defineRobustnessSuite({
       firstRun = await invokeCli(project, args: args);
     });
 
-    test('runs successfully', () {
-      expect(firstRun.exitCode, 0, reason: firstRun.stderr);
-    });
+    test(
+      'runs successfully',
+      () => expect(firstRun.exitCode, 0, reason: firstRun.stderr),
+    );
 
     test('still analyzes clean after modernization', () async {
       final outcome = await analyzeProject(project);

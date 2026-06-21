@@ -112,7 +112,7 @@ final class AnalysisServerWrapper {
     // not be delivered in all SDK versions.
     await server.send(
       SERVER_REQUEST_SET_SUBSCRIPTIONS,
-      ServerSetSubscriptionsParams([ServerService.STATUS]).toJson(),
+      ServerSetSubscriptionsParams([.STATUS]).toJson(),
     );
 
     await server.send(

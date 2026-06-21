@@ -13,9 +13,7 @@ final class ProjectAnalyzer {
   ProjectAnalyzer(this.projectPath);
 
   /// Initialises the analysis context. Must be called before [resolvedUnits].
-  void initialize() {
-    _collection = .new(includedPaths: [projectPath]);
-  }
+  void initialize() => _collection = .new(includedPaths: [projectPath]);
 
   /// Yields every resolved Dart library unit in the project, in file order.
   ///

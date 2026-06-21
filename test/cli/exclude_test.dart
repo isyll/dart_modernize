@@ -39,11 +39,7 @@ void main() {
           'lib/widget.dart': dotShorthandsTrigger,
           'vendor/widget.dart': dotShorthandsTrigger,
         },
-        args: [
-          ...onlyFeatureArgs('dot_shorthands'),
-          '--exclude',
-          'vendor/**',
-        ],
+        args: [...onlyFeatureArgs('dot_shorthands'), '--exclude', 'vendor/**'],
       );
 
       expect(result.exitCode, 0, reason: result.stderr);
@@ -98,11 +94,7 @@ void main() {
           'analysis_options.yaml':
               'analyzer:\n  exclude:\n    - test/fixtures/**\n',
         },
-        args: [
-          ...onlyFeatureArgs('dot_shorthands'),
-          '--exclude',
-          'vendor/**',
-        ],
+        args: [...onlyFeatureArgs('dot_shorthands'), '--exclude', 'vendor/**'],
       );
 
       expect(result.exitCode, 0, reason: result.stderr);

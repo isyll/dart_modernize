@@ -53,16 +53,17 @@ void defineGoldenSuite(String feature) {
   group('golden: $feature', () {
     final cases = discoverCases(feature);
 
-    test('has at least one fixture case', () {
-      expect(
+    test(
+      'has at least one fixture case',
+      () => expect(
         cases,
         isNotEmpty,
         reason:
             'No fixtures found in test/fixtures/$feature/. Add a '
             '<case>.input.dart + <case>.expected pair, or a '
             '<case>.unchanged.dart negative case.',
-      );
-    });
+      ),
+    );
 
     if (cases.isEmpty) return;
 
@@ -84,8 +85,9 @@ void defineGoldenSuite(String feature) {
 
     for (final c in cases) {
       final label = c.isNegative ? '${c.name} (must not change)' : c.name;
-      test(label, () {
-        expect(
+      test(
+        label,
+        () => expect(
           result.read(c.projectFile),
           c.expected,
           reason: c.isNegative
@@ -93,8 +95,8 @@ void defineGoldenSuite(String feature) {
                     'context does not support it; output must equal input.'
               : 'Golden case "${c.name}" did not match '
                     'test/fixtures/$feature/${c.name}.expected.',
-        );
-      });
+        ),
+      );
     }
   });
 }

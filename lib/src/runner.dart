@@ -21,9 +21,9 @@ Future<void> run(List<String> arguments) async {
   try {
     results = parser.parse(arguments);
   } on FormatException catch (e) {
-    final r = Reporter(color: resolveColor(colorFlag: null), verbose: false);
-    r.error(e.message);
-    r.errorHint('Run dart_modernize --help for usage.');
+    Reporter(color: resolveColor(colorFlag: null), verbose: false)
+      ..error(e.message)
+      ..errorHint('Run dart_modernize --help for usage.');
     exit(64);
   }
 

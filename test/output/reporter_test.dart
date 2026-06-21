@@ -84,12 +84,12 @@ void main() {
 
     test('status methods: no ANSI codes', () {
       final out = StringBuffer();
-      final r = makeNoColor(out: out);
-      r.validated();
-      r.nothingToDo();
-      r.resolving();
-      r.finalizing();
-      r.finalizingStep('dart format');
+      makeNoColor(out: out)
+        ..validated()
+        ..nothingToDo()
+        ..resolving()
+        ..finalizing()
+        ..finalizingStep('dart format');
       expect(out.toString(), isNot(contains('\x1b[')));
     });
   });
@@ -114,13 +114,15 @@ void main() {
   });
 
   group('resolveColor', () {
-    test('--no-color flag returns false', () {
-      expect(resolveColor(colorFlag: false), isFalse);
-    });
+    test(
+      '--no-color flag returns false',
+      () => expect(resolveColor(colorFlag: false), isFalse),
+    );
 
-    test('--color flag returns true', () {
-      expect(resolveColor(colorFlag: true), isTrue);
-    });
+    test(
+      '--color flag returns true',
+      () => expect(resolveColor(colorFlag: true), isTrue),
+    );
   });
 }
 
