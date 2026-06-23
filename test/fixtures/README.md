@@ -7,8 +7,8 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 
 ## Folder = feature
 
-All thirteen transformation passes have a fixtures folder and a CLI flag.
-The seven passes marked **implemented** have full visitor logic; running the tool
+All fifteen transformation passes have a fixtures folder and a CLI flag.
+The nine passes marked **implemented** have full visitor logic; running the tool
 with only that flag enabled rewrites positive fixtures as expected and leaves
 negative (`.unchanged.dart`) fixtures byte-for-byte identical.
 
@@ -18,21 +18,23 @@ built. This is the intended TDD state: the failing assertion names the fixture
 and its expected output, so the fixtures serve as the spec the implementation
 must satisfy.
 
-| Folder                      | CLI flag                     | Status      |
-| --------------------------- | ---------------------------- | ----------- |
-| `dot_shorthands/`           | `--dot-shorthands`           | implemented |
-| `private_named_parameters/` | `--private-named-parameters` | stub        |
-| `primary_constructors/`     | `--primary-constructors`     | stub        |
-| `super_parameters/`         | `--super-parameters`         | implemented |
-| `switch_expressions/`       | `--switch-expressions`       | stub        |
-| `cascades/`                 | `--cascades`                 | implemented |
-| `expression_bodies/`        | `--expression-bodies`        | implemented |
-| `string_interpolation/`     | `--string-interpolation`     | implemented |
-| `null_aware_spread/`        | `--null-aware-spread`        | implemented |
-| `null_aware_elements/`      | `--null-aware-elements`      | implemented |
-| `organize_imports/`         | `--organize-imports`         | stub        |
-| `sort_members/`             | `--sort-members`             | stub        |
-| `fix_all/`                  | `--fix-all`                  | stub        |
+| Folder                        | CLI flag                       | Status      |
+| ----------------------------- | ------------------------------ | ----------- |
+| `dot_shorthands/`             | `--dot-shorthands`             | implemented |
+| `private_named_parameters/`   | `--private-named-parameters`   | stub        |
+| `primary_constructors/`       | `--primary-constructors`       | stub        |
+| `super_parameters/`           | `--super-parameters`           | implemented |
+| `switch_expressions/`         | `--switch-expressions`         | stub        |
+| `cascades/`                   | `--cascades`                   | implemented |
+| `final_locals/`               | `--final-locals`               | implemented |
+| `expression_bodies/`          | `--expression-bodies`          | implemented |
+| `string_interpolation/`       | `--string-interpolation`       | implemented |
+| `null_aware_spread/`          | `--null-aware-spread`          | implemented |
+| `null_aware_elements/`        | `--null-aware-elements`        | implemented |
+| `organize_imports/`           | `--organize-imports`           | stub        |
+| `sort_members/`               | `--sort-members`               | stub        |
+| `fix_all/`                    | `--fix-all`                    | stub        |
+| `abstract_final_classes/`     | `--abstract-final-classes`     | implemented |
 
 ## Adding a case = adding files (no code)
 

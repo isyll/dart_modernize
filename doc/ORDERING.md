@@ -19,19 +19,31 @@ by `enabled`; it never reorders. The order is:
 4. `super-parameters`
 5. `switch-expressions`
 6. `cascades`
-7. `expression-bodies`
-8. `string-interpolation`
-9. `null-aware-spread`
-10. `null-aware-elements`
-11. `organize-imports`
-12. `sort-members`
-13. `fix-all`
+7. `final-locals`
+8. `expression-bodies`
+9. `string-interpolation`
+10. `null-aware-spread`
+11. `null-aware-elements`
+12. `organize-imports`
+13. `sort-members`
+14. `fix-all`
+15. `abstract-final-classes`
 
 The grouping is **structural rewrites first, cosmetic passes next, bulk fixes
-last**: passes that change the shape of declarations and statements (1–10) run
+last**: passes that change the shape of declarations and statements (1–11) run
 ahead of the ones that reorder or reformat whole files (`organize-imports`,
-`sort-members`) and the catch-all `fix-all`. That grouping is asserted as an
-invariant by the order test, so a reordering that breaks it fails CI.
+`sort-members`) and the catch-all `fix-all`. `abstract-final-classes` is placed
+last because it requires a full project-wide analysis pass to determine which
+classes are safe to seal before it can emit any edits. That grouping is asserted
+as an invariant by the order test, so a reordering that breaks it fails CI.
+
+`cascades` (6) must immediately precede `final-locals` (7). Both passes emit an
+edit at the same offset (`stmt.offset`) when a `var` declaration is the target of
+a cascade run: the cascade edit replaces the entire statement; the final-locals
+edit replaces only the `var` keyword. `EditCollector` resolves the tie by
+insertion order (stable sort), so cascades winning means the correct replacement
+lands and the final-locals edit is silently discarded as an overlap. This
+converges in a single run.
 
 ## The execution model (verified)
 

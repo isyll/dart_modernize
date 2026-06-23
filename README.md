@@ -151,7 +151,7 @@ final tags = ['base', ?extra];
 
 ## 🚀 What it does
 
-Thirteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
+Fifteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
 
 | | Feature | Description |
 |:--:|:--|:--|
@@ -159,7 +159,8 @@ Thirteen focused passes, grouped into five families. Each one is independently t
 | 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
 | ➡️ | **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
 | 🧵 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into clean `'a $b c'` interpolation. |
-| 🌊 | **Cascades** | Collapses a run of member writes on a fresh local into a single `..` cascade. |
+| 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused, or absorbs a trailing `return` when that is the only remaining use. |
+| 📌 | **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
 | ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
@@ -168,6 +169,7 @@ Thirteen focused passes, grouped into five families. Each one is independently t
 | 📦 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | 🔤 | **Sort members** | Reorders members into the canonical order. |
 | 🩹 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
+| 🏛️ | **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
 
 > Every edit is type checked before it lands. The tool **never** changes the resolved type, the targeted element, the evaluation count, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves your code alone.
 
@@ -272,23 +274,62 @@ String row(String a, String b) => '| $a | $b |';
 
 > Only when every piece is a side-effect-free `String`. Arithmetic `+` and method-call operands are left exactly as written.
 
-**🌊 Cascades**: collapses a run of member writes and calls on a freshly declared local into a single cascade.
+**🌊 Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely; when the only remaining use is `return local;` that is absorbed into the cascade too.
 
 ```dart
-// before
+// before — local kept
 final paint = Paint();
 paint.color = accent;
 paint.strokeWidth = 2.0;
 paint.style = PaintingStyle.stroke;
 
-// after
+// after — local kept
 final paint = Paint()
   ..color = accent
   ..strokeWidth = 2.0
   ..style = PaintingStyle.stroke;
+
+// before — local unused after run
+final reporter = Reporter(source);
+reporter.error('not found');
+reporter.errorHint('check spelling');
+
+// after — dropped to a bare statement cascade
+Reporter(source)
+  ..error('not found')
+  ..errorHint('check spelling');
+
+// before — only remaining use is return
+final conn = Connection(host);
+conn.open();
+conn.authenticate(token);
+return conn;
+
+// after — return inlined
+return Connection(host)
+  ..open()
+  ..authenticate(token);
 ```
 
-> Applies only when the target is not reassigned, read, or passed as an argument anywhere in the run, and no right-hand side reads the target itself.
+> Applies only when the target is not reassigned, read between writes, or passed as an argument within the run, and no right-hand side reads the target.
+
+**📌 Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body.
+
+```dart
+// before
+var name = user.displayName;
+var multiplier = getMultiplier();
+print(name);
+return multiplier * base;
+
+// after
+final name = user.displayName;
+final multiplier = getMultiplier();
+print(name);
+return multiplier * base;
+```
+
+> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures.
 
 ### ❓ Null-aware collections
 
@@ -406,7 +447,7 @@ class Account {
 }
 ```
 
-**🩹 Fix all**: applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, preferring `final` locals, and more.
+**🩹 Fix all**: applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, and more.
 
 ```dart
 // before
@@ -420,6 +461,25 @@ class Dog extends Animal {
   String speak() => 'woof';
 }
 ```
+
+**🏛️ Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
+
+```dart
+// before
+class AppColors {
+  AppColors._();
+  static const primary = Color(0xFF0175C2);
+  static const secondary = Color(0xFF13B9FD);
+}
+
+// after
+abstract final class AppColors {
+  static const primary = Color(0xFF0175C2);
+  static const secondary = Color(0xFF13B9FD);
+}
+```
+
+> Skipped when the class is extended, implemented, or instantiated anywhere in the analyzed project, or already carries any class modifier. Requires full project analysis, so it runs as the final pass after all structural rewrites have settled.
 
 <br>
 
