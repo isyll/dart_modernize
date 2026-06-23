@@ -100,10 +100,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     }
     final elementType = inferred.typeArguments.first;
 
-    final anyCollapses = node.elements.any(
-      (e) => e is Expression && _wouldCollapse(e, elementType),
-    );
-    if (!anyCollapses) return;
+    if (!_anyElementCollapses(node.elements, elementType)) return;
 
     edits.add(
       .new(
@@ -112,6 +109,28 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
         replacement: '<${elementType.getDisplayString()}>',
       ),
     );
+  }
+
+  /// Whether any element in [elements] (recursing into ForElement/IfElement
+  /// bodies) would collapse to a shorthand given [elementType] as context.
+  bool _anyElementCollapses(
+    Iterable<CollectionElement> elements,
+    DartType elementType,
+  ) {
+    for (final e in elements) {
+      if (e is Expression && _wouldCollapse(e, elementType)) return true;
+      if (e is ForElement && _anyElementCollapses([e.body], elementType)) {
+        return true;
+      }
+      if (e is IfElement) {
+        if (_anyElementCollapses([e.thenElement], elementType)) return true;
+        final elseEl = e.elseElement;
+        if (elseEl != null && _anyElementCollapses([elseEl], elementType)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /// Context type for an argument from the parameter slot it binds to.
@@ -152,6 +171,13 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       length: constructorName.end - start,
       replacement: replacement,
     );
+  }
+
+  /// Declared type of the field named in [initializer], resolved via the
+  /// field element that the initializer's field-name identifier binds to.
+  DartType? _constructorFieldType(ConstructorFieldInitializer initializer) {
+    final element = initializer.fieldName.element;
+    return element is FieldElement ? element.type : null;
   }
 
   /// The static context type at [node]'s position, or null when it cannot be
@@ -209,19 +235,60 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
             ? type.typeArguments.first
             : null;
 
-      // Map key / value.
+      // Map key / value (climb through any control-flow wrappers).
       case MapLiteralEntry():
-        final map = parent.parent;
-        if (map is! SetOrMapLiteral) return null;
-        final types = _mapTypes(map);
+        AstNode? ancestor = parent.parent;
+        while (ancestor is ForElement || ancestor is IfElement) {
+          ancestor = ancestor!.parent;
+        }
+        if (ancestor is! SetOrMapLiteral) return null;
+        final types = _mapTypes(ancestor);
         if (types == null) return null;
         if (identical(parent.value, node)) return types.value;
         if (identical(parent.key, node)) return types.key;
         return null;
 
+      // Element that is the body of a for-collection-element.
+      case ForElement() when identical(parent.body, node):
+        return _enclosingCollectionElementType(parent);
+
+      // Element that is a branch of an if-collection-element.
+      case IfElement()
+          when identical(parent.thenElement, node) ||
+              identical(parent.elseElement, node):
+        return _enclosingCollectionElementType(parent);
+
+      // `_field = node` in a constructor initializer list.
+      case ConstructorFieldInitializer()
+          when identical(parent.expression, node):
+        return _constructorFieldType(parent);
+
       default:
         return null;
     }
+  }
+
+  /// Climbs through nested ForElement/IfElement wrappers to the nearest
+  /// enclosing ListLiteral or SetOrMapLiteral and returns its element type.
+  DartType? _enclosingCollectionElementType(CollectionElement element) {
+    AstNode? current = element.parent;
+    while (current is ForElement || current is IfElement) {
+      current = current!.parent;
+    }
+    if (current is ListLiteral) return _listElementType(current);
+    if (current is SetOrMapLiteral) {
+      final downward = _contextType(current);
+      if (downward is InterfaceType &&
+          downward.isDartCoreSet &&
+          downward.typeArguments.length == 1) {
+        return downward.typeArguments.first;
+      }
+      final explicit = current.typeArguments;
+      if (explicit != null && explicit.arguments.length == 1) {
+        return explicit.arguments.first.type;
+      }
+    }
+    return null;
   }
 
   /// Declared return type of the nearest enclosing synchronous, non-generator
