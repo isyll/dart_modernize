@@ -1,7 +1,7 @@
 /// Full-pipeline safety spec over a realistic, multi-file project.
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
-/// is modernized with **all ten implemented passes** enabled at once, and the
+/// is modernized with **all fourteen implemented passes** enabled at once, and the
 /// result must be (a) actually transformed by every structural pass, (b)
 /// idempotent (a second run changes nothing), and (c) still analyze without
 /// errors. A final case proves the two stub passes are inert: enabling them on
@@ -92,9 +92,9 @@ void main() {
     test(
       'the two stub passes are inert: enabling them changes nothing',
       () async {
-        // Default args = all thirteen passes on. The two stubs
+        // Default args = all sixteen passes on. The two stubs
         // (primary_constructors and switch_expressions) return no edits, so
-        // the output must be byte-identical to the ten-stable-passes run.
+        // the output must be byte-identical to the fourteen-stable-passes run.
         final withStubs = createProject(files: _projectFiles());
         final run = await invokeCli(withStubs);
         expect(run.exitCode, 0, reason: run.stderr);
@@ -119,17 +119,18 @@ Queue<int> fill(int seed, int other) {
   final q = Queue<int>();
   q.add(seed);
   q.add(other);
+  assert(q.length == 2);
   return q;
 }
 
 List<int> merge(List<int> base, List<int>? extra) {
   final all = [...base, if (extra != null) ...extra];
-  return all;
+  return all.toList();
 }
 
 List<int> collect(int head, int? tail) {
   final xs = [head, if (tail != null) tail];
-  return xs;
+  return xs.toList();
 }
 
 int square(int x) {
@@ -158,12 +159,14 @@ class Worker extends Base {
 }
 ''';
 
-/// All ten implemented passes (fixture-folder names).
+/// All fourteen implemented passes (fixture-folder names).
 const _stable = <String>{
   'dot_shorthands',
   'private_named_parameters',
   'super_parameters',
   'cascades',
+  'inline_return',
+  'final_locals',
   'expression_bodies',
   'string_interpolation',
   'null_aware_spread',
@@ -171,6 +174,7 @@ const _stable = <String>{
   'organize_imports',
   'sort_members',
   'fix_all',
+  'abstract_final_classes',
 };
 
 /// string-interpolation in an arrow body and in a multi-statement body.
@@ -179,7 +183,7 @@ String greet(String name) => 'Hello, ' + name + '!';
 
 String label(String prefix, String value) {
   final combined = prefix + ': ' + value;
-  return combined;
+  return combined.trim();
 }
 ''';
 

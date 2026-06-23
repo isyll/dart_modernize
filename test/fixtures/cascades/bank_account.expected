@@ -13,9 +13,10 @@ class BankAccount {
 }
 
 BankAccount open() {
-  return BankAccount()
+  var account = BankAccount()
     ..owner = 'Ibrahima'
     ..deposit(1000)
     ..deposit(500)
     ..freeze();
+  return account;
 }

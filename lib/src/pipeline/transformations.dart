@@ -5,6 +5,7 @@ import 'transformations/cascades.dart';
 import 'transformations/dot_shorthands.dart';
 import 'transformations/expression_bodies.dart';
 import 'transformations/final_locals.dart';
+import 'transformations/inline_return.dart';
 import 'transformations/fix_all.dart';
 import 'transformations/null_aware_elements.dart';
 import 'transformations/null_aware_spread.dart';
@@ -21,6 +22,7 @@ export 'transformations/cascades.dart';
 export 'transformations/dot_shorthands.dart';
 export 'transformations/expression_bodies.dart';
 export 'transformations/final_locals.dart';
+export 'transformations/inline_return.dart';
 export 'transformations/fix_all.dart';
 export 'transformations/null_aware_elements.dart';
 export 'transformations/null_aware_spread.dart';
@@ -46,6 +48,7 @@ List<Transformation> buildTransformations(CliOptions options) => [
   SuperParameters(enabled: options.superParameters),
   SwitchExpressions(enabled: options.switchExpressions),
   Cascades(enabled: options.cascades),
+  InlineReturn(enabled: options.inlineReturn),
   FinalLocals(enabled: options.finalLocals),
   ExpressionBodies(enabled: options.expressionBodies),
   StringInterpolation(enabled: options.stringInterpolation),

@@ -7,9 +7,10 @@ class Config {
 }
 
 Config defaults() {
-  return Config()
+  final config = Config()
     ..name = 'app'
     ..enable('verbose')
     ..timeout = 30
     ..enable('color');
+  return config;
 }

@@ -6,7 +6,8 @@ class Paint {
 Paint defaultPaint() => Paint();
 
 Paint make(int c) {
-  return defaultPaint()
+  var p = defaultPaint()
     ..color = c
     ..strokeWidth = 5.0;
+  return p;
 }

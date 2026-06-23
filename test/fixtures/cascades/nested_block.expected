@@ -5,9 +5,10 @@ class Config {
 
 Config? setup(bool enable) {
   if (enable) {
-    return Config()
+    var cfg = Config()
       ..name = 'enabled'
       ..timeout = 60;
+    return cfg;
   }
   return null;
 }

@@ -119,6 +119,13 @@ ArgParser buildArgParser() => .new()
         '`?x` null-aware element syntax.',
   )
   ..addFlag(
+    'inline-return',
+    defaultsTo: true,
+    help:
+        'Inline a local variable that is declared, immediately returned, and '
+        'used nowhere else.',
+  )
+  ..addFlag(
     'final-locals',
     defaultsTo: true,
     help:
@@ -162,6 +169,7 @@ final class CliOptions {
   final bool sortMembers;
   final bool fixAll;
   final bool cascades;
+  final bool inlineReturn;
   final bool stringInterpolation;
   final bool nullAwareSpread;
   final bool nullAwareElements;
@@ -183,6 +191,7 @@ final class CliOptions {
     required this.sortMembers,
     required this.fixAll,
     required this.cascades,
+    required this.inlineReturn,
     required this.stringInterpolation,
     required this.nullAwareSpread,
     required this.nullAwareElements,
@@ -208,6 +217,7 @@ final class CliOptions {
       sortMembers: results['sort-members'] as bool,
       fixAll: results['fix-all'] as bool,
       cascades: results['cascades'] as bool,
+      inlineReturn: results['inline-return'] as bool,
       stringInterpolation: results['string-interpolation'] as bool,
       nullAwareSpread: results['null-aware-spread'] as bool,
       nullAwareElements: results['null-aware-elements'] as bool,

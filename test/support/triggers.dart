@@ -61,16 +61,13 @@ class B extends A {
 ''';
 
 const String nullAwareElementsTrigger = '''
-List<int?> pack(int? a) {
-  final result = [if (a != null) a];
-  return result;
-}
+List<int?> pack(int? a) => [if (a != null) a];
 ''';
 
 const String nullAwareSpreadTrigger = '''
 List<int> merge(List<int> base, List<int>? extra) {
   final result = [...base, if (extra != null) ...extra];
-  return result;
+  return result.toList();
 }
 ''';
 
@@ -116,10 +113,7 @@ class S {
 ''';
 
 const String stringInterpolationTrigger = '''
-String greet(String name) {
-  final msg = 'Hello, ' + name + '!';
-  return msg;
-}
+String greet(String name) => 'Hello, ' + name + '!';
 ''';
 
 const String superParametersTrigger = '''
@@ -139,6 +133,15 @@ int compute() => 42;
 
 int result() {
   var x = compute();
+  return x.abs();
+}
+''';
+
+const String inlineReturnTrigger = '''
+int compute() => 42;
+
+int result() {
+  final x = compute();
   return x;
 }
 ''';
@@ -165,6 +168,7 @@ const Map<String, String> triggers = {
   'super_parameters': superParametersTrigger,
   'switch_expressions': switchExpressionsTrigger,
   'cascades': cascadesTrigger,
+  'inline_return': inlineReturnTrigger,
   'final_locals': finalLocalsTrigger,
   'expression_bodies': expressionBodiesTrigger,
   'string_interpolation': stringInterpolationTrigger,

@@ -4,7 +4,8 @@ class Paint {
 }
 
 Paint make(int c) {
-  return Paint()
+  var p = Paint()
     ..color = c
     ..strokeWidth = 5.0;
+  return p;
 }

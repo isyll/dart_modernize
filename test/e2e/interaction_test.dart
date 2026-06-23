@@ -149,8 +149,7 @@ enum Flag { on, off }
 String describe(String label, List<int>? extra) {
   final parts = [1, if (extra != null) ...extra];
   final joined = parts.length.toString();
-  final msg = 'count: ' + label + joined;
-  return msg;
+  return 'count: ' + label + joined;
 }
 
 Flag current() => Flag.on;
@@ -161,8 +160,7 @@ enum Flag { on, off }
 String describe(String label, List<int>? extra) {
   final parts = [1, ...?extra];
   final joined = parts.length.toString();
-  final msg = 'count: \$label\$joined';
-  return msg;
+  return 'count: \$label\$joined';
 }
 
 Flag current() => .on;
@@ -320,11 +318,12 @@ Palette build() {
 
 const _file = 'lib/c.dart';
 
-/// The seven passes with real visitor logic (fixture-folder names).
+/// The implemented passes with real visitor logic (fixture-folder names).
 const _implemented = <String>{
   'dot_shorthands',
   'super_parameters',
   'cascades',
+  'inline_return',
   'expression_bodies',
   'string_interpolation',
   'null_aware_spread',

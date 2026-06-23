@@ -19,15 +19,16 @@ by `enabled`; it never reorders. The order is:
 4. `super-parameters`
 5. `switch-expressions`
 6. `cascades`
-7. `final-locals`
-8. `expression-bodies`
-9. `string-interpolation`
-10. `null-aware-spread`
-11. `null-aware-elements`
-12. `organize-imports`
-13. `sort-members`
-14. `fix-all`
-15. `abstract-final-classes`
+7. `inline-return`
+8. `final-locals`
+9. `expression-bodies`
+10. `string-interpolation`
+11. `null-aware-spread`
+12. `null-aware-elements`
+13. `organize-imports`
+14. `sort-members`
+15. `fix-all`
+16. `abstract-final-classes`
 
 The grouping is **structural rewrites first, cosmetic passes next, bulk fixes
 last**: passes that change the shape of declarations and statements (1–11) run
@@ -37,13 +38,16 @@ last because it requires a full project-wide analysis pass to determine which
 classes are safe to seal before it can emit any edits. That grouping is asserted
 as an invariant by the order test, so a reordering that breaks it fails CI.
 
-`cascades` (6) must immediately precede `final-locals` (7). Both passes emit an
-edit at the same offset (`stmt.offset`) when a `var` declaration is the target of
-a cascade run: the cascade edit replaces the entire statement; the final-locals
-edit replaces only the `var` keyword. `EditCollector` resolves the tie by
-insertion order (stable sort), so cascades winning means the correct replacement
-lands and the final-locals edit is silently discarded as an overlap. This
-converges in a single run.
+`cascades` (6) must precede both `inline-return` (7) and `final-locals` (8).
+When a cascade run targets a `var` declaration that is also immediately returned,
+cascades folds the writes first (producing `var x = X()..a..b; return x;`), and
+`inline-return` then collapses that to `return X()..a..b;` on the next run.
+Within a single run, `inline-return` (7) must precede `final-locals` (8): both
+can emit an edit at `stmt.offset` when a `var` declaration is immediately
+returned -- the inline-return edit replaces the entire declaration-plus-return;
+the final-locals edit replaces only the `var` keyword. Insertion order breaks the
+tie (stable sort), so inline-return wins and the final-locals edit is silently
+discarded as an overlap, converging in one run.
 
 ## The execution model (verified)
 
@@ -102,12 +106,16 @@ idempotent for those constructs. This happens because several passes emit a
 replacement that _spans and re-emits_ an inner expression verbatim, and that
 span hides another pass's edit nested inside it:
 
-| Construct                                                     | Passes that collide                          | Converges in |
-| ------------------------------------------------------------- | -------------------------------------------- | ------------ |
-| `T f() { return T.x; }`                                       | `expression-bodies` + `dot-shorthands`       | 2 runs       |
-| `String f() { return a + b; }`                                | `expression-bodies` + `string-interpolation` | 2 runs       |
+| Construct                                                      | Passes that collide                          | Converges in |
+| -------------------------------------------------------------- | -------------------------------------------- | ------------ |
+| `T f() { return T.x; }`                                        | `expression-bodies` + `dot-shorthands`       | 2 runs       |
+| `String f() { return a + b; }`                                 | `expression-bodies` + `string-interpolation` | 2 runs       |
 | `C({required int x}) : super(a: A.x, x: x)` (partial forward) | `super-parameters` + `dot-shorthands`        | 2 runs       |
-| `p.add(A.x)` inside a folded cascade run                      | `cascades` + `dot-shorthands`                | 2 runs       |
+| `p.add(A.x)` inside a folded cascade run                       | `cascades` + `dot-shorthands`                | 2 runs       |
+| `var x = T.a; return x;`                                       | `inline-return` + `dot-shorthands`           | 2 runs       |
+| `var x = a + b; return x;`                                     | `inline-return` + `string-interpolation`     | 2 runs       |
+| `{ final x = e; return x; }` (sole statement after inlining)  | `inline-return` + `expression-bodies`        | 2 runs       |
+| `var p = X(); p.a(); p.b(); return p;` (cascade then inline)   | `cascades` + `inline-return`                 | 2 runs       |
 
 The "converge across runs" group in the interaction suite reproduces all four
 and asserts each reaches the correct fixpoint. The existing golden and combined
