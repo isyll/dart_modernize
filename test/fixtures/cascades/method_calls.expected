@@ -6,9 +6,8 @@ class Builder {
 }
 
 Builder build() {
-  var b = Builder()
+  return Builder()
     ..add('a')
     ..add('b')
     ..clear();
-  return b;
 }

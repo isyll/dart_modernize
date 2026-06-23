@@ -5,9 +5,8 @@ class Connection {
 }
 
 Connection connect() {
-  var conn = Connection()
+  return Connection()
     ..host = 'example.com'
     ..port = 443
     ..open();
-  return conn;
 }

@@ -4,8 +4,7 @@ class Paint {
 }
 
 Paint make(int c) {
-  Paint p = Paint()
+  return Paint()
     ..color = c
     ..strokeWidth = 5.0;
-  return p;
 }

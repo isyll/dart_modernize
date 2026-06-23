@@ -109,16 +109,26 @@ class _CascadeVisitor extends RecursiveAstVisitor<void> {
           .map((s) => '\n$cascadeIndent..${_cascadeItem(s)}')
           .join('');
 
+      final receiverText = source.substring(
+        varDecl.initializer!.offset,
+        varDecl.initializer!.end,
+      );
+
       if (_isUnusedAfterRun(element, statements, i, run.length)) {
-        final receiverText = source.substring(
-          varDecl.initializer!.offset,
-          varDecl.initializer!.end,
-        );
         edits.add(
           .new(
             offset: stmt.offset,
             length: run.last.end - stmt.offset,
             replacement: '$receiverText$items;',
+          ),
+        );
+      } else if (_isSoleImmediateReturn(element, statements, i, run.length)) {
+        final returnStmt = statements[i + run.length + 1];
+        edits.add(
+          .new(
+            offset: stmt.offset,
+            length: returnStmt.end - stmt.offset,
+            replacement: 'return $receiverText$items;',
           ),
         );
       } else {
@@ -148,6 +158,31 @@ class _CascadeVisitor extends RecursiveAstVisitor<void> {
     }
 
     return false;
+  }
+
+  /// Returns true when the single statement immediately after the run is
+  /// `return <target>;` and the target is not referenced anywhere beyond that.
+  bool _isSoleImmediateReturn(
+    Element target,
+    NodeList<Statement> statements,
+    int declIndex,
+    int runLength,
+  ) {
+    final afterRunIndex = declIndex + runLength + 1;
+    if (afterRunIndex >= statements.length) return false;
+
+    final next = statements[afterRunIndex];
+    if (next is! ReturnStatement) return false;
+    final expr = next.expression;
+    if (expr is! SimpleIdentifier) return false;
+    if (expr.element != target) return false;
+
+    for (var k = afterRunIndex + 1; k < statements.length; k++) {
+      final finder = _TargetFinder(target);
+      statements[k].accept(finder);
+      if (finder.found) return false;
+    }
+    return true;
   }
 
   bool _isTargetMemberAccess(Element target, Expression lhs) {
