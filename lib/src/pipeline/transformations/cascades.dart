@@ -108,15 +108,28 @@ class _CascadeVisitor extends RecursiveAstVisitor<void> {
       final items = run
           .map((s) => '\n$cascadeIndent..${_cascadeItem(s)}')
           .join('');
-      final replacement = '$items;';
 
-      edits.add(
-        .new(
-          offset: stmt.semicolon.offset,
-          length: run.last.end - stmt.semicolon.offset,
-          replacement: replacement,
-        ),
-      );
+      if (_isUnusedAfterRun(element, statements, i, run.length)) {
+        final receiverText = source.substring(
+          varDecl.initializer!.offset,
+          varDecl.initializer!.end,
+        );
+        edits.add(
+          .new(
+            offset: stmt.offset,
+            length: run.last.end - stmt.offset,
+            replacement: '$receiverText$items;',
+          ),
+        );
+      } else {
+        edits.add(
+          .new(
+            offset: stmt.semicolon.offset,
+            length: run.last.end - stmt.semicolon.offset,
+            replacement: '$items;',
+          ),
+        );
+      }
     }
   }
 
@@ -152,6 +165,20 @@ class _CascadeVisitor extends RecursiveAstVisitor<void> {
     if (expr == null) return false;
     if (expr is SimpleIdentifier) return expr.element == target;
     return false;
+  }
+
+  bool _isUnusedAfterRun(
+    Element target,
+    NodeList<Statement> statements,
+    int declIndex,
+    int runLength,
+  ) {
+    for (var k = declIndex + runLength + 1; k < statements.length; k++) {
+      final finder = _TargetFinder(target);
+      statements[k].accept(finder);
+      if (finder.found) return false;
+    }
+    return true;
   }
 
   String _leadingIndent(int offset) {
