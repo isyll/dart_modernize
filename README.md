@@ -151,7 +151,7 @@ final tags = ['base', ?extra];
 
 ## 🚀 What it does
 
-Fifteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
+Sixteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
 
 | | Feature | Description |
 |:--:|:--|:--|
@@ -159,7 +159,8 @@ Fifteen focused passes, grouped into five families. Each one is independently to
 | 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
 | ➡️ | **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
 | 🧵 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into clean `'a $b c'` interpolation. |
-| 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused, or absorbs a trailing `return` when that is the only remaining use. |
+| 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
+| ↩️ | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
 | 📌 | **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
 | ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
@@ -274,7 +275,7 @@ String row(String a, String b) => '| $a | $b |';
 
 > Only when every piece is a side-effect-free `String`. Arithmetic `+` and method-call operands are left exactly as written.
 
-**🌊 Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely; when the only remaining use is `return local;` that is absorbed into the cascade too.
+**🌊 Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely.
 
 ```dart
 // before — local kept
@@ -298,20 +299,37 @@ reporter.errorHint('check spelling');
 Reporter(source)
   ..error('not found')
   ..errorHint('check spelling');
+```
 
-// before — only remaining use is return
-final conn = Connection(host);
-conn.open();
-conn.authenticate(token);
+> Applies only when the target is not reassigned, read between writes, or passed as an argument within the run, and no right-hand side reads the target.
+
+**↩️ Inline return**: inlines a local whose only remaining use is an immediate bare `return`.
+
+```dart
+// before
+final value = compute();
+return value;
+
+// after
+return compute();
+```
+
+This also handles the intermediate form produced by the **cascades** pass in a subsequent run:
+
+```dart
+// before (after cascades)
+var conn = Connection(host)
+  ..open()
+  ..authenticate(token);
 return conn;
 
-// after — return inlined
+// after
 return Connection(host)
   ..open()
   ..authenticate(token);
 ```
 
-> Applies only when the target is not reassigned, read between writes, or passed as an argument within the run, and no right-hand side reads the target.
+> Skipped when the local has more than one use, carries a comment, is declared alongside other variables in one statement, or the return is not an immediate bare reference to the local.
 
 **📌 Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body.
 
