@@ -29,6 +29,7 @@ const allFeatures = <String>[
   'super_parameters',
   'switch_expressions',
   'cascades',
+  'final_locals',
   'expression_bodies',
   'string_interpolation',
   'null_aware_spread',
@@ -36,6 +37,7 @@ const allFeatures = <String>[
   'organize_imports',
   'sort_members',
   'fix_all',
+  'abstract_final_classes',
 ];
 
 /// A minimal, dependency-free pubspec that satisfies the tool's validator and
@@ -59,6 +61,7 @@ const featureFlags = <String, String>{
   'super_parameters': 'super-parameters',
   'switch_expressions': 'switch-expressions',
   'cascades': 'cascades',
+  'final_locals': 'final-locals',
   'expression_bodies': 'expression-bodies',
   'string_interpolation': 'string-interpolation',
   'null_aware_spread': 'null-aware-spread',
@@ -66,6 +69,7 @@ const featureFlags = <String, String>{
   'organize_imports': 'organize-imports',
   'sort_members': 'sort-members',
   'fix_all': 'fix-all',
+  'abstract_final_classes': 'abstract-final-classes',
 };
 
 /// Features whose transformation logic is not yet implemented.

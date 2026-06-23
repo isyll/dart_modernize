@@ -9,9 +9,15 @@ library;
 
 import 'cli_harness.dart';
 
+const String abstractFinalClassesTrigger = '''
+class Constants {
+  static const int maxRetries = 3;
+}
+''';
+
 const String cascadesTrigger = '''
 Box makeBox() {
-  var b = Box();
+  final b = Box();
   b.width = 10;
   b.height = 20;
   return b;
@@ -128,6 +134,15 @@ class Derived extends Base {
 }
 ''';
 
+const String finalLocalsTrigger = '''
+int compute() => 42;
+
+int result() {
+  var x = compute();
+  return x;
+}
+''';
+
 const String switchExpressionsTrigger = '''
 int classify(int code) {
   int result;
@@ -150,6 +165,7 @@ const Map<String, String> triggers = {
   'super_parameters': superParametersTrigger,
   'switch_expressions': switchExpressionsTrigger,
   'cascades': cascadesTrigger,
+  'final_locals': finalLocalsTrigger,
   'expression_bodies': expressionBodiesTrigger,
   'string_interpolation': stringInterpolationTrigger,
   'null_aware_spread': nullAwareSpreadTrigger,
@@ -157,6 +173,7 @@ const Map<String, String> triggers = {
   'organize_imports': organizeImportsTrigger,
   'sort_members': sortMembersTrigger,
   'fix_all': fixAllTrigger,
+  'abstract_final_classes': abstractFinalClassesTrigger,
 };
 
 /// Project files for [feature]'s isolated trigger (source plus any extra config

@@ -117,6 +117,20 @@ ArgParser buildArgParser() => .new()
     help:
         'Replace `if (x != null) x` collection-element guards with the '
         '`?x` null-aware element syntax.',
+  )
+  ..addFlag(
+    'final-locals',
+    defaultsTo: true,
+    help:
+        'Replace `var` with `final` on local variable declarations that are '
+        'never reassigned, incremented, or compound-assigned.',
+  )
+  ..addFlag(
+    'abstract-final-classes',
+    defaultsTo: true,
+    help:
+        'Add `abstract final` to classes that expose only static members and '
+        'are never instantiated, extended, implemented, or mixed in.',
   );
 
 /// Parsed and validated CLI options, passed through the pipeline.
@@ -151,6 +165,8 @@ final class CliOptions {
   final bool stringInterpolation;
   final bool nullAwareSpread;
   final bool nullAwareElements;
+  final bool finalLocals;
+  final bool abstractFinalClasses;
   const CliOptions({
     required this.path,
     required this.dryRun,
@@ -170,6 +186,8 @@ final class CliOptions {
     required this.stringInterpolation,
     required this.nullAwareSpread,
     required this.nullAwareElements,
+    required this.finalLocals,
+    required this.abstractFinalClasses,
   });
 
   factory CliOptions.fromResults(ArgResults results) {
@@ -193,6 +211,8 @@ final class CliOptions {
       stringInterpolation: results['string-interpolation'] as bool,
       nullAwareSpread: results['null-aware-spread'] as bool,
       nullAwareElements: results['null-aware-elements'] as bool,
+      finalLocals: results['final-locals'] as bool,
+      abstractFinalClasses: results['abstract-final-classes'] as bool,
     );
   }
 }

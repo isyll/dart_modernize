@@ -66,12 +66,14 @@ void main() {
         'super-parameters',
         'switch-expressions',
         'cascades',
+        'final-locals',
         'expression-bodies',
         'string-interpolation',
         'null-aware-spread',
         'null-aware-elements',
         'sort-members',
         'fix-all',
+        'abstract-final-classes',
       ]);
     });
   });
@@ -83,6 +85,7 @@ const _cosmeticAndBulk = <String>[
   'organize-imports',
   'sort-members',
   'fix-all',
+  'abstract-final-classes',
 ];
 
 const _documentedOrder = <String>[
@@ -92,6 +95,7 @@ const _documentedOrder = <String>[
   'super-parameters',
   'switch-expressions',
   'cascades',
+  'final-locals',
   'expression-bodies',
   'string-interpolation',
   'null-aware-spread',
@@ -99,6 +103,7 @@ const _documentedOrder = <String>[
   'organize-imports',
   'sort-members',
   'fix-all',
+  'abstract-final-classes',
 ];
 
 /// Shape-changing passes: they rewrite declarations and statements.
@@ -109,6 +114,7 @@ const _structural = <String>[
   'super-parameters',
   'switch-expressions',
   'cascades',
+  'final-locals',
   'expression-bodies',
   'string-interpolation',
   'null-aware-spread',
@@ -122,6 +128,7 @@ CliOptions _options({
   bool superParameters = true,
   bool switchExpressions = true,
   bool cascades = true,
+  bool finalLocals = true,
   bool expressionBodies = true,
   bool stringInterpolation = true,
   bool nullAwareSpread = true,
@@ -129,6 +136,7 @@ CliOptions _options({
   bool organizeImports = true,
   bool sortMembers = true,
   bool fixAll = true,
+  bool abstractFinalClasses = true,
 }) => .new(
   path: '.',
   dryRun: false,
@@ -141,6 +149,7 @@ CliOptions _options({
   superParameters: superParameters,
   switchExpressions: switchExpressions,
   cascades: cascades,
+  finalLocals: finalLocals,
   expressionBodies: expressionBodies,
   stringInterpolation: stringInterpolation,
   nullAwareSpread: nullAwareSpread,
@@ -148,4 +157,5 @@ CliOptions _options({
   organizeImports: organizeImports,
   sortMembers: sortMembers,
   fixAll: fixAll,
+  abstractFinalClasses: abstractFinalClasses,
 );
