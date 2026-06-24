@@ -141,6 +141,37 @@ Box make() {
       );
     });
 
+    test('cascades folds a write run and prefer-inferred-types relocates the '
+        'collection type in the same run', () async {
+      const input = '''
+void main() {
+  final List<String> a = [];
+  a.add('bonjour');
+  a.add('ça va');
+  a.add('tu vas bien');
+  print(a.join(' '));
+}
+''';
+      const expected = '''
+void main() {
+  final a = <String>[]
+    ..add('bonjour')
+    ..add('ça va')
+    ..add('tu vas bien');
+  print(a.join(' '));
+}
+''';
+
+      final project = createProject(files: {_file: input});
+      final subset = onlyFeaturesArgs({'cascades', 'prefer_inferred_types'});
+
+      expect(await _runOnce(project, subset), expected);
+      expect(await _runOnce(project, subset), expected);
+
+      final whole = createProject(files: {_file: input});
+      expect(await _runOnce(whole, onlyFeaturesArgs(_implemented)), expected);
+    });
+
     test('null-aware-spread, string-interpolation and dot-shorthands all '
         'apply to one file in a single run', () async {
       const input = '''
@@ -316,6 +347,56 @@ void main() {
           reason:
               'first run must convert bare type to var (prefer_inferred_types); '
               'final_locals fires on the next run',
+        );
+
+        expect(await _runUntilStable(project, args: subset), converged);
+      },
+    );
+
+    test(
+      'cascades + prefer-inferred-types + dot-shorthands converge: '
+      'cascade wins the first run; dot-shorthand fires on the second',
+      () async {
+        const input = '''
+enum Mode { fast, slow }
+
+void configure() {
+  final List<Mode> settings = [];
+  settings.add(Mode.fast);
+  settings.add(Mode.slow);
+  print(settings);
+}
+''';
+        const converged = '''
+enum Mode { fast, slow }
+
+void configure() {
+  final settings = <Mode>[]
+    ..add(.fast)
+    ..add(.slow);
+  print(settings);
+}
+''';
+        final subset = onlyFeaturesArgs({
+          'cascades',
+          'prefer_inferred_types',
+          'dot_shorthands',
+        });
+
+        // Run 1: cascades (appends at semicolon) and prefer_inferred_types
+        // (inserts before `[`, removes annotation) compose cleanly. The
+        // dot_shorthands edits land inside the cascade edit range and are
+        // dropped, so Mode.fast/.slow remain.
+        final project = createProject(files: {_file: input});
+        final afterOne = await _runOnce(project, subset);
+        expect(
+          afterOne,
+          'enum Mode { fast, slow }\n\nvoid configure() {\n'
+          '  final settings = <Mode>[]\n'
+          '    ..add(Mode.fast)\n'
+          '    ..add(Mode.slow);\n'
+          '  print(settings);\n}\n',
+          reason: 'dot-shorthands is deferred to run 2 (overlapped by cascade)',
         );
 
         expect(await _runUntilStable(project, args: subset), converged);

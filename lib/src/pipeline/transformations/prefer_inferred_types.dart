@@ -1,50 +1,26 @@
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
-/// Removes a redundant explicit type annotation when the initializer's
-/// inferred static type is exactly the declared type.
+/// Removes or relocates redundant explicit type annotations.
 ///
-/// Before:
-///   final String name = 'hello';         // local final
-///   const int n = 0;                     // local const
-///   Foo f = Foo();                        // bare-typed local  → var f = Foo()
-///   static const String a = 'aaa';      // static const field
-///   const int b = 4;                     // top-level const
+/// Rule A (drop): removes the annotation when the initializer's static type
+/// exactly equals the declared type (same element, type arguments, nullability).
+/// Bare-typed locals become `var` so `final_locals` can upgrade them.
 ///
-/// After:
-///   final name = 'hello';
-///   const n = 0;
-///   var f = Foo();
-///   static const a = 'aaa';
-///   const b = 4;
+/// Rule B (relocate): when the initializer is a bare collection literal without
+/// explicit type arguments and the declared type is exactly `List`, `Set`, or
+/// `Map` from dart:core (non-nullable), the type arguments are moved onto the
+/// literal and the annotation is removed. Also fires when the bare literal is
+/// the cascade target (i.e., after the cascades pass has run).
 ///
-/// A type annotation is dropped only when ALL of the following hold:
-///   * The initializer's static type equals the declared type exactly:
-///     same interface element, same type arguments (recursively), same
-///     nullability.
-///   * The declared type is not dynamic (dynamic is never an InterfaceType,
-///     so the strict same-type check already rejects it).
-///   * The initializer is not a collection literal without explicit type
-///     arguments (removing the annotation would change the inferred element
-///     type via downward inference, e.g. `[]` → `List<dynamic>`).
-///   * The initializer is not a null literal (whose type is Null, not the
-///     declared nullable type).
-///
-/// Scope:
-///   * LOCAL variables: final, const, or bare-typed (no keyword). Bare-typed
-///     locals become `var` so that `final_locals` can then upgrade them on the
-///     next run.
-///   * CONST declarations anywhere: local const, top-level const, and
-///     `static const` class fields.
-///
-/// Non-const class fields and non-const top-level variables are intentionally
-/// left untouched: Effective Dart recommends annotating these, and their
-/// inference can depend on complex initializers.
+/// Scope: local finals/consts/bare-typed, top-level const, static const fields.
+/// Non-const class fields and non-const top-level variables are left untouched.
 final class PreferInferredTypes implements Transformation {
   @override
   final bool enabled;
@@ -93,7 +69,6 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     final typeEnd = typeAnnotation.end;
 
     if (vars.keyword != null) {
-      // final/const: remove type token and the whitespace before the name.
       var wsLength = 0;
       while (typeEnd + wsLength < source.length &&
           source[typeEnd + wsLength] == ' ') {
@@ -107,7 +82,6 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
         ),
       );
     } else {
-      // Bare-typed local (no keyword): replace the type with `var`.
       edits.add(
         SourceEdit(
           offset: typeAnnotation.offset,
@@ -118,6 +92,21 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     }
   }
 
+  /// Extracts the bare collection literal from [expr], or null if none.
+  /// Looks through a [CascadeExpression] to find a bare literal target.
+  Expression? _bareCollectionLiteral(Expression expr) {
+    if (expr is ListLiteral && expr.typeArguments == null) return expr;
+    if (expr is SetOrMapLiteral && expr.typeArguments == null) return expr;
+    if (expr is CascadeExpression) {
+      final target = expr.target;
+      if (target is ListLiteral && target.typeArguments == null) return target;
+      if (target is SetOrMapLiteral && target.typeArguments == null) {
+        return target;
+      }
+    }
+    return null;
+  }
+
   void _collect(VariableDeclarationList vars, {required bool isLocal}) {
     final typeAnnotation = vars.type;
     if (typeAnnotation == null) return;
@@ -125,36 +114,74 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     final declaredType = typeAnnotation.type;
     if (declaredType == null) return;
 
-    // Only allow final/const or bare-typed (null keyword) for locals.
-    // For non-local, caller guarantees isConst, keyword is const.
     if (isLocal && vars.keyword?.lexeme == 'var') return;
 
     for (final varDecl in vars.variables) {
-      final initializer = varDecl.initializer;
-      if (initializer == null) return;
-      if (_isUnsafeInitializer(initializer, declaredType)) return;
-
-      final inferredType = initializer.staticType;
-      if (inferredType == null) return;
-      if (!_sameType(declaredType, inferredType)) return;
+      if (varDecl.initializer == null) return;
     }
 
-    _applyEdit(vars);
+    // Rule A: drop when every initializer's static type equals declared.
+    var ruleAApplies = true;
+    for (final varDecl in vars.variables) {
+      final expr = varDecl.initializer!;
+      if (_isUnsafeInitializer(expr, declaredType)) {
+        ruleAApplies = false;
+        break;
+      }
+      final inferredType = expr.staticType;
+      if (inferredType == null || !_sameType(declaredType, inferredType)) {
+        ruleAApplies = false;
+        break;
+      }
+    }
+    if (ruleAApplies) {
+      _applyEdit(vars);
+      return;
+    }
+
+    // Rule B: relocate collection type args onto the literal (single-variable only).
+    if (vars.variables.length != 1) return;
+    _tryRelocate(
+      vars,
+      declaredType,
+      typeAnnotation,
+      vars.variables.first.initializer!,
+    );
+  }
+
+  /// Returns true when [declared] is exactly `List`, `Set`, or `Map` from
+  /// dart:core (matched by name), with at least one type argument, and the
+  /// literal kind matches (ListLiteral → List, isSet → Set, isMap → Map).
+  bool _isExactCoreCollectionType(DartType declared, Expression literal) {
+    if (declared is! InterfaceType) return false;
+    if (declared.typeArguments.isEmpty) return false;
+    final name = declared.element.name;
+    if (literal is ListLiteral) return name == 'List';
+    if (literal is SetOrMapLiteral) {
+      if (literal.isSet) return name == 'Set';
+      if (literal.isMap) return name == 'Map';
+    }
+    return false;
   }
 
   /// Returns true for initializers whose inferred type depends on the declared
   /// type as downward context. Removing the annotation would silently change
-  /// the inferred type.
+  /// the inferred type. Rule B handles bare collection literals by relocating
+  /// the type arguments instead of dropping the annotation.
   bool _isUnsafeInitializer(Expression expr, DartType declaredType) {
     if (expr is ListLiteral && expr.typeArguments == null) return true;
     if (expr is SetOrMapLiteral && expr.typeArguments == null) return true;
     if (expr is NullLiteral) return true;
-    // Integer literals are implicitly promoted to double in a double-typed
-    // context: the analyzer reports staticType=double for `3` when the declared
-    // type is double. Removing the annotation would revert the inferred type to
-    // int, so only trust the match when the declared type is exactly int.
     if (expr is IntegerLiteral && declaredType is InterfaceType) {
       if (declaredType.element.name != 'int') return true;
+    }
+    // A cascade whose target is a bare collection literal is unsafe for Rule A.
+    if (expr is CascadeExpression) {
+      final target = expr.target;
+      if (target is ListLiteral && target.typeArguments == null) return true;
+      if (target is SetOrMapLiteral && target.typeArguments == null) {
+        return true;
+      }
     }
     return false;
   }
@@ -173,5 +200,32 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
       if (!_sameType(a[i], b[i])) return false;
     }
     return true;
+  }
+
+  /// Relocates the declared type arguments onto the bare collection literal
+  /// and removes the annotation, preserving the static type exactly.
+  void _tryRelocate(
+    VariableDeclarationList vars,
+    DartType declaredType,
+    TypeAnnotation typeAnnotation,
+    Expression initializer,
+  ) {
+    if (declaredType.nullabilitySuffix != NullabilitySuffix.none) return;
+
+    final literal = _bareCollectionLiteral(initializer);
+    if (literal == null) return;
+
+    if (!_isExactCoreCollectionType(declaredType, literal)) return;
+
+    if (typeAnnotation is! NamedType) return;
+    final typeArgs = typeAnnotation.typeArguments;
+    if (typeArgs == null) return;
+
+    final typeArgsText = source.substring(typeArgs.offset, typeArgs.end);
+
+    _applyEdit(vars);
+    edits.add(
+      SourceEdit(offset: literal.offset, length: 0, replacement: typeArgsText),
+    );
   }
 }
