@@ -278,24 +278,24 @@ String row(String a, String b) => '| $a | $b |';
 **🌊 Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely.
 
 ```dart
-// before — local kept
+// before: local kept
 final paint = Paint();
 paint.color = accent;
 paint.strokeWidth = 2.0;
 paint.style = PaintingStyle.stroke;
 
-// after — local kept
+// after: local kept
 final paint = Paint()
   ..color = accent
   ..strokeWidth = 2.0
   ..style = PaintingStyle.stroke;
 
-// before — local unused after run
+// before: local unused after run
 final reporter = Reporter(source);
 reporter.error('not found');
 reporter.errorHint('check spelling');
 
-// after — dropped to a bare statement cascade
+// after: dropped to a bare statement cascade
 Reporter(source)
   ..error('not found')
   ..errorHint('check spelling');
