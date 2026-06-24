@@ -41,6 +41,15 @@ int square(int x) {
 }
 ''';
 
+const String finalLocalsTrigger = '''
+int compute() => 42;
+
+int result() {
+  var x = compute();
+  return x.abs();
+}
+''';
+
 /// Analysis options enabling the lints the fix-all trigger relies on.
 const String fixAllLints = '''
 linter:
@@ -60,6 +69,15 @@ class B extends A {
 }
 ''';
 
+const String inlineReturnTrigger = '''
+int compute() => 42;
+
+int result() {
+  final x = compute();
+  return x;
+}
+''';
+
 const String nullAwareElementsTrigger = '''
 List<int?> pack(int? a) => [if (a != null) a];
 ''';
@@ -76,6 +94,12 @@ import 'dart:math';
 import 'dart:convert';
 
 String f(num n) => jsonEncode(n * pi);
+''';
+
+/// A top-level const with a redundant explicit type; only prefer_inferred_types
+/// would remove it. No other pass touches a top-level const declaration.
+const String preferInferredTypesTrigger = '''
+const int timeout = 30;
 ''';
 
 const String primaryConstructorsTrigger = '''
@@ -126,30 +150,6 @@ class Base {
 class Derived extends Base {
   Derived({required int id}) : super(id: id);
 }
-''';
-
-const String finalLocalsTrigger = '''
-int compute() => 42;
-
-int result() {
-  var x = compute();
-  return x.abs();
-}
-''';
-
-const String inlineReturnTrigger = '''
-int compute() => 42;
-
-int result() {
-  final x = compute();
-  return x;
-}
-''';
-
-/// A top-level const with a redundant explicit type; only prefer_inferred_types
-/// would remove it. No other pass touches a top-level const declaration.
-const String preferInferredTypesTrigger = '''
-const int timeout = 30;
 ''';
 
 const String switchExpressionsTrigger = '''
