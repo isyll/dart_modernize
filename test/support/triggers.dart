@@ -11,7 +11,7 @@ import 'cli_harness.dart';
 
 const String abstractFinalClassesTrigger = '''
 class Constants {
-  static const int maxRetries = 3;
+  static const maxRetries = 3;
 }
 ''';
 
@@ -146,6 +146,12 @@ int result() {
 }
 ''';
 
+/// A top-level const with a redundant explicit type; only prefer_inferred_types
+/// would remove it. No other pass touches a top-level const declaration.
+const String preferInferredTypesTrigger = '''
+const int timeout = 30;
+''';
+
 const String switchExpressionsTrigger = '''
 int classify(int code) {
   int result;
@@ -170,6 +176,7 @@ const Map<String, String> triggers = {
   'cascades': cascadesTrigger,
   'inline_return': inlineReturnTrigger,
   'final_locals': finalLocalsTrigger,
+  'prefer_inferred_types': preferInferredTypesTrigger,
   'expression_bodies': expressionBodiesTrigger,
   'string_interpolation': stringInterpolationTrigger,
   'null_aware_spread': nullAwareSpreadTrigger,

@@ -4,6 +4,7 @@ int makeCounter() {
   void inc() {
     x = x + 1;
   }
+
   inc();
   return x;
 }

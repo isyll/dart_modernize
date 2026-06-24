@@ -51,10 +51,9 @@ final class AbstractFinalClasses implements Transformation {
     final used = <InterfaceElement>{};
 
     final session = seedUnit.session;
-    final files =
-        session.analysisContext.contextRoot
-            .analyzedFiles()
-            .where((f) => f.endsWith('.dart'));
+    final files = session.analysisContext.contextRoot.analyzedFiles().where(
+      (f) => f.endsWith('.dart'),
+    );
 
     for (final filePath in files) {
       final result = await session.getResolvedUnit(filePath);
@@ -92,8 +91,7 @@ class _UsageCollector extends RecursiveAstVisitor<void> {
 
   @override
   void visitMixinDeclaration(MixinDeclaration node) {
-    for (final t
-        in node.onClause?.superclassConstraints ?? <NamedType>[]) {
+    for (final t in node.onClause?.superclassConstraints ?? <NamedType>[]) {
       _addFromNamedType(t);
     }
     for (final t in node.implementsClause?.interfaces ?? <NamedType>[]) {

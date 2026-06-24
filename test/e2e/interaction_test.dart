@@ -21,7 +21,7 @@
 ///     consequence of running every pass on a single resolution with no
 ///     re-resolution between passes; see `doc/ORDERING.md`.
 ///
-/// Only the seven implemented passes are used here; the six stubs are inert and
+/// Only the nine implemented passes are used here; the two stubs are inert and
 /// would only mask which pass produced an edit.
 library;
 
@@ -276,6 +276,52 @@ class Derived extends Base {
       expect(await _runUntilStable(project, args: subset), converged);
     });
 
+    test(
+      'prefer-inferred-types + final-locals converge on a bare-typed local',
+      () async {
+        // First run: prefer_inferred_types replaces the bare type with `var`.
+        // Second run: final_locals upgrades `var` to `final`.
+        // Both passes run on a single resolution, so the overlap is deferred to
+        // the next run: the same converge-across-runs pattern as other pairs.
+        const input = '''
+class Foo {}
+
+Foo makeFoo() => Foo();
+
+void main() {
+  Foo f = makeFoo();
+  print(f);
+}
+''';
+        const converged = '''
+class Foo {}
+
+Foo makeFoo() => Foo();
+
+void main() {
+  final f = makeFoo();
+  print(f);
+}
+''';
+        final subset = onlyFeaturesArgs({
+          'prefer_inferred_types',
+          'final_locals',
+        });
+
+        final project = createProject(files: {_file: input});
+        final afterOne = await _runOnce(project, subset);
+        expect(
+          afterOne,
+          'class Foo {}\n\nFoo makeFoo() => Foo();\n\nvoid main() {\n  var f = makeFoo();\n  print(f);\n}\n',
+          reason:
+              'first run must convert bare type to var (prefer_inferred_types); '
+              'final_locals fires on the next run',
+        );
+
+        expect(await _runUntilStable(project, args: subset), converged);
+      },
+    );
+
     test('cascades + dot-shorthands converge when the dot lives in a folded '
         'cascade argument', () async {
       const input = '''
@@ -328,6 +374,7 @@ const _implemented = <String>{
   'string_interpolation',
   'null_aware_spread',
   'null_aware_elements',
+  'prefer_inferred_types',
 };
 
 /// Single run, returning the rewritten file. Asserts a zero exit.

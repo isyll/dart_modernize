@@ -68,6 +68,7 @@ void main() {
         'cascades',
         'inline-return',
         'final-locals',
+        'prefer-inferred-types',
         'expression-bodies',
         'string-interpolation',
         'null-aware-spread',
@@ -98,6 +99,7 @@ const _documentedOrder = <String>[
   'cascades',
   'inline-return',
   'final-locals',
+  'prefer-inferred-types',
   'expression-bodies',
   'string-interpolation',
   'null-aware-spread',
@@ -118,6 +120,7 @@ const _structural = <String>[
   'cascades',
   'inline-return',
   'final-locals',
+  'prefer-inferred-types',
   'expression-bodies',
   'string-interpolation',
   'null-aware-spread',
@@ -141,6 +144,7 @@ CliOptions _options({
   bool sortMembers = true,
   bool fixAll = true,
   bool abstractFinalClasses = true,
+  bool preferInferredTypes = true,
 }) => .new(
   path: '.',
   dryRun: false,
@@ -163,4 +167,5 @@ CliOptions _options({
   sortMembers: sortMembers,
   fixAll: fixAll,
   abstractFinalClasses: abstractFinalClasses,
+  preferInferredTypes: preferInferredTypes,
 );

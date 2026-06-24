@@ -1,0 +1,8 @@
+class Foo {}
+
+Foo makeFoo() => Foo();
+
+void main() {
+  var f = makeFoo();
+  print(f);
+}

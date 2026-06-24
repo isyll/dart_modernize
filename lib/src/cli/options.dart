@@ -138,6 +138,15 @@ ArgParser buildArgParser() => .new()
     help:
         'Add `abstract final` to classes that expose only static members and '
         'are never instantiated, extended, implemented, or mixed in.',
+  )
+  ..addFlag(
+    'prefer-inferred-types',
+    defaultsTo: true,
+    help:
+        'Remove a redundant explicit type annotation when the initializer\'s '
+        'inferred static type is exactly the declared type. Applies to local '
+        'variables (final/const/bare-typed) and const declarations anywhere '
+        '(top-level const, static const fields).',
   );
 
 /// Parsed and validated CLI options, passed through the pipeline.
@@ -175,6 +184,7 @@ final class CliOptions {
   final bool nullAwareElements;
   final bool finalLocals;
   final bool abstractFinalClasses;
+  final bool preferInferredTypes;
   const CliOptions({
     required this.path,
     required this.dryRun,
@@ -197,6 +207,7 @@ final class CliOptions {
     required this.nullAwareElements,
     required this.finalLocals,
     required this.abstractFinalClasses,
+    required this.preferInferredTypes,
   });
 
   factory CliOptions.fromResults(ArgResults results) {
@@ -223,6 +234,7 @@ final class CliOptions {
       nullAwareElements: results['null-aware-elements'] as bool,
       finalLocals: results['final-locals'] as bool,
       abstractFinalClasses: results['abstract-final-classes'] as bool,
+      preferInferredTypes: results['prefer-inferred-types'] as bool,
     );
   }
 }

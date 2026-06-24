@@ -5,5 +5,5 @@ class Glob {
 final class FileFilter {
   final List<Glob> _excludeGlobs;
   FileFilter({List<String> excludePatterns = const []})
-      : _excludeGlobs = [for (final pat in excludePatterns) Glob(pat)];
+    : _excludeGlobs = [for (final pat in excludePatterns) Glob(pat)];
 }

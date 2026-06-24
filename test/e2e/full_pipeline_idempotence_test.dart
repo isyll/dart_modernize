@@ -1,7 +1,7 @@
 /// Full-pipeline safety spec over a realistic, multi-file project.
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
-/// is modernized with **all fourteen implemented passes** enabled at once, and the
+/// is modernized with **all fifteen implemented passes** enabled at once, and the
 /// result must be (a) actually transformed by every structural pass, (b)
 /// idempotent (a second run changes nothing), and (c) still analyze without
 /// errors. A final case proves the two stub passes are inert: enabling them on
@@ -92,9 +92,9 @@ void main() {
     test(
       'the two stub passes are inert: enabling them changes nothing',
       () async {
-        // Default args = all sixteen passes on. The two stubs
+        // Default args = all seventeen passes on. The two stubs
         // (primary_constructors and switch_expressions) return no edits, so
-        // the output must be byte-identical to the fourteen-stable-passes run.
+        // the output must be byte-identical to the fifteen-stable-passes run.
         final withStubs = createProject(files: _projectFiles());
         final run = await invokeCli(withStubs);
         expect(run.exitCode, 0, reason: run.stderr);
@@ -159,7 +159,7 @@ class Worker extends Base {
 }
 ''';
 
-/// All fourteen implemented passes (fixture-folder names).
+/// All fifteen implemented passes (fixture-folder names).
 const _stable = <String>{
   'dot_shorthands',
   'private_named_parameters',
@@ -167,6 +167,7 @@ const _stable = <String>{
   'cascades',
   'inline_return',
   'final_locals',
+  'prefer_inferred_types',
   'expression_bodies',
   'string_interpolation',
   'null_aware_spread',
