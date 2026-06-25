@@ -1,7 +1,8 @@
 /// Reorders top-level declarations and the members inside each class, enum,
 /// mixin, and extension into a canonical order: fields, then constructors, then
-/// getters/setters, then methods; public before private; alphabetical within
-/// each group.
+/// getters/setters, then methods. Within a group, members are sorted by name
+/// (public before private), except fields, which keep their declared order so
+/// field initialization order never changes.
 ///
 /// Members only swap places and keep their original blank-line gaps, so the
 /// rewritten file is the same length and the final `dart format` pass tidies up
