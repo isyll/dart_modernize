@@ -82,7 +82,7 @@ const featureFlags = <String, String>{
 /// [flag_disables_pass_test] verifies that `--no-<flag>` is recognised and
 /// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
 /// applies" half because a stub never produces output.
-const stubFeatures = <String>{'primary_constructors', 'switch_expressions'};
+const stubFeatures = <String>{'primary_constructors'};
 
 /// Path to the CLI entry point, relative to [_packageRoot].
 const String _binPath = 'bin/dart_modernize.dart';
