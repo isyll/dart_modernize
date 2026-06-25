@@ -151,7 +151,7 @@ final tags = ['base', ?extra];
 
 ## 🚀 What it does
 
-Sixteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
+Seventeen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
 
 | | Feature | Description |
 |:--:|:--|:--|
@@ -162,6 +162,7 @@ Sixteen focused passes, grouped into five families. Each one is independently to
 | 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
 | ↩️ | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
 | 📌 | **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
+| 🏷️ | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type, and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
 | ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
@@ -245,7 +246,7 @@ final token = switch (charCode) {
 
 ### ✂️ Concise expressions
 
-Trimming ceremony from bodies, strings, and builder sequences without moving a single value.
+Trimming ceremony from bodies, strings, builder sequences, and type annotations without moving a single value.
 
 **➡️ Expression bodies**: turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
 
@@ -348,6 +349,22 @@ return multiplier * base;
 ```
 
 > Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures.
+
+**🏷️ Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
+
+```dart
+// before
+final String name = user.displayName;
+const int retries = 3;
+final List<String> tags = [];
+
+// after
+final name = user.displayName;
+const retries = 3;
+final tags = <String>[];
+```
+
+> Applies only when the initializer's inferred type is exactly the declared type. Covers local finals/consts/bare-typed locals, top-level consts, and static const fields; non-const fields and non-const top-level variables are left alone.
 
 ### ❓ Null-aware collections
 
