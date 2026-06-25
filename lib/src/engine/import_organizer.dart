@@ -65,7 +65,7 @@ int _compareDirectiveUri(String a, String b) {
 
 class _DirectiveInfo implements Comparable<_DirectiveInfo> {
   final UriBasedDirective directive;
-  final _DirectiveSortPriority priority;
+  final _DirectiveGroup priority;
   final String uri;
   final int offset;
   final int end;
@@ -87,15 +87,15 @@ class _DirectiveInfo implements Comparable<_DirectiveInfo> {
       if (compare != 0) return compare;
       return text.compareTo(other.text);
     }
-    return priority.ordinal - other.priority.ordinal;
+    return priority.index - other.priority.index;
   }
 }
 
 enum _DirectiveSortKind { import, export, part }
 
-/// Grouping priority for a directive; equal priorities form one blank-line
-/// delimited block.
-enum _DirectiveSortPriorityValue {
+/// The groups directives are sorted into, in order. Directives in the same
+/// group are kept together and separated from the next group by a blank line.
+enum _DirectiveGroup {
   importSdk,
   importPkg,
   importOther,
@@ -105,6 +105,24 @@ enum _DirectiveSortPriorityValue {
   exportOther,
   exportRel,
   part,
+}
+
+/// Picks the group for a directive with the given [uri] and [kind].
+_DirectiveGroup _groupOf(String uri, _DirectiveSortKind kind) {
+  switch (kind) {
+    case _DirectiveSortKind.import:
+      if (uri.startsWith('dart:')) return _DirectiveGroup.importSdk;
+      if (uri.startsWith('package:')) return _DirectiveGroup.importPkg;
+      if (uri.contains('://')) return _DirectiveGroup.importOther;
+      return _DirectiveGroup.importRel;
+    case _DirectiveSortKind.export:
+      if (uri.startsWith('dart:')) return _DirectiveGroup.exportSdk;
+      if (uri.startsWith('package:')) return _DirectiveGroup.exportPkg;
+      if (uri.contains('://')) return _DirectiveGroup.exportOther;
+      return _DirectiveGroup.exportRel;
+    case _DirectiveSortKind.part:
+      return _DirectiveGroup.part;
+  }
 }
 
 class _ImportOrganizer {
@@ -234,7 +252,7 @@ class _ImportOrganizer {
         continue;
       }
       final uriContent = directive.uri.stringValue ?? '';
-      final priority = _DirectiveSortPriority(uriContent, kind);
+      final priority = _groupOf(uriContent, kind);
 
       var offset = directive.offset;
       var end = directive.end;
@@ -294,7 +312,7 @@ class _ImportOrganizer {
     directives.sort();
 
     final sb = StringBuffer();
-    _DirectiveSortPriority? currentPriority;
+    _DirectiveGroup? currentPriority;
     var previousDirectiveText = '';
     final showCombinators = <ImportDirective, List<SimpleIdentifier>>{};
     for (final directiveInfo in directives) {
@@ -344,38 +362,4 @@ class _ImportOrganizer {
 
   static bool _isIgnoreComment(Token token) =>
       _ignoreMatcher.matchAsPrefix(token.lexeme) != null;
-}
-
-extension type const _DirectiveSortPriority._(_DirectiveSortPriorityValue value)
-    implements Object {
-  factory _DirectiveSortPriority(String uri, _DirectiveSortKind kind) {
-    final isSdk = uri.startsWith('dart:');
-    final isPkg = uri.startsWith('package:');
-    final isOther = uri.contains('://');
-    return switch (kind) {
-      _DirectiveSortKind.import => _DirectiveSortPriority._(
-        isSdk
-            ? _DirectiveSortPriorityValue.importSdk
-            : isPkg
-            ? _DirectiveSortPriorityValue.importPkg
-            : isOther
-            ? _DirectiveSortPriorityValue.importOther
-            : _DirectiveSortPriorityValue.importRel,
-      ),
-      _DirectiveSortKind.export => _DirectiveSortPriority._(
-        isSdk
-            ? _DirectiveSortPriorityValue.exportSdk
-            : isPkg
-            ? _DirectiveSortPriorityValue.exportPkg
-            : isOther
-            ? _DirectiveSortPriorityValue.exportOther
-            : _DirectiveSortPriorityValue.exportRel,
-      ),
-      _DirectiveSortKind.part => const _DirectiveSortPriority._(
-        _DirectiveSortPriorityValue.part,
-      ),
-    };
-  }
-
-  int get ordinal => value.index;
 }
