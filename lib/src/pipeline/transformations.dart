@@ -18,24 +18,6 @@ import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
 import 'transformations/switch_expressions.dart';
 
-export 'transformations/abstract_final_classes.dart';
-export 'transformations/cascades.dart';
-export 'transformations/dot_shorthands.dart';
-export 'transformations/expression_bodies.dart';
-export 'transformations/final_locals.dart';
-export 'transformations/inline_return.dart';
-export 'transformations/prefer_inferred_types.dart';
-export 'transformations/fix_all.dart';
-export 'transformations/null_aware_elements.dart';
-export 'transformations/null_aware_spread.dart';
-export 'transformations/organize_imports.dart';
-export 'transformations/primary_constructors.dart';
-export 'transformations/private_named_parameters.dart';
-export 'transformations/sort_members.dart';
-export 'transformations/string_interpolation.dart';
-export 'transformations/super_parameters.dart';
-export 'transformations/switch_expressions.dart';
-
 /// Returns the ordered list of transformations wired to [options].
 ///
 /// The order matters: structural passes (dot shorthands, primary constructors,
