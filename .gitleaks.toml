@@ -1,0 +1,10 @@
+title = "dart_modernize"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "test fixtures and golden expected files"
+paths = [
+  '''test/fixtures/.*''',
+]
