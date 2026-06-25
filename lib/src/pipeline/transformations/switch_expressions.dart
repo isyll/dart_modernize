@@ -36,18 +36,12 @@ final class SwitchExpressions implements Transformation {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal data model
-// ---------------------------------------------------------------------------
-
-sealed class _Pattern {}
-
-final class _CasePattern extends _Pattern {
-  final Expression expr;
-  _CasePattern(this.expr);
+final class _Arm {
+  final List<_Pattern> patterns;
+  final _ArmBody body;
+  _Arm({required this.patterns, required this.body});
+  bool get hasDefault => patterns.any((p) => p is _DefaultPattern);
 }
-
-final class _DefaultPattern extends _Pattern {}
 
 sealed class _ArmBody {}
 
@@ -57,26 +51,19 @@ final class _AssignBody extends _ArmBody {
   _AssignBody(this.lhs, this.rhsText);
 }
 
+final class _CasePattern extends _Pattern {
+  final Expression expr;
+  _CasePattern(this.expr);
+}
+
+final class _DefaultPattern extends _Pattern {}
+
+sealed class _Pattern {}
+
 final class _ReturnBody extends _ArmBody {
   final String exprText;
   _ReturnBody(this.exprText);
 }
-
-final class _ThrowBody extends _ArmBody {
-  final String throwText;
-  _ThrowBody(this.throwText);
-}
-
-final class _Arm {
-  final List<_Pattern> patterns;
-  final _ArmBody body;
-  bool get hasDefault => patterns.any((p) => p is _DefaultPattern);
-  _Arm({required this.patterns, required this.body});
-}
-
-// ---------------------------------------------------------------------------
-// Visitor
-// ---------------------------------------------------------------------------
 
 class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
   final String source;
@@ -90,21 +77,82 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
     super.visitSwitchStatement(node);
   }
 
-  void _tryRewrite(SwitchStatement stmt) {
-    final arms = _collectArms(stmt);
-    if (arms == null || arms.isEmpty) return;
-
-    final shape = _determineShape(arms);
-    if (shape == null) return;
-
-    if (!_isExhaustive(stmt, arms)) return;
-
-    _buildEdit(stmt, arms, shape);
+  FieldElement? _asEnumConstant(
+    Element? rawElement,
+    Set<FieldElement> constants,
+  ) {
+    if (rawElement is FieldElement && constants.contains(rawElement)) {
+      return rawElement;
+    }
+    if (rawElement is GetterElement) {
+      final variable = rawElement.variable;
+      if (variable is FieldElement && constants.contains(variable)) {
+        return variable;
+      }
+    }
+    return null;
   }
 
-  // -------------------------------------------------------------------------
-  // Arm collection
-  // -------------------------------------------------------------------------
+  Element? _assignTarget(List<_Arm> arms) {
+    for (final arm in arms) {
+      if (arm.body case _AssignBody(lhs: final lhs)) {
+        return lhs.element;
+      }
+    }
+    return null;
+  }
+
+  void _buildEdit(SwitchStatement stmt, List<_Arm> arms, String shape) {
+    final indent = _leadingIndent(stmt.offset);
+    final armIndent = '$indent  ';
+    final scrutinee = source.substring(
+      stmt.expression.offset,
+      stmt.expression.end,
+    );
+    final armLines = arms
+        .map(
+          (a) =>
+              '$armIndent${_patternText(a.patterns)} => ${_valueText(a.body)},',
+        )
+        .join('\n');
+    final switchExpr = 'switch ($scrutinee) {\n$armLines\n$indent}';
+
+    if (shape == 'return') {
+      edits.add(
+        SourceEdit(
+          offset: stmt.offset,
+          length: stmt.end - stmt.offset,
+          replacement: 'return $switchExpr;',
+        ),
+      );
+      return;
+    }
+
+    // Assignment shape: try to fold the preceding declaration.
+    final targetElement = _assignTarget(arms)!;
+    final preceding = _findPrecedingDecl(stmt, targetElement);
+
+    if (preceding != null) {
+      final (decl, varName) = preceding;
+      edits.add(
+        SourceEdit(
+          offset: decl.offset,
+          length: stmt.end - decl.offset,
+          replacement: '${indent}final $varName = $switchExpr;',
+        ),
+      );
+    } else {
+      final varName = targetElement.name ?? '';
+      if (varName.isEmpty) return;
+      edits.add(
+        SourceEdit(
+          offset: stmt.offset,
+          length: stmt.end - stmt.offset,
+          replacement: '$varName = $switchExpr;',
+        ),
+      );
+    }
+  }
 
   List<_Arm>? _collectArms(SwitchStatement stmt) {
     final result = <_Arm>[];
@@ -150,6 +198,112 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
     // Trailing empty cases (no body after them) are ineligible.
     if (currentPatterns.isNotEmpty) return null;
     return result;
+  }
+
+  // Returns 'assign:<element>' or 'return', or null if mixed / invalid.
+  String? _determineShape(List<_Arm> arms) {
+    Element? assignTarget;
+    var hasReturn = false;
+
+    for (final arm in arms) {
+      switch (arm.body) {
+        case _AssignBody(lhs: final lhs):
+          final el = lhs.element;
+          if (el == null) return null;
+          if (assignTarget == null) {
+            assignTarget = el;
+          } else if (assignTarget != el) {
+            return null; // Different targets.
+          }
+        case _ReturnBody():
+          if (assignTarget != null) return null; // Mixed.
+          hasReturn = true;
+        case _ThrowBody():
+          break; // Throw is compatible with both shapes.
+      }
+    }
+
+    if (!hasReturn && assignTarget == null) return null; // All throws, skip.
+    if (hasReturn && assignTarget != null) return null; // Mixed.
+    return hasReturn ? 'return' : 'assign';
+  }
+
+  /// Finds the `VariableDeclarationStatement` immediately before [stmt] in the
+  /// same block that declares [targetElement] with no initializer.
+  (VariableDeclarationStatement, String)? _findPrecedingDecl(
+    SwitchStatement stmt,
+    Element targetElement,
+  ) {
+    final block = stmt.parent;
+    if (block is! Block) return null;
+
+    final stmts = block.statements;
+    final switchIndex = stmts.indexOf(stmt);
+    if (switchIndex <= 0) return null;
+
+    final prev = stmts[switchIndex - 1];
+    if (prev is! VariableDeclarationStatement) return null;
+
+    final vars = prev.variables;
+    if (vars.variables.length != 1) return null;
+
+    final varDecl = vars.variables.single;
+    if (varDecl.initializer != null) return null;
+
+    final element = varDecl.declaredFragment?.element;
+    if (element == null || element != targetElement) return null;
+
+    return (prev, varDecl.name.lexeme);
+  }
+
+  bool _isExhaustive(SwitchStatement stmt, List<_Arm> arms) {
+    if (arms.any((a) => a.hasDefault)) return true;
+    return _isExhaustiveEnum(stmt, arms);
+  }
+
+  bool _isExhaustiveEnum(SwitchStatement stmt, List<_Arm> arms) {
+    final scrutineeType = stmt.expression.staticType;
+    if (scrutineeType is! InterfaceType) return false;
+    final element = scrutineeType.element;
+    if (element is! EnumElement) return false;
+
+    final allConstants = element.constants.toSet();
+    final covered = <FieldElement>{};
+
+    for (final arm in arms) {
+      for (final pattern in arm.patterns) {
+        if (pattern is! _CasePattern) return false;
+        final expr = pattern.expr;
+        if (expr is! PrefixedIdentifier) return false;
+        // In Dart 3, `Direction.north` resolves via a synthetic getter;
+        // unwrap to the backing FieldElement to match element.constants.
+        final fieldElement = _asEnumConstant(
+          expr.identifier.element,
+          allConstants,
+        );
+        if (fieldElement == null) return false;
+        covered.add(fieldElement);
+      }
+    }
+    return covered.length == allConstants.length;
+  }
+
+  String _leadingIndent(int offset) {
+    var pos = offset - 1;
+    while (pos >= 0 && source[pos] != '\n') {
+      pos--;
+    }
+    final lineStart = pos + 1;
+    final buf = StringBuffer();
+    for (var i = lineStart; i < offset; i++) {
+      final ch = source[i];
+      if (ch == ' ' || ch == '\t') {
+        buf.write(ch);
+      } else {
+        break;
+      }
+    }
+    return buf.toString();
   }
 
   /// Parses the statement list of one case arm.
@@ -208,146 +362,6 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
     return null; // Three or more statements.
   }
 
-  // -------------------------------------------------------------------------
-  // Shape determination
-  // -------------------------------------------------------------------------
-
-  // Returns 'assign:<element>' or 'return', or null if mixed / invalid.
-  String? _determineShape(List<_Arm> arms) {
-    Element? assignTarget;
-    var hasReturn = false;
-
-    for (final arm in arms) {
-      switch (arm.body) {
-        case _AssignBody(lhs: final lhs):
-          final el = lhs.element;
-          if (el == null) return null;
-          if (assignTarget == null) {
-            assignTarget = el;
-          } else if (assignTarget != el) {
-            return null; // Different targets.
-          }
-        case _ReturnBody():
-          if (assignTarget != null) return null; // Mixed.
-          hasReturn = true;
-        case _ThrowBody():
-          break; // Throw is compatible with both shapes.
-      }
-    }
-
-    if (!hasReturn && assignTarget == null) return null; // All throws, skip.
-    if (hasReturn && assignTarget != null) return null; // Mixed.
-    return hasReturn ? 'return' : 'assign';
-  }
-
-  // -------------------------------------------------------------------------
-  // Exhaustiveness
-  // -------------------------------------------------------------------------
-
-  bool _isExhaustive(SwitchStatement stmt, List<_Arm> arms) {
-    if (arms.any((a) => a.hasDefault)) return true;
-    return _isExhaustiveEnum(stmt, arms);
-  }
-
-  bool _isExhaustiveEnum(SwitchStatement stmt, List<_Arm> arms) {
-    final scrutineeType = stmt.expression.staticType;
-    if (scrutineeType is! InterfaceType) return false;
-    final element = scrutineeType.element;
-    if (element is! EnumElement) return false;
-
-    final allConstants = element.constants.toSet();
-    final covered = <FieldElement>{};
-
-    for (final arm in arms) {
-      for (final pattern in arm.patterns) {
-        if (pattern is! _CasePattern) return false;
-        final expr = pattern.expr;
-        if (expr is! PrefixedIdentifier) return false;
-        // In Dart 3, `Direction.north` resolves via a synthetic getter;
-        // unwrap to the backing FieldElement to match element.constants.
-        final fieldElement = _asEnumConstant(
-          expr.identifier.element,
-          allConstants,
-        );
-        if (fieldElement == null) return false;
-        covered.add(fieldElement);
-      }
-    }
-    return covered.length == allConstants.length;
-  }
-
-  FieldElement? _asEnumConstant(
-    Element? rawElement,
-    Set<FieldElement> constants,
-  ) {
-    if (rawElement is FieldElement && constants.contains(rawElement)) {
-      return rawElement;
-    }
-    if (rawElement is GetterElement) {
-      final variable = rawElement.variable;
-      if (variable is FieldElement && constants.contains(variable)) {
-        return variable;
-      }
-    }
-    return null;
-  }
-
-  // -------------------------------------------------------------------------
-  // Edit construction
-  // -------------------------------------------------------------------------
-
-  void _buildEdit(SwitchStatement stmt, List<_Arm> arms, String shape) {
-    final indent = _leadingIndent(stmt.offset);
-    final armIndent = '$indent  ';
-    final scrutinee = source.substring(
-      stmt.expression.offset,
-      stmt.expression.end,
-    );
-    final armLines = arms
-        .map(
-          (a) =>
-              '$armIndent${_patternText(a.patterns)} => ${_valueText(a.body)},',
-        )
-        .join('\n');
-    final switchExpr = 'switch ($scrutinee) {\n$armLines\n$indent}';
-
-    if (shape == 'return') {
-      edits.add(
-        SourceEdit(
-          offset: stmt.offset,
-          length: stmt.end - stmt.offset,
-          replacement: 'return $switchExpr;',
-        ),
-      );
-      return;
-    }
-
-    // Assignment shape: try to fold the preceding declaration.
-    final targetElement = _assignTarget(arms)!;
-    final preceding = _findPrecedingDecl(stmt, targetElement);
-
-    if (preceding != null) {
-      final (decl, varName) = preceding;
-      edits.add(
-        SourceEdit(
-          offset: decl.offset,
-          length: stmt.end - decl.offset,
-          replacement: '${indent}final $varName = $switchExpr;',
-        ),
-      );
-    } else {
-      final varName = targetElement.name ?? '';
-      if (varName.isEmpty) return;
-      edits.add(
-        SourceEdit(
-          offset: stmt.offset,
-          length: stmt.end - stmt.offset,
-          replacement: '$varName = $switchExpr;',
-        ),
-      );
-    }
-  }
-
   String _patternText(List<_Pattern> patterns) => patterns
       .map(
         (p) => switch (p) {
@@ -357,64 +371,26 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
       )
       .join(' || ');
 
+  void _tryRewrite(SwitchStatement stmt) {
+    final arms = _collectArms(stmt);
+    if (arms == null || arms.isEmpty) return;
+
+    final shape = _determineShape(arms);
+    if (shape == null) return;
+
+    if (!_isExhaustive(stmt, arms)) return;
+
+    _buildEdit(stmt, arms, shape);
+  }
+
   String _valueText(_ArmBody body) => switch (body) {
     _AssignBody(rhsText: final t) => t,
     _ReturnBody(exprText: final t) => t,
     _ThrowBody(throwText: final t) => t,
   };
+}
 
-  Element? _assignTarget(List<_Arm> arms) {
-    for (final arm in arms) {
-      if (arm.body case _AssignBody(lhs: final lhs)) {
-        return lhs.element;
-      }
-    }
-    return null;
-  }
-
-  /// Finds the `VariableDeclarationStatement` immediately before [stmt] in the
-  /// same block that declares [targetElement] with no initializer.
-  (VariableDeclarationStatement, String)? _findPrecedingDecl(
-    SwitchStatement stmt,
-    Element targetElement,
-  ) {
-    final block = stmt.parent;
-    if (block is! Block) return null;
-
-    final stmts = block.statements;
-    final switchIndex = stmts.indexOf(stmt);
-    if (switchIndex <= 0) return null;
-
-    final prev = stmts[switchIndex - 1];
-    if (prev is! VariableDeclarationStatement) return null;
-
-    final vars = prev.variables;
-    if (vars.variables.length != 1) return null;
-
-    final varDecl = vars.variables.single;
-    if (varDecl.initializer != null) return null;
-
-    final element = varDecl.declaredFragment?.element;
-    if (element == null || element != targetElement) return null;
-
-    return (prev, varDecl.name.lexeme);
-  }
-
-  String _leadingIndent(int offset) {
-    var pos = offset - 1;
-    while (pos >= 0 && source[pos] != '\n') {
-      pos--;
-    }
-    final lineStart = pos + 1;
-    final buf = StringBuffer();
-    for (var i = lineStart; i < offset; i++) {
-      final ch = source[i];
-      if (ch == ' ' || ch == '\t') {
-        buf.write(ch);
-      } else {
-        break;
-      }
-    }
-    return buf.toString();
-  }
+final class _ThrowBody extends _ArmBody {
+  final String throwText;
+  _ThrowBody(this.throwText);
 }
