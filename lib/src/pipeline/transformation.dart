@@ -4,10 +4,11 @@ import '../engine/source_edit.dart';
 
 /// Marker for passes that run in the finalize phase, not through [editsFor].
 ///
-/// Fix-all, organize-imports, and sort-members all delegate to external tools
-/// (dart fix, the analysis server) rather than walking the AST. They implement
-/// [Transformation] only to carry the [enabled] flag through the pipeline;
-/// their [editsFor] always returns an empty list.
+/// Fix-all shells out to `dart fix`; organize-imports and sort-members run the
+/// in-process analyzer-based engines over the finalized files rather than the
+/// per-unit AST loop. They implement [Transformation] only to carry the
+/// [enabled] flag through the pipeline; their [editsFor] always returns an
+/// empty list.
 ///
 /// The pipeline detects [FinalizeTransformation] instances and routes them to
 /// [ModernizePipeline._finalize] instead of the main AST loop.

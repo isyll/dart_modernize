@@ -1,16 +1,13 @@
 import 'dart:collection';
 import 'dart:math';
 
-enum Priority { low, high }
-
-class Task {
-  String get name => _name;
-
-  final String _name;
-  final Priority priority;
-
-  Task({required this._name, required this.priority});
+Queue<Task> pending() {
+  final q = Queue<Task>();
+  q.add(.new(name: 'seed', priority: .low));
+  return q;
 }
+
+int roll() => Random().nextInt(6);
 
 int weightOf(int code) {
   final result = switch (code) {
@@ -20,10 +17,13 @@ int weightOf(int code) {
   return result;
 }
 
-Queue<Task> pending() {
-  final q = Queue<Task>();
-  q.add(.new(name: 'seed', priority: .low));
-  return q;
-}
+enum Priority { low, high }
 
-int roll() => Random().nextInt(6);
+class Task {
+  final String _name;
+
+  final Priority priority;
+  Task({required this._name, required this.priority});
+
+  String get name => _name;
+}

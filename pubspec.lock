@@ -9,14 +9,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "103.0.0"
-  analysis_server_client:
-    dependency: "direct main"
-    description:
-      name: analysis_server_client
-      sha256: a8594b413222bf5a453543d6c05d4a12e974f7ac1a18dc77b913b4ad8032cc46
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.1"
   analyzer:
     dependency: "direct main"
     description:

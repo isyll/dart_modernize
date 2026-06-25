@@ -1,0 +1,52 @@
+/// Reduces a rewritten source string to a single minimal [SourceEdit].
+///
+/// Ported from the Dart SDK analysis server (`utilities/strings.dart`). The
+/// import organizer and member sorter both rewrite the whole file into a new
+/// string, then call [computeSimpleDiff] to express the change as one edit
+/// confined to the region that actually differs.
+library;
+
+import 'source_edit.dart';
+
+/// Returns the single edit that turns [oldStr] into [newStr], or null if equal.
+SourceEdit? computeSimpleDiff(String oldStr, String newStr) {
+  if (oldStr == newStr) return null;
+  var prefixLength = findCommonPrefix(oldStr, newStr);
+  final suffixLength = findCommonSuffix(oldStr, newStr);
+  while (prefixLength >= 0) {
+    final oldReplaceLength = oldStr.length - prefixLength - suffixLength;
+    final newReplaceLength = newStr.length - prefixLength - suffixLength;
+    if (oldReplaceLength >= 0 && newReplaceLength >= 0) {
+      return SourceEdit(
+        offset: prefixLength,
+        length: oldReplaceLength,
+        replacement: newStr.substring(
+          prefixLength,
+          newStr.length - suffixLength,
+        ),
+      );
+    }
+    prefixLength--;
+  }
+  return SourceEdit(offset: 0, length: oldStr.length, replacement: newStr);
+}
+
+/// Number of characters common to the start of [a] and [b].
+int findCommonPrefix(String a, String b) {
+  final n = a.length < b.length ? a.length : b.length;
+  for (var i = 0; i < n; i++) {
+    if (a.codeUnitAt(i) != b.codeUnitAt(i)) return i;
+  }
+  return n;
+}
+
+/// Number of characters common to the end of [a] and [b].
+int findCommonSuffix(String a, String b) {
+  final aLength = a.length;
+  final bLength = b.length;
+  final n = aLength < bLength ? aLength : bLength;
+  for (var i = 1; i <= n; i++) {
+    if (a.codeUnitAt(aLength - i) != b.codeUnitAt(bLength - i)) return i - 1;
+  }
+  return n;
+}

@@ -2,13 +2,15 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:analyzer/dart/analysis/utilities.dart';
+
 import '../analysis/project_analyzer.dart';
 import '../analysis/validator.dart';
 import '../cli/options.dart';
-import '../engine/analysis_server.dart';
 import '../engine/edit_collector.dart';
 import '../engine/file_filter.dart';
-import '../engine/source_edit.dart';
+import '../engine/import_organizer.dart';
+import '../engine/member_sorter.dart';
 import '../engine/unified_diff.dart';
 import '../modernize_exception.dart';
 import '../output/reporter.dart';
@@ -182,43 +184,58 @@ final class ModernizePipeline {
       ]);
     }
 
-    // Organize-imports and sort-members via the analysis server.
-    // Both need a live server; start once, process all files, then stop.
-    // pub get must have been run before the server starts so it can resolve
-    // package config and dart: imports correctly.
-    if (hasOrganize || hasSortMembers) {
+    // Organize-imports and sort-members, both in-process via the analyzer.
+    //
+    // Organize-imports needs a resolved unit (unused/duplicate-import
+    // diagnostics drive pruning), which requires a resolved package config, so
+    // pub get must run first. Sort-members is purely syntactic, so when it runs
+    // alone the files are only parsed, with no resolution or pub get.
+    //
+    // The two passes edit disjoint regions (directives vs declarations), so
+    // their edits are computed on the same source and merged.
+    if (hasOrganize) {
       await _ensurePubGet(projectPath);
       final stepLabel = [
-        if (hasOrganize) 'organize-imports',
+        'organize-imports',
         if (hasSortMembers) 'sort-members',
       ].join(' + ');
-      reporter.finalizingStep('$stepLabel via analysis server');
-      // Phase 1: query every file while files are unchanged on disk.
-      // Writing files during query causes CONTENT_MODIFIED errors on
-      // subsequent requests because the server detects the disk changes
-      // and re-analyzes.  Collect all edits first, stop the server, then
-      // apply in phase 2.
-      final pendingEdits = <String, List<SourceEdit>>{};
-      final server = await AnalysisServerWrapper.start(projectPath);
-      try {
-        for (final filePath in _dartFiles(projectPath, filter)) {
-          final edits = <SourceEdit>[];
-          if (hasOrganize) {
-            edits.addAll(await server.organizeDirectives(filePath));
-          }
-          if (hasSortMembers) {
-            edits.addAll(await server.sortMembers(filePath));
-          }
-          if (edits.isNotEmpty) pendingEdits[filePath] = edits;
+      reporter.finalizingStep(stepLabel);
+      final analyzer = ProjectAnalyzer(projectPath)..initialize();
+      await for (final unit in analyzer.resolvedUnits()) {
+        if (filter.shouldSkip(unit.path)) continue;
+        final collector = EditCollector()
+          ..addAll(
+            organizeImportEdits(
+              unit.content,
+              unit.unit,
+              unit.lineInfo,
+              unit.diagnostics,
+            ),
+          );
+        if (hasSortMembers) {
+          collector.addAll(
+            sortMemberEdits(unit.content, unit.unit, unit.lineInfo),
+          );
         }
-      } finally {
-        await server.stop();
+        if (collector.isEmpty) continue;
+        final modified = collector.apply(unit.content);
+        if (modified != unit.content) {
+          File(unit.path).writeAsStringSync(modified);
+        }
       }
-      // Phase 2: apply edits after the server is stopped.
-      for (final entry in pendingEdits.entries) {
-        final original = File(entry.key).readAsStringSync();
-        final modified = (EditCollector()..addAll(entry.value)).apply(original);
-        if (modified != original) File(entry.key).writeAsStringSync(modified);
+    } else if (hasSortMembers) {
+      reporter.finalizingStep('sort-members');
+      for (final filePath in _dartFiles(projectPath, filter)) {
+        final content = File(filePath).readAsStringSync();
+        final parsed = parseString(
+          content: content,
+          path: filePath,
+          throwIfDiagnostics: false,
+        );
+        final edits = sortMemberEdits(content, parsed.unit, parsed.lineInfo);
+        if (edits.isEmpty) continue;
+        final modified = (EditCollector()..addAll(edits)).apply(content);
+        if (modified != content) File(filePath).writeAsStringSync(modified);
       }
     }
 
