@@ -71,13 +71,21 @@ final class Reporter {
   }
 
   void error(String message) => _err(_errorText('Error: $message'));
-  void errorHint(String hint) => _err(hint);
-  void finalizing() => _out('Finalizing…');
-  void finalizingStep(String label) => _out('  $label…');
+  void errorHint(String hint) => _err(_dim(hint));
+  void finalizing() => _out(_dim('Finalizing…'));
+  void finalizingStep(String label) => _out(_dim('  $label…'));
 
-  void liveSummary(int changed) => _out('$changed file(s) changed.');
+  void liveSummary(int changed) {
+    _out(_rule());
+    _out('  ${_bold('$changed')} file(s) changed.');
+    _out(_rule());
+  }
 
-  void nothingToDo() => _out('No transformations enabled; nothing to do.');
+  void nothingToDo() {
+    _out(_rule());
+    _out('  No transformations enabled; nothing to do.');
+    _out(_rule());
+  }
 
   void plain(String text) => _out(text);
 
@@ -98,7 +106,7 @@ final class Reporter {
     _outSink.writeln();
   }
 
-  void resolving() => _out('Resolving…');
+  void resolving() => _out(_dim('Resolving…'));
   void unexpectedError(Object e) => _err(_errorText('Unexpected error: $e'));
 
   void validated() => _out(_bold('✓ Project validated.'));
