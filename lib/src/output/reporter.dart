@@ -73,14 +73,13 @@ final class Reporter {
   void error(String message) => _err(_errorText('Error: $message'));
   void errorHint(String hint) => _err(_dim(hint));
 
+  void finalizing() => _out(_dim('Finalizing…'));
+
+  void finalizingStep(String label) => _out(_dim('  $label…'));
   void help(String usage) {
     _out('${_bold('Usage:')} dart_modernize [options] [path]\n');
     _out(usage);
   }
-
-  void version(String v) => _out('${_bold('dart_modernize')} ${_dim(v)}');
-  void finalizing() => _out(_dim('Finalizing…'));
-  void finalizingStep(String label) => _out(_dim('  $label…'));
 
   void liveSummary(int changed) {
     _out(_rule());
@@ -114,9 +113,11 @@ final class Reporter {
   }
 
   void resolving() => _out(_dim('Resolving…'));
-  void unexpectedError(Object e) => _err(_errorText('Unexpected error: $e'));
 
+  void unexpectedError(Object e) => _err(_errorText('Unexpected error: $e'));
   void validated() => _out(_bold('✓ Project validated.'));
+
+  void version(String v) => _out('${_bold('dart_modernize')} ${_dim(v)}');
 
   String _bold(String s) => color ? s.bold() : s;
 
