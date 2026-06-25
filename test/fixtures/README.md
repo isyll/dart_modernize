@@ -7,35 +7,29 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 
 ## Folder = feature
 
-All sixteen transformation passes have a fixtures folder and a CLI flag.
-The fourteen passes marked **implemented** have full visitor logic; running the
-tool with only that flag enabled rewrites positive fixtures as expected and
-leaves negative (`.unchanged.dart`) fixtures byte-for-byte identical.
+All seventeen transformation passes have a fixtures folder and a CLI flag.
+Each pass has full visitor logic; running the tool with only that flag enabled
+rewrites positive fixtures as expected and leaves negative (`.unchanged.dart`)
+fixtures byte-for-byte identical.
 
-The two passes marked **stub** return no edits. Their negative fixtures pass
-(the tool leaves them alone), but their positive fixtures fail until the pass is
-built. This is the intended TDD state: the failing assertion names the fixture
-and its expected output, so the fixtures serve as the spec the implementation
-must satisfy.
-
-| Folder                        | CLI flag                       | Status      |
-| ----------------------------- | ------------------------------ | ----------- |
-| `dot_shorthands/`             | `--dot-shorthands`             | implemented |
-| `private_named_parameters/`   | `--private-named-parameters`   | implemented |
-| `primary_constructors/`       | `--primary-constructors`       | stub        |
-| `super_parameters/`           | `--super-parameters`           | implemented |
-| `switch_expressions/`         | `--switch-expressions`         | stub        |
-| `cascades/`                   | `--cascades`                   | implemented |
-| `inline_return/`              | `--inline-return`              | implemented |
-| `final_locals/`               | `--final-locals`               | implemented |
-| `expression_bodies/`          | `--expression-bodies`          | implemented |
-| `string_interpolation/`       | `--string-interpolation`       | implemented |
-| `null_aware_spread/`          | `--null-aware-spread`          | implemented |
-| `null_aware_elements/`        | `--null-aware-elements`        | implemented |
-| `organize_imports/`           | `--organize-imports`           | implemented |
-| `sort_members/`               | `--sort-members`               | implemented |
-| `fix_all/`                    | `--fix-all`                    | implemented |
-| `abstract_final_classes/`     | `--abstract-final-classes`     | implemented |
+| Folder                        | CLI flag                       |
+| ----------------------------- | ------------------------------ |
+| `dot_shorthands/`             | `--dot-shorthands`             |
+| `private_named_parameters/`   | `--private-named-parameters`   |
+| `primary_constructors/`       | `--primary-constructors`       |
+| `super_parameters/`           | `--super-parameters`           |
+| `switch_expressions/`         | `--switch-expressions`         |
+| `cascades/`                   | `--cascades`                   |
+| `inline_return/`              | `--inline-return`              |
+| `final_locals/`               | `--final-locals`               |
+| `expression_bodies/`          | `--expression-bodies`          |
+| `string_interpolation/`       | `--string-interpolation`       |
+| `null_aware_spread/`          | `--null-aware-spread`          |
+| `null_aware_elements/`        | `--null-aware-elements`        |
+| `organize_imports/`           | `--organize-imports`           |
+| `sort_members/`               | `--sort-members`               |
+| `fix_all/`                    | `--fix-all`                    |
+| `abstract_final_classes/`     | `--abstract-final-classes`     |
 
 ## Adding a case = adding files (no code)
 

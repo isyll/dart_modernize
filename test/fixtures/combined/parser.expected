@@ -3,12 +3,10 @@ import 'dart:convert';
 String encode(Token t) => jsonEncode(t.value);
 
 Token parse(int code) {
-  switch (code) {
-    case 0:
-      return .new('zero');
-    default:
-      return .new('other');
-  }
+  return switch (code) {
+    0 => Token('zero'),
+    _ => Token('other'),
+  };
 }
 
 class Token {

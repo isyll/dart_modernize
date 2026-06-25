@@ -21,8 +21,8 @@
 ///     consequence of running every pass on a single resolution with no
 ///     re-resolution between passes; see `doc/ORDERING.md`.
 ///
-/// Only the nine implemented passes are used here; the two stubs are inert and
-/// would only mask which pass produced an edit.
+/// Only the passes relevant to each construct are used here; the full feature
+/// set is validated by `full_pipeline_idempotence_test.dart`.
 library;
 
 import 'dart:io';

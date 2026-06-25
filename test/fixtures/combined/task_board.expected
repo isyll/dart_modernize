@@ -13,14 +13,10 @@ class Task {
 }
 
 int weightOf(int code) {
-  int result;
-  switch (code) {
-    case 0:
-      result = 1;
-      break;
-    default:
-      result = 5;
-  }
+  final result = switch (code) {
+    0 => 1,
+    _ => 5,
+  };
   return result;
 }
 

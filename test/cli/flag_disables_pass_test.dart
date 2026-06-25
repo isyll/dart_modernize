@@ -15,36 +15,27 @@ import 'package:test/test.dart';
 import '../support/cli_harness.dart';
 import '../support/triggers.dart';
 
-// Stub features are wired but not yet implemented; they always return no edits,
-// so the "enabling it applies" half cannot be verified until logic is added.
-
 void main() {
   for (final feature in allFeatures) {
     final flag = featureFlags[feature]!;
 
     group('--$flag', () {
-      test(
-        'enabling it applies the $feature pass',
-        () async {
-          final result = await runCli(
-            files: triggerFiles(feature),
-            args: onlyFeatureArgs(feature),
-            pubspec: triggerPubspec(feature),
-          );
+      test('enabling it applies the $feature pass', () async {
+        final result = await runCli(
+          files: triggerFiles(feature),
+          args: onlyFeatureArgs(feature),
+          pubspec: triggerPubspec(feature),
+        );
 
-          expect(result.exitCode, 0, reason: result.stderr);
-          expect(
-            result.read('lib/trigger.dart'),
-            isNot(triggers[feature]),
-            reason:
-                'with only --$flag enabled, the $feature pass must transform '
-                'its trigger file',
-          );
-        },
-        skip: stubFeatures.contains(feature)
-            ? '$feature transformation not yet implemented'
-            : null,
-      );
+        expect(result.exitCode, 0, reason: result.stderr);
+        expect(
+          result.read('lib/trigger.dart'),
+          isNot(triggers[feature]),
+          reason:
+              'with only --$flag enabled, the $feature pass must transform '
+              'its trigger file',
+        );
+      });
 
       test('--no-$flag skips the $feature pass', () async {
         final result = await runCli(

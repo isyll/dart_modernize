@@ -1,11 +1,10 @@
 /// Full-pipeline safety spec over a realistic, multi-file project.
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
-/// is modernized with **all fifteen implemented passes** enabled at once, and the
-/// result must be (a) actually transformed by every structural pass, (b)
-/// idempotent (a second run changes nothing), and (c) still analyze without
-/// errors. A final case proves the two stub passes are inert: enabling them on
-/// top changes nothing.
+/// is modernized with all seventeen structural passes enabled at once, and the
+/// result must be (a) actually transformed by every applicable structural pass,
+/// (b) idempotent (a second run changes nothing), and (c) still analyze without
+/// errors.
 ///
 /// The fixture deliberately keeps each transformable construct owned by a single
 /// pass (no two passes target the same span), so the project converges in one
@@ -88,25 +87,6 @@ void main() {
         reason: 'modernized project must analyze clean:\n${outcome.output}',
       );
     });
-
-    test(
-      'the two stub passes are inert: enabling them changes nothing',
-      () async {
-        // Default args = all seventeen passes on. The two stubs
-        // (primary_constructors and switch_expressions) return no edits, so
-        // the output must be byte-identical to the fifteen-stable-passes run.
-        final withStubs = createProject(files: _projectFiles());
-        final run = await invokeCli(withStubs);
-        expect(run.exitCode, 0, reason: run.stderr);
-        for (final f in _projectFiles().keys) {
-          expect(
-            run.read(f),
-            afterFirst[f],
-            reason: 'enabling the stub passes altered $f; stubs must be inert',
-          );
-        }
-      },
-    );
   });
 }
 
@@ -159,11 +139,17 @@ class Worker extends Base {
 }
 ''';
 
-/// All fifteen implemented passes (fixture-folder names).
+/// All seventeen structural passes (fixture-folder names).
+///
+/// primary_constructors and switch_expressions do not fire on the project
+/// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
+/// for the latter) but are included so the set covers all passes.
 const _stable = <String>{
   'dot_shorthands',
   'private_named_parameters',
+  'primary_constructors',
   'super_parameters',
+  'switch_expressions',
   'cascades',
   'inline_return',
   'final_locals',

@@ -223,22 +223,30 @@ final class ModernizePipeline {
     }
 
     // dart format: always last so all previous edits end up consistently
-    // formatted.
+    // formatted. Exit 65 means the formatter encountered a parse error (e.g.
+    // the project uses syntax newer than the locally-installed SDK). The
+    // transformation has already been written to disk, so treat this as a
+    // non-fatal warning rather than aborting the pipeline.
     reporter.finalizingStep('dart format');
-    await _runProcess(Platform.resolvedExecutable, ['format', projectPath]);
+    await _runProcess(
+      Platform.resolvedExecutable,
+      ['format', projectPath],
+      allowedExitCodes: {65},
+    );
   }
 
   Future<void> _runProcess(
     String executable,
     List<String> args, {
     String? workingDirectory,
+    Set<int> allowedExitCodes = const {},
   }) async {
     final result = await Process.run(
       executable,
       args,
       workingDirectory: workingDirectory ?? options.path,
     );
-    if (result.exitCode != 0) {
+    if (result.exitCode != 0 && !allowedExitCodes.contains(result.exitCode)) {
       throw ModernizeException(
         '$executable ${args.join(' ')} failed (exit ${result.exitCode}).\n'
         '${result.stderr}',

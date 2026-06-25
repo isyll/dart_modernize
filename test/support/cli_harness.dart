@@ -76,14 +76,6 @@ const featureFlags = <String, String>{
   'abstract_final_classes': 'abstract-final-classes',
 };
 
-/// Features whose transformation logic is not yet implemented.
-///
-/// These are wired into the pipeline as stubs (return no edits). The
-/// [flag_disables_pass_test] verifies that `--no-<flag>` is recognised and
-/// leaves the trigger byte-for-byte unchanged, but skips the "enabling it
-/// applies" half because a stub never produces output.
-const stubFeatures = <String>{'primary_constructors'};
-
 /// Path to the CLI entry point, relative to [_packageRoot].
 const String _binPath = 'bin/dart_modernize.dart';
 
