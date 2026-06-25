@@ -22,12 +22,17 @@ lib/
     engine/
       source_edit.dart               SourceEdit record (offset, length, replacement)
       edit_collector.dart            collects + applies edits, detects conflicts
+      edit_diff.dart                 reduces a rewritten file to one SourceEdit
       file_filter.dart               generated-file exclusion (*.g.dart etc.)
+      node_range.dart                declaration range incl. attached comments
+      import_organizer.dart          sort / group / prune directives
+      member_sorter.dart             reorder unit and class members
       unified_diff.dart              dry-run diff formatter
     pipeline/
       pipeline.dart                  ModernizePipeline orchestrator
       transformation.dart            Transformation interface
-      transformations.dart           buildTransformations() + re-exports
+      transformations.dart           buildTransformations()
+      safe_reference.dart            shared helper for the null-aware passes
       transformations/               one file per pass
 test/
   cli/                               unit tests: options, flags, dry-run, idempotence
