@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
 import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:path/path.dart' as p;
 
 import '../analysis/project_analyzer.dart';
 import '../analysis/validator.dart';
@@ -184,15 +183,11 @@ final class ModernizePipeline {
       ]);
     }
 
-    // Organize-imports and sort-members, both in-process via the analyzer.
-    //
-    // Organize-imports needs a resolved unit (unused/duplicate-import
-    // diagnostics drive pruning), which requires a resolved package config, so
-    // pub get must run first. Sort-members is purely syntactic, so when it runs
-    // alone the files are only parsed, with no resolution or pub get.
-    //
-    // The two passes edit disjoint regions (directives vs declarations), so
-    // their edits are computed on the same source and merged.
+    // Organize-imports needs a resolved unit: its pruning is driven by
+    // unused-import diagnostics, so it runs pub get and resolves the project.
+    // Sort-members is syntactic, so on its own it only parses each file. The
+    // two passes touch different regions (directives vs members), so when both
+    // run their edits are computed on the same source and merged.
     if (hasOrganize) {
       await _ensurePubGet(projectPath);
       final stepLabel = [
