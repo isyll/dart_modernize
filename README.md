@@ -464,7 +464,7 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**🔤 Sort members**: reorders class members into canonical order (fields, constructors, getters/setters, then methods), keeping the original order stable within each group.
+**🔤 Sort members**: reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes.
 
 ```dart
 // before
@@ -577,17 +577,17 @@ Run `dart_modernize --help` for the complete, always up to date reference. Every
 
 ```
   validate  ──▶  resolve  ──▶  transform  ──▶  finalize
-   SDK +         full type      type safe        organize · sort
-   clean         resolution     edits, in        fix · format
-   analysis                     ordered passes   re-analyze
+   pubspec       full type      type-safe        fix · organize
+   + SDK         resolution     edits, in        sort · format
+   check                        ordered passes
 ```
 
-1. **Validate.** Reads the SDK constraint and confirms the project analyzes cleanly. Reliable resolution is what makes the rest safe.
+1. **Validate.** Checks that a `pubspec.yaml` exists and declares an SDK constraint, so the project can be resolved.
 2. **Resolve.** Loads the project with full type resolution, library by library.
-3. **Transform.** Collects edits per feature using resolved types. Structural and shorthand passes run separately, with re-resolution between them.
-4. **Finalize.** Organizes imports, sorts members, applies fixes, runs `dart format`, then re-analyzes to confirm zero new errors.
+3. **Transform.** Each file is resolved once; every enabled pass reads that one tree and contributes edits, which are then applied together.
+4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, and runs `dart format`.
 
-Run it twice and the second run changes nothing. It is **idempotent** by design.
+Re-running is safe: the tool converges to a stable result and is **idempotent** by design.
 
 <br>
 
@@ -597,7 +597,7 @@ Run it twice and the second run changes nothing. It is **idempotent** by design.
 * 🚫 **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs.
 * ⚖️ **Refuses ambiguity.** Will not apply a shorthand when the context type is too imprecise to guarantee an identical result.
 * 🔁 **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
-* ✅ **Verifies after every pass.** The project must still analyze without errors.
+* ✅ **Type-checked edits.** Every rewrite is computed from fully resolved types, so the targeted element and the static type stay identical.
 
 Run on a clean working tree, review the diff, then commit with confidence.
 
