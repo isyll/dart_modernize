@@ -27,13 +27,18 @@ Future<void> run(List<String> arguments) async {
     exit(64);
   }
 
+  final earlyReporter = Reporter(
+    color: resolveColor(colorFlag: null),
+    verbose: false,
+  );
+
   if (results['help'] as bool) {
-    stdout.writeln('Usage: dart_modernize [options] [path]\n\n${parser.usage}');
+    earlyReporter.help(parser.usage);
     return;
   }
 
   if (results['version'] as bool) {
-    stdout.writeln('dart_modernize $_version');
+    earlyReporter.version(_version);
     return;
   }
 

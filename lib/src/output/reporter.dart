@@ -72,6 +72,13 @@ final class Reporter {
 
   void error(String message) => _err(_errorText('Error: $message'));
   void errorHint(String hint) => _err(_dim(hint));
+
+  void help(String usage) {
+    _out('${_bold('Usage:')} dart_modernize [options] [path]\n');
+    _out(usage);
+  }
+
+  void version(String v) => _out('${_bold('dart_modernize')} ${_dim(v)}');
   void finalizing() => _out(_dim('Finalizing…'));
   void finalizingStep(String label) => _out(_dim('  $label…'));
 
