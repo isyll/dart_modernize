@@ -166,10 +166,9 @@ final class CliOptions {
   /// Additional glob patterns supplied via `--exclude` flags.
   final List<String> excludes;
 
+  /// Whether each transformation pass is enabled.
   final bool dotShorthands;
-
   final bool privateNamedParameters;
-
   final bool primaryConstructors;
   final bool superParameters;
   final bool switchExpressions;
@@ -185,6 +184,7 @@ final class CliOptions {
   final bool finalLocals;
   final bool abstractFinalClasses;
   final bool preferInferredTypes;
+
   const CliOptions({
     required this.path,
     required this.dryRun,
