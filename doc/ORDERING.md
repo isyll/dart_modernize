@@ -21,17 +21,18 @@ by `enabled`; it never reorders. The order is:
 6. `cascades`
 7. `inline-return`
 8. `final-locals`
-9. `expression-bodies`
-10. `string-interpolation`
-11. `null-aware-spread`
-12. `null-aware-elements`
-13. `organize-imports`
-14. `sort-members`
-15. `fix-all`
-16. `abstract-final-classes`
+9. `prefer-inferred-types`
+10. `expression-bodies`
+11. `string-interpolation`
+12. `null-aware-spread`
+13. `null-aware-elements`
+14. `organize-imports`
+15. `sort-members`
+16. `fix-all`
+17. `abstract-final-classes`
 
 The grouping is **structural rewrites first, cosmetic passes next, bulk fixes
-last**: passes that change the shape of declarations and statements (1–11) run
+last**: passes that change the shape of declarations and statements (1–13) run
 ahead of the ones that reorder or reformat whole files (`organize-imports`,
 `sort-members`) and the catch-all `fix-all`. `abstract-final-classes` is placed
 last because it requires a full project-wide analysis pass to determine which
@@ -116,9 +117,10 @@ span hides another pass's edit nested inside it:
 | `var x = a + b; return x;`                                     | `inline-return` + `string-interpolation`     | 2 runs       |
 | `{ final x = e; return x; }` (sole statement after inlining)  | `inline-return` + `expression-bodies`        | 2 runs       |
 | `var p = X(); p.a(); p.b(); return p;` (cascade then inline)   | `cascades` + `inline-return`                 | 2 runs       |
+| `T x = e;` (bare-typed local, later read)                      | `prefer-inferred-types` + `final-locals`     | 2 runs       |
 
-The "converge across runs" group in the interaction suite reproduces all four
-and asserts each reaches the correct fixpoint. The existing golden and combined
+The "converge across runs" group in the interaction suite reproduces these
+collisions and asserts each reaches the correct fixpoint. The existing golden and combined
 fixtures sidestep the issue by keeping such constructs already in their target
 shape (e.g. methods already written as `=>` bodies), which is why single-run
 idempotence holds for them.
