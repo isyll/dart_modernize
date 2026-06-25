@@ -1,11 +1,9 @@
-/// Comment-aware source ranges for declarations.
+/// Source ranges for declarations that include their attached comments.
 ///
-/// Ported from the Dart SDK analysis server's `RangeFactory.nodeWithComments`
-/// (`utilities/extensions/range_factory.dart`). The member sorter needs each
-/// declaration's range to include the comments that belong to it (a leading
-/// `//` comment on the line above, a trailing comment on the same line) so they
-/// travel with the member when it is reordered. Documentation comments and
-/// metadata are already part of the node and need no special handling.
+/// When the member sorter moves a declaration, the comments that belong to it
+/// should move too: a `//` comment on the line above, and a trailing comment on
+/// the same line. Doc comments and annotations are already part of the node, so
+/// they need no special handling.
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
@@ -26,9 +24,9 @@ NodeRange nodeWithComments(LineInfo lineInfo, AstNode node) {
   return (offset: start.offset, end: end.end);
 }
 
-/// The left-most comment immediately before [token] that is not on the same
-/// line as the first non-comment token before it. Returns [token] if there is
-/// no such comment.
+/// The first comment directly above [token]. A comment that shares a line with
+/// the preceding code belongs to that line and is skipped. Returns [token] when
+/// there is no leading comment.
 Token _leadingComment(LineInfo lineInfo, Token token) {
   final previous = token.previous;
   if (previous == null || previous.isEof) {
@@ -44,9 +42,8 @@ Token _leadingComment(LineInfo lineInfo, Token token) {
   return comment ?? token;
 }
 
-/// The trailing comment following [token] if it sits on the same line, else
-/// [token] itself. Declarations never carry a trailing comma, so the analysis
-/// server's comma handling is not needed here.
+/// The comment on the same line right after [token], or [token] itself if there
+/// is none.
 Token _trailingComment(LineInfo lineInfo, Token token) {
   final next = token.next;
   if (next == null) return token;

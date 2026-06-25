@@ -1,9 +1,8 @@
-/// Reduces a rewritten source string to a single minimal [SourceEdit].
+/// Turns a fully rewritten source string back into a single [SourceEdit].
 ///
-/// Ported from the Dart SDK analysis server (`utilities/strings.dart`). The
-/// import organizer and member sorter both rewrite the whole file into a new
-/// string, then call [computeSimpleDiff] to express the change as one edit
-/// confined to the region that actually differs.
+/// The import organizer and member sorter rebuild the whole file as a new
+/// string. [computeSimpleDiff] compares it against the original and returns one
+/// edit covering only the part that changed.
 library;
 
 import 'source_edit.dart';

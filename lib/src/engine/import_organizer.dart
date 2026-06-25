@@ -1,16 +1,13 @@
-/// Sorts, groups, deduplicates, and prunes directives.
+/// Sorts, groups, deduplicates, and prunes import/export/part directives.
 ///
-/// A faithful in-process port of the Dart SDK analysis server's
-/// `ImportOrganizer` (`services/correction/organize_imports.dart`). Directives
-/// are grouped (`dart:`, `package:`, other-scheme, relative), sorted within each
-/// group, separated by a blank line, and (when [removeUnused] is set) stripped
-/// of unused/duplicate/unnecessary imports and unused `show` names based on the
-/// resolved unit's diagnostics.
+/// Directives are split into groups (`dart:`, `package:`, other URI schemes,
+/// then relative paths), sorted within each group, and separated by a blank
+/// line. When [removeUnused] is set, unused, duplicate, and redundant imports
+/// are removed, along with unused names in `show` clauses, using the diagnostics
+/// from the resolved unit.
 ///
-/// One simplification versus the SDK original: library-level *annotations* on a
-/// leading `import` (a file with no `library` directive) are not detected,
-/// because the analyzer does not expose annotation target kinds publicly. A
-/// leading documentation comment is still kept at the top of the file.
+/// A file header (the leading doc comment when there is no `library` directive)
+/// stays at the top instead of moving with the first import.
 library;
 
 import 'dart:math' as math;
@@ -246,8 +243,8 @@ class _ImportOrganizer {
           !hasLibraryDirective && directive == _unit.directives.first;
       int? libraryDocsAndAnnotationsEndOffset;
       if (isPseudoLibraryDirective) {
-        // Annotation target kinds are not public API, so only the documentation
-        // comment is treated as library-level here.
+        // The analyzer doesn't expose annotation target kinds, so only a
+        // leading doc comment is treated as belonging to the file.
         libraryDocsAndAnnotationsEndOffset =
             directive.documentationComment?.end;
         if (libraryDocsAndAnnotationsEndOffset != null) {

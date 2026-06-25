@@ -1,11 +1,11 @@
-/// Reorders unit and class members into canonical order.
+/// Reorders top-level declarations and the members inside each class, enum,
+/// mixin, and extension into a canonical order: fields, then constructors, then
+/// getters/setters, then methods; public before private; alphabetical within
+/// each group.
 ///
-/// A faithful in-process port of the Dart SDK analysis server's `MemberSorter`
-/// (`services/correction/sort_members.dart`), trimmed to what this tool needs:
-/// it sorts top-level declarations and the members inside each class/enum/mixin/
-/// extension, but leaves directives to [organizeImportEdits]. The reorder is a
-/// pure permutation of member text within fixed whitespace gaps, so the whole
-/// region keeps its length and the final `dart format` pass settles spacing.
+/// Members only swap places and keep their original blank-line gaps, so the
+/// rewritten file is the same length and the final `dart format` pass tidies up
+/// the spacing. Import directives are left to the import organizer.
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
@@ -171,8 +171,8 @@ class _MemberSorter {
           kind = _MemberKind.classMethod;
         }
       } else {
-        // Unknown member kind (e.g. SDK syntax newer than this port); leave the
-        // class untouched rather than risk a wrong reorder.
+        // Unrecognized member kind; leave this class alone rather than risk a
+        // bad reorder.
         return;
       }
       members.add(
