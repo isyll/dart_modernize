@@ -374,19 +374,35 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// The matched value's type for a top-level constant pattern in a switch
-  /// statement (`switch (scrutinee) { case <pattern>: ... }`).
+  /// The matched value's type for a constant pattern in a `switch`, whether the
+  /// pattern is a `case <pattern>:` in a switch statement or a `<pattern> =>`
+  /// arm in a switch expression. Either way the matched value is the scrutinee.
+  ///
+  /// Walks up through `||`/`&&` and parentheses so a constant inside a combined
+  /// pattern (`A || B`) is matched against the scrutinee too.
   DartType? _patternMatchedType(ConstantPattern pattern) {
-    final guarded = pattern.parent;
-    if (guarded is! GuardedPattern || !identical(guarded.pattern, pattern)) {
-      return null;
+    AstNode? node = pattern.parent;
+    while (node is LogicalOrPattern ||
+        node is LogicalAndPattern ||
+        node is ParenthesizedPattern) {
+      node = node!.parent;
     }
-    final caseNode = guarded.parent;
-    if (caseNode is! SwitchPatternCase) return null;
-    final statement = caseNode.parent;
-    return statement is SwitchStatement
-        ? statement.expression.staticType
-        : null;
+    if (node is! GuardedPattern) return null;
+
+    final caseNode = node.parent;
+    if (caseNode is SwitchPatternCase) {
+      final statement = caseNode.parent;
+      return statement is SwitchStatement
+          ? statement.expression.staticType
+          : null;
+    }
+    if (caseNode is SwitchExpressionCase) {
+      final switchExpr = caseNode.parent;
+      return switchExpr is SwitchExpression
+          ? switchExpr.expression.staticType
+          : null;
+    }
+    return null;
   }
 
   /// Whether [context] and [written] denote the same interface type (same
