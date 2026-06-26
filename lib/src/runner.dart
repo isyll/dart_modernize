@@ -6,7 +6,6 @@ import 'cli/options.dart';
 import 'modernize_exception.dart';
 import 'output/reporter.dart';
 import 'pipeline/pipeline.dart';
-import 'pipeline/transformations.dart';
 
 const _version = '0.1.0';
 
@@ -47,11 +46,7 @@ Future<void> run(List<String> arguments) async {
     color: resolveColor(colorFlag: options.color),
     verbose: options.verbose,
   );
-  final pipeline = ModernizePipeline(
-    options: options,
-    reporter: reporter,
-    transformations: buildTransformations(options),
-  );
+  final pipeline = ModernizePipeline(options: options, reporter: reporter);
 
   try {
     await pipeline.run();

@@ -1,281 +1,162 @@
-/// Cross-feature interaction spec for the **implemented** passes.
+/// Cross-feature interaction spec.
 ///
-/// The golden suites exercise one pass at a time. This suite covers what they
-/// cannot: what happens when several passes apply to the *same file*, and
-/// especially the *same construct*, in a single run. The pipeline resolves each
-/// file once and runs every enabled pass against that one AST, then merges their
-/// edits (see [ModernizePipeline] and `EditCollector`). Two regimes fall out of
-/// that design, and each gets its own group below.
+/// The golden suites exercise one pass at a time. This suite covers what happens
+/// when several passes apply to the same file, and often the same construct, in
+/// a single run.
 ///
-///   * **Compose cleanly**: passes that touch *disjoint* regions all apply in a
-///     single run and the result is byte-stable on re-run. Output is also
-///     *subset-invariant*: enabling the full implemented set produces the same
-///     bytes as enabling only the passes that own those constructs, because the
-///     others have nothing to do.
-///
-///   * **Converge across runs**: when two passes target *overlapping* spans of
-///     one construct, `EditCollector` keeps the earlier-offset edit and drops
-///     the other (it never corrupts offsets). The dropped edit simply applies on
-///     the *next* run, so the tool converges to the fully-modernized form but is
-///     not single-run idempotent for those constructs. This is the documented
-///     consequence of running every pass on a single resolution with no
-///     re-resolution between passes; see `doc/ORDERING.md`.
-///
-/// Only the passes relevant to each construct are used here; the full feature
-/// set is validated by `full_pipeline_idempotence_test.dart`.
+/// The pipeline re-runs its passes until the project stops changing (see
+/// `doc/ORDERING.md`), so one invocation produces the fully modernized result
+/// even when a pass only becomes applicable after an earlier pass has rewritten
+/// the code: for example, dot-shorthands collapsing the value arms of a switch
+/// expression that switch-expressions just produced. Each case asserts that
+/// converged output from a single run, and that a second run changes nothing.
 library;
-
-import 'dart:io';
 
 import 'package:test/test.dart';
 
 import '../support/cli_harness.dart';
 
+const _file = 'lib/c.dart';
+
 void main() {
-  group('compose cleanly (disjoint edits, single-run stable)', () {
-    test('super-parameters folds a constructor while dot-shorthands '
-        'collapses a sibling method', () async {
-      const input = '''
+  group('passes compose to a fixpoint in one run', () {
+    _composes(
+      'switch-expressions, expression-bodies and dot-shorthands turn a '
+      'statement switch into an arrow-bodied switch expression with shorthands',
+      passes: {'switch_expressions', 'expression_bodies', 'dot_shorthands'},
+      input: '''
+class Token {
+  final String value;
+  Token(this.value);
+}
+
+Token parse(int code) {
+  switch (code) {
+    case 0:
+      return Token('zero');
+    default:
+      return Token('other');
+  }
+}
+''',
+      expected: '''
+class Token {
+  final String value;
+  Token(this.value);
+}
+
+Token parse(int code) => switch (code) {
+  0 => .new('zero'),
+  _ => .new('other'),
+};
+''',
+    );
+
+    _composes(
+      'cascades folds a write run and inline-return drops the freed local',
+      passes: {'cascades', 'inline_return'},
+      input: '''
+class Conn {
+  void open() {}
+  void send(String s) {}
+}
+
+Conn build(String token) {
+  var c = Conn();
+  c.open();
+  c.send(token);
+  return c;
+}
+''',
+      expected: '''
+class Conn {
+  void open() {}
+  void send(String s) {}
+}
+
+Conn build(String token) {
+  return Conn()
+    ..open()
+    ..send(token);
+}
+''',
+    );
+
+    _composes(
+      'cascades, prefer-inferred-types and dot-shorthands fold a typed list '
+      'builder into a cascade with inferred type and shorthands',
+      passes: {'cascades', 'prefer_inferred_types', 'dot_shorthands'},
+      input: '''
 enum Mode { fast, slow }
 
-class Base {
-  final int id;
-  Base({required this.id});
+void configure() {
+  final List<Mode> settings = [];
+  settings.add(Mode.fast);
+  settings.add(Mode.slow);
+  print(settings);
 }
-
-class Derived extends Base {
-  Derived({required int id}) : super(id: id);
-
-  Mode pick() => Mode.fast;
-}
-''';
-      const expected = '''
+''',
+      expected: '''
 enum Mode { fast, slow }
 
-class Base {
-  final int id;
-  Base({required this.id});
+void configure() {
+  final settings = <Mode>[]
+    ..add(.fast)
+    ..add(.slow);
+  print(settings);
 }
+''',
+    );
 
-class Derived extends Base {
-  Derived({required super.id});
-
-  Mode pick() => .fast;
-}
-''';
-
-      final project = createProject(files: {_file: input});
-      final subset = onlyFeaturesArgs({'super_parameters', 'dot_shorthands'});
-
-      expect(await _runOnce(project, subset), expected);
-      // Already converged: a second run is a no-op.
-      expect(await _runOnce(project, subset), expected);
-
-      // Subset-invariant: the full implemented set yields the identical bytes,
-      // because the other five passes have nothing to touch here.
-      final whole = createProject(files: {_file: input});
-      expect(await _runOnce(whole, onlyFeaturesArgs(_implemented)), expected);
-
-      // Each pass owns exactly its own construct.
-      final dotOnly = createProject(files: {_file: input});
-      final afterDot = await _runOnce(
-        dotOnly,
-        onlyFeaturesArgs({'dot_shorthands'}),
-      );
-      expect(afterDot, contains('Mode pick() => .fast;'));
-      expect(afterDot, contains('Derived({required int id}) : super(id: id);'));
-
-      final superOnly = createProject(files: {_file: input});
-      final afterSuper = await _runOnce(
-        superOnly,
-        onlyFeaturesArgs({'super_parameters'}),
-      );
-      expect(afterSuper, contains('Derived({required super.id});'));
-      expect(afterSuper, contains('Mode pick() => Mode.fast;'));
-    });
-
-    test('cascades folds a write run; expression-bodies leaves the '
-        'multi-statement method alone', () async {
-      const input = '''
-class Box {
-  int w = 0;
-  int h = 0;
-}
-
-Box make() {
-  var b = Box();
-  b.w = 1;
-  b.h = 2;
-  return b;
-}
-''';
-      const expected = '''
-class Box {
-  int w = 0;
-  int h = 0;
-}
-
-Box make() {
-  var b = Box()
-    ..w = 1
-    ..h = 2;
-  return b;
-}
-''';
-
-      final project = createProject(files: {_file: input});
-      final subset = onlyFeaturesArgs({'cascades', 'expression_bodies'});
-
-      expect(await _runOnce(project, subset), expected);
-      expect(await _runOnce(project, subset), expected);
-
-      final whole = createProject(files: {_file: input});
-      expect(await _runOnce(whole, onlyFeaturesArgs(_implemented)), expected);
-
-      // expression-bodies must not fire: make() has four statements, then two
-      // after the cascade fold, never a single-statement body.
-      final exprOnly = createProject(files: {_file: input});
-      expect(
-        await _runOnce(exprOnly, onlyFeaturesArgs({'expression_bodies'})),
-        input,
-      );
-    });
-
-    test('cascades folds a write run and prefer-inferred-types relocates the '
-        'collection type in the same run', () async {
-      const input = '''
-void main() {
-  final List<String> a = [];
-  a.add('bonjour');
-  a.add('ça va');
-  a.add('tu vas bien');
-  print(a.join(' '));
-}
-''';
-      const expected = '''
-void main() {
-  final a = <String>[]
-    ..add('bonjour')
-    ..add('ça va')
-    ..add('tu vas bien');
-  print(a.join(' '));
-}
-''';
-
-      final project = createProject(files: {_file: input});
-      final subset = onlyFeaturesArgs({'cascades', 'prefer_inferred_types'});
-
-      expect(await _runOnce(project, subset), expected);
-      expect(await _runOnce(project, subset), expected);
-
-      final whole = createProject(files: {_file: input});
-      expect(await _runOnce(whole, onlyFeaturesArgs(_implemented)), expected);
-    });
-
-    test('null-aware-spread, string-interpolation and dot-shorthands all '
-        'apply to one file in a single run', () async {
-      const input = '''
-enum Flag { on, off }
-
-String describe(String label, List<int>? extra) {
-  final parts = [1, if (extra != null) ...extra];
-  final joined = parts.length.toString();
-  return 'count: ' + label + joined;
-}
-
-Flag current() => Flag.on;
-''';
-      const expected = '''
-enum Flag { on, off }
-
-String describe(String label, List<int>? extra) {
-  final parts = [1, ...?extra];
-  final joined = parts.length.toString();
-  return 'count: \$label\$joined';
-}
-
-Flag current() => .on;
-''';
-
-      final project = createProject(files: {_file: input});
-      final subset = onlyFeaturesArgs({
-        'null_aware_spread',
-        'string_interpolation',
-        'dot_shorthands',
-      });
-
-      expect(await _runOnce(project, subset), expected);
-      expect(await _runOnce(project, subset), expected);
-
-      final whole = createProject(files: {_file: input});
-      expect(await _runOnce(whole, onlyFeaturesArgs(_implemented)), expected);
-    });
-  });
-
-  group('converge across runs (same-construct overlap, single resolution)', () {
-    // Each case has two passes that target overlapping spans of one construct.
-    // The first run applies one and defers the other (its edit is dropped by
-    // EditCollector, never mis-applied); the second run finishes the job. The
-    // tool converges to the correct, fully-modernized form, and is then stable.
-    // These are NOT single-run idempotent: the cost of one shared resolution.
-    // See doc/ORDERING.md. When/if the pipeline re-resolves between passes,
-    // these will converge in a single run; update the explicit run-1 assertion
-    // below accordingly.
-
-    test('expression-bodies + dot-shorthands converge on a block-return of an '
-        'enum value', () async {
-      const input = '''
+    _composes(
+      'expression-bodies and dot-shorthands collapse a block-return of an '
+      'enum value',
+      passes: {'expression_bodies', 'dot_shorthands'},
+      input: '''
 enum Color { red, blue }
 
 Color pick() {
   return Color.red;
 }
-''';
-      const converged = '''
+''',
+      expected: '''
 enum Color { red, blue }
 
 Color pick() => .red;
-''';
-      final subset = onlyFeaturesArgs({'expression_bodies', 'dot_shorthands'});
+''',
+    );
 
-      // Documents the limitation: one run collapses the body but defers the
-      // dot-shorthand (expression-bodies re-emits the returned expression, whose
-      // span hides the dot edit). If this starts passing, the pipeline has
-      // gained single-run convergence; see the group comment.
-      final project = createProject(files: {_file: input});
-      final afterOne = await _runOnce(project, subset);
-      expect(
-        afterOne,
-        'enum Color { red, blue }\n\nColor pick() => Color.red;\n',
-        reason: 'single run defers the dot-shorthand to a second pass',
-      );
+    _composes(
+      'prefer-inferred-types drops the annotation and final-locals upgrades '
+      'the resulting var',
+      passes: {'prefer_inferred_types', 'final_locals'},
+      input: '''
+class Foo {}
 
-      final stable = createProject(files: {_file: input});
-      expect(await _runUntilStable(stable, args: subset), converged);
-    });
+Foo makeFoo() => Foo();
 
-    test('expression-bodies + string-interpolation converge on a block-return '
-        'concatenation', () async {
-      const input = '''
-String greet(String name) {
-  return 'Hello, ' + name + '!';
+void main() {
+  Foo f = makeFoo();
+  print(f);
 }
-''';
-      const converged = '''
-String greet(String name) => 'Hello, \$name!';
-''';
-      final subset = onlyFeaturesArgs({
-        'expression_bodies',
-        'string_interpolation',
-      });
+''',
+      expected: '''
+class Foo {}
 
-      final project = createProject(files: {_file: input});
-      expect(await _runUntilStable(project, args: subset), converged);
-    });
+Foo makeFoo() => Foo();
 
-    test('super-parameters + dot-shorthands converge on a partially-forwarded '
-        'super call', () async {
-      const input = '''
+void main() {
+  final f = makeFoo();
+  print(f);
+}
+''',
+    );
+
+    _composes(
+      'super-parameters and dot-shorthands fold a partially forwarded super '
+      'call',
+      passes: {'super_parameters', 'dot_shorthands'},
+      input: '''
 enum Level { low, high }
 
 class Base {
@@ -287,8 +168,8 @@ class Base {
 class Derived extends Base {
   Derived({required int weight}) : super(level: Level.low, weight: weight);
 }
-''';
-      const converged = '''
+''',
+      expected: '''
 enum Level { low, high }
 
 class Base {
@@ -300,186 +181,71 @@ class Base {
 class Derived extends Base {
   Derived({required super.weight}) : super(level: .low);
 }
-''';
-      final subset = onlyFeaturesArgs({'super_parameters', 'dot_shorthands'});
-
-      final project = createProject(files: {_file: input});
-      expect(await _runUntilStable(project, args: subset), converged);
-    });
-
-    test(
-      'prefer-inferred-types + final-locals converge on a bare-typed local',
-      () async {
-        // First run: prefer_inferred_types replaces the bare type with `var`.
-        // Second run: final_locals upgrades `var` to `final`.
-        // Both passes run on a single resolution, so the overlap is deferred to
-        // the next run: the same converge-across-runs pattern as other pairs.
-        const input = '''
-class Foo {}
-
-Foo makeFoo() => Foo();
-
-void main() {
-  Foo f = makeFoo();
-  print(f);
-}
-''';
-        const converged = '''
-class Foo {}
-
-Foo makeFoo() => Foo();
-
-void main() {
-  final f = makeFoo();
-  print(f);
-}
-''';
-        final subset = onlyFeaturesArgs({
-          'prefer_inferred_types',
-          'final_locals',
-        });
-
-        final project = createProject(files: {_file: input});
-        final afterOne = await _runOnce(project, subset);
-        expect(
-          afterOne,
-          'class Foo {}\n\nFoo makeFoo() => Foo();\n\nvoid main() {\n  var f = makeFoo();\n  print(f);\n}\n',
-          reason:
-              'first run must convert bare type to var (prefer_inferred_types); '
-              'final_locals fires on the next run',
-        );
-
-        expect(await _runUntilStable(project, args: subset), converged);
-      },
+''',
     );
 
-    test(
-      'cascades + prefer-inferred-types + dot-shorthands converge: '
-      'cascade wins the first run; dot-shorthand fires on the second',
-      () async {
-        const input = '''
-enum Mode { fast, slow }
+    _composes(
+      'null-aware-spread, string-interpolation and dot-shorthands all apply '
+      'to one file',
+      passes: {'null_aware_spread', 'string_interpolation', 'dot_shorthands'},
+      input: '''
+enum Flag { on, off }
 
-void configure() {
-  final List<Mode> settings = [];
-  settings.add(Mode.fast);
-  settings.add(Mode.slow);
-  print(settings);
+String describe(String label, List<int>? extra) {
+  final parts = [1, if (extra != null) ...extra];
+  final joined = parts.length.toString();
+  return 'count: ' + label + joined;
 }
-''';
-        const converged = '''
-enum Mode { fast, slow }
 
-void configure() {
-  final settings = <Mode>[]
-    ..add(.fast)
-    ..add(.slow);
-  print(settings);
+Flag current() => Flag.on;
+''',
+      expected: '''
+enum Flag { on, off }
+
+String describe(String label, List<int>? extra) {
+  final parts = [1, ...?extra];
+  final joined = parts.length.toString();
+  return 'count: \$label\$joined';
 }
-''';
-        final subset = onlyFeaturesArgs({
-          'cascades',
-          'prefer_inferred_types',
-          'dot_shorthands',
-        });
 
-        // Run 1: cascades (appends at semicolon) and prefer_inferred_types
-        // (inserts before `[`, removes annotation) compose cleanly. The
-        // dot_shorthands edits land inside the cascade edit range and are
-        // dropped, so Mode.fast/.slow remain.
-        final project = createProject(files: {_file: input});
-        final afterOne = await _runOnce(project, subset);
-        expect(
-          afterOne,
-          'enum Mode { fast, slow }\n\nvoid configure() {\n'
-          '  final settings = <Mode>[]\n'
-          '    ..add(Mode.fast)\n'
-          '    ..add(Mode.slow);\n'
-          '  print(settings);\n}\n',
-          reason: 'dot-shorthands is deferred to run 2 (overlapped by cascade)',
-        );
-
-        expect(await _runUntilStable(project, args: subset), converged);
-      },
+Flag current() => .on;
+''',
     );
 
-    test('cascades + dot-shorthands converge when the dot lives in a folded '
-        'cascade argument', () async {
-      const input = '''
-enum Color { red, blue }
-
-class Palette {
-  void add(Color c) {}
-  int size = 0;
+    _composes(
+      'expression-bodies and string-interpolation collapse a block-return '
+      'concatenation',
+      passes: {'expression_bodies', 'string_interpolation'},
+      input: '''
+String greet(String name) {
+  return 'Hello, ' + name + '!';
 }
-
-Palette build() {
-  var p = Palette();
-  p.add(Color.red);
-  p.size = 1;
-  return p;
-}
-''';
-      const converged = '''
-enum Color { red, blue }
-
-class Palette {
-  void add(Color c) {}
-  int size = 0;
-}
-
-Palette build() {
-  var p = Palette()
-    ..add(.red)
-    ..size = 1;
-  return p;
-}
-''';
-      final subset = onlyFeaturesArgs({'cascades', 'dot_shorthands'});
-
-      final project = createProject(files: {_file: input});
-      expect(await _runUntilStable(project, args: subset), converged);
-    });
+''',
+      expected: '''
+String greet(String name) => 'Hello, \$name!';
+''',
+    );
   });
 }
 
-const _file = 'lib/c.dart';
+/// Registers a test that runs the CLI with only [passes] enabled and asserts the
+/// file converges to [expected] in a single run, then stays put on a re-run.
+void _composes(
+  String description, {
+  required Set<String> passes,
+  required String input,
+  required String expected,
+}) {
+  test(description, () async {
+    final project = createProject(files: {_file: input});
+    final args = onlyFeaturesArgs(passes);
 
-/// The implemented passes with real visitor logic (fixture-folder names).
-const _implemented = <String>{
-  'dot_shorthands',
-  'super_parameters',
-  'cascades',
-  'inline_return',
-  'expression_bodies',
-  'string_interpolation',
-  'null_aware_spread',
-  'null_aware_elements',
-  'prefer_inferred_types',
-};
+    final run1 = await invokeCli(project, args: args);
+    expect(run1.exitCode, 0, reason: run1.stderr);
+    expect(run1.read(_file), expected, reason: 'one run should fully converge');
 
-/// Single run, returning the rewritten file. Asserts a zero exit.
-Future<String> _runOnce(Directory project, List<String> args) async {
-  final result = await invokeCli(project, args: args);
-  expect(result.exitCode, 0, reason: result.stderr);
-  return result.read(_file);
-}
-
-/// Runs the CLI on [project] repeatedly until a run changes nothing, then
-/// returns that stable content. Fails if no fixpoint is reached within
-/// [maxRuns]. Each run must exit zero.
-Future<String> _runUntilStable(
-  Directory project, {
-  required List<String> args,
-  int maxRuns = 6,
-}) async {
-  String? last;
-  for (var i = 0; i < maxRuns; i++) {
-    final result = await invokeCli(project, args: args);
-    expect(result.exitCode, 0, reason: result.stderr);
-    final current = result.read(_file);
-    if (current == last) return current;
-    last = current;
-  }
-  fail('no fixpoint within $maxRuns runs; last output:\n$last');
+    final run2 = await invokeCli(project, args: args);
+    expect(run2.exitCode, 0, reason: run2.stderr);
+    expect(run2.read(_file), expected, reason: 'a second run must be a no-op');
+  });
 }

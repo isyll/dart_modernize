@@ -9,13 +9,10 @@ Queue<Task> pending() {
 
 int roll() => Random().nextInt(6);
 
-int weightOf(int code) {
-  final result = switch (code) {
-    0 => 1,
-    _ => 5,
-  };
-  return result;
-}
+int weightOf(int code) => switch (code) {
+  0 => 1,
+  _ => 5,
+};
 
 enum Priority { low, high }
 

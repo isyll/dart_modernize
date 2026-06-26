@@ -1,8 +1,8 @@
 # Pass ordering, offset safety, and re-resolution
 
 This note documents how `dart_modernize` sequences its transformation passes,
-why the order is what it is, and the one consequence that order does **not**
-buy us today. It is the written rationale referenced by
+why the order is what it is, and how the transform stage repeats until the
+project stops changing. It is the written rationale referenced by
 [`test/cli/pipeline_order_test.dart`](../test/cli/pipeline_order_test.dart) and
 [`test/e2e/interaction_test.dart`](../test/e2e/interaction_test.dart).
 
@@ -52,19 +52,21 @@ discarded as an overlap, converging in one run.
 
 ## The execution model (verified)
 
-For each non-generated file the pipeline does exactly this
+The transform stage repeats until the project stops changing
 ([`lib/src/pipeline/pipeline.dart`](../lib/src/pipeline/pipeline.dart)):
 
 ```
-resolve the file once                 // ProjectAnalyzer, one ResolvedUnitResult
-collector = EditCollector()
-for each enabled pass (in the order above):
-    collector.addAll(pass.editsFor(unit))   // every pass sees the SAME unit
-modified = collector.apply(original)         // applied once
-write(modified)
+repeat (up to a safety cap):
+    for each non-generated file (re-resolved from the in-memory copy):
+        collector = EditCollector()
+        for each enabled pass (in the order above):
+            collector.addAll(pass.editsFor(unit))   // every pass sees the SAME unit
+        stage collector.apply(original) in memory
+    stop when no file changed this round
+write the final in-memory content to disk
 ```
 
-Two properties follow directly, and both are what the tests pin:
+Within a single round, two properties hold, and both are what the tests pin:
 
 ### Offset safety: one pass never invalidates another's offsets
 
@@ -77,8 +79,8 @@ Because application never mutates the buffer the offsets refer to, an edit
 produced by pass A can never shift or invalidate an offset produced by pass B.
 Insertion order is irrelevant for non-overlapping edits, proven by
 `EditCollector` "applies multiple non-overlapping edits regardless of insertion
-order" and end-to-end by the interaction suite's "compose cleanly" group, where
-three passes edit one file and all three land correctly.
+order" and end-to-end by the interaction suite, where several passes edit one
+file and all of them land correctly.
 
 ### Overlap resolution: earliest offset wins, deterministically
 
@@ -88,48 +90,35 @@ valid source. Pass order therefore affects the final bytes **only** when two
 passes emit edits at the _exact same_ offset (a tie), which is rare in practice;
 distinct passes target distinct syntactic positions.
 
-## Re-resolution: there is none between passes
+## Re-resolution: between rounds, to a fixpoint
 
-There is **no re-resolution between passes within a run**. All passes run
-against the one AST captured at the top of the loop. A consequence worth stating
-plainly: a later pass in the list cannot consume an earlier pass's _AST change_
-during the same run, because it never sees it; it sees the original tree. The
-order above is thus a tie-break and a statement of intent, not a data dependency
-the current implementation exploits. Passes are assumed to operate on
-**independent constructs**.
+There is no re-resolution between passes _within_ a round: all passes in a round
+run against the one AST captured for each file, so a later pass cannot see an
+earlier pass's edit until the next round. The pipeline closes that gap by
+re-resolving the staged in-memory content and running the passes again, repeating
+until a round makes no change.
 
-## The one thing the order does not buy us: single-run idempotence on overlaps
+This is what lets passes that build on each other compose in a single
+invocation. When two passes target **overlapping spans of the same construct**,
+the overlap rule drops one edit for that round; the dropped edit simply applies
+on the next round once the construct has settled into a shape it no longer
+overlaps. For example:
 
-When two passes target **overlapping spans of the same construct**, one edit is
-dropped per the overlap rule and only applies on the _next_ run. The tool still
-**converges** to the correct, fully-modernized form; it is just not single-run
-idempotent for those constructs. This happens because several passes emit a
-replacement that _spans and re-emits_ an inner expression verbatim, and that
-span hides another pass's edit nested inside it:
+| Construct                                                     | Passes that collide                          |
+| ------------------------------------------------------------- | -------------------------------------------- |
+| `T f() { return T.x; }`                                       | `expression-bodies` + `dot-shorthands`       |
+| `String f() { return a + b; }`                                | `expression-bodies` + `string-interpolation` |
+| `C({required int x}) : super(a: A.x, x: x)` (partial forward) | `super-parameters` + `dot-shorthands`        |
+| `var p = X(); p.a(); p.b(); return p;`                        | `cascades` + `inline-return`                 |
+| `T x = e;` (bare-typed local, later read)                     | `prefer-inferred-types` + `final-locals`     |
 
-| Construct                                                      | Passes that collide                          | Converges in |
-| -------------------------------------------------------------- | -------------------------------------------- | ------------ |
-| `T f() { return T.x; }`                                        | `expression-bodies` + `dot-shorthands`       | 2 runs       |
-| `String f() { return a + b; }`                                 | `expression-bodies` + `string-interpolation` | 2 runs       |
-| `C({required int x}) : super(a: A.x, x: x)` (partial forward) | `super-parameters` + `dot-shorthands`        | 2 runs       |
-| `p.add(A.x)` inside a folded cascade run                       | `cascades` + `dot-shorthands`                | 2 runs       |
-| `var x = T.a; return x;`                                       | `inline-return` + `dot-shorthands`           | 2 runs       |
-| `var x = a + b; return x;`                                     | `inline-return` + `string-interpolation`     | 2 runs       |
-| `{ final x = e; return x; }` (sole statement after inlining)  | `inline-return` + `expression-bodies`        | 2 runs       |
-| `var p = X(); p.a(); p.b(); return p;` (cascade then inline)   | `cascades` + `inline-return`                 | 2 runs       |
-| `T x = e;` (bare-typed local, later read)                      | `prefer-inferred-types` + `final-locals`     | 2 runs       |
+The "passes compose to a fixpoint in one run" group in the interaction suite
+runs each of these through the CLI once and asserts it reaches the fully
+modernized form, then that a second run changes nothing.
 
-The "converge across runs" group in the interaction suite reproduces these
-collisions and asserts each reaches the correct fixpoint. The existing golden and combined
-fixtures sidestep the issue by keeping such constructs already in their target
-shape (e.g. methods already written as `=>` bodies), which is why single-run
-idempotence holds for them.
+### Cost and the safety cap
 
-### Why this is acceptable today, and how to remove it
-
-It is acceptable because the output is always **valid** and the tool
-**converges**; re-running is safe and cheap. Removing it (making overlapping
-constructs converge in a single run) requires the pipeline to either
-**re-resolve between passes** or **iterate the per-file transform to a
-fixpoint**. Both are behavioural changes to the pipeline beyond this
-consolidation pass and are flagged for review rather than made here.
+Each round re-resolves the project, so a file that needs several rounds is
+resolved several times. Real projects settle in a handful of rounds; the loop is
+bounded by a safety cap (`_maxRounds`) so a misbehaving pass can never spin
+forever.
