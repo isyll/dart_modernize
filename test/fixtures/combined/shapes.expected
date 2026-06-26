@@ -1,0 +1,29 @@
+import 'dart:collection';
+import 'dart:math';
+
+Shape defaultShape() => .circle;
+
+List<int> gather(List<int> base, List<int>? extra) => [...base, ...?extra];
+
+String greet(String who) => 'Hello, $who!';
+
+double randomUnit() => Random().nextDouble();
+
+Queue<int> seedQueue(int seed) => Queue<int>()
+  ..add(seed)
+  ..add(seed + 1);
+
+class Renderer {
+  final String _name;
+
+  Renderer({required this._name});
+
+  String get name => _name;
+
+  String describe(Shape s) => switch (s) {
+    .circle => 'round',
+    .square || .triangle => 'angular',
+  };
+}
+
+enum Shape { circle, square, triangle }

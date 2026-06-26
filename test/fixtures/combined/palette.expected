@@ -1,0 +1,10 @@
+abstract final class Palette {
+  static const max = 255;
+
+  static final Map<String, int> _cache = {};
+
+  static int lookup(String key) {
+    final v = _cache[key];
+    return v ?? 0;
+  }
+}
