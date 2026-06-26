@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:path/path.dart' as p;
 
@@ -251,26 +252,33 @@ final class ModernizePipeline {
 
   /// Runs the structural passes over the project until it reaches a fixpoint.
   ///
-  /// Edits are staged in memory; nothing is written to disk here. Fresh pass
-  /// instances are built each round so passes that cache project-wide analysis
-  /// (such as abstract-final-classes) see the re-resolved code.
+  /// Edits are staged in memory; nothing is written to disk here. The first
+  /// round scans every file; later rounds only revisit files that changed in the
+  /// round before, since a file that stopped changing has nothing left to do.
+  /// Fresh pass instances are built each round so passes that cache project-wide
+  /// analysis (such as abstract-final-classes) see the re-resolved code.
   Future<_TransformResult> _transform(FileFilter filter) async {
     final analyzer = ProjectAnalyzer(options.path)..initialize();
     final originalContent = <String, String>{};
     final finalContent = <String, String>{};
     final passesByFile = <String, Set<String>>{};
     var filesScanned = 0;
+    var toVisit = <String>{};
 
     for (var round = 0; round < _maxRounds; round++) {
       await analyzer.applyStagedChanges();
       final passes = buildTransformations(
         options,
       ).where((t) => t.enabled && t is! FinalizeTransformation).toList();
-      // Compute every file's new content against this round's resolution first,
-      // then stage them all. Staging mid-stream would invalidate the analysis
-      // session and skip the files not yet visited this round.
+
+      // Compute every target file's new content against this round's resolution
+      // first, then stage them together. Staging mid-stream would invalidate the
+      // analysis session and skip files not yet visited this round.
       final pending = <String, String>{};
-      await for (final unit in analyzer.resolvedUnits()) {
+      final units = round == 0
+          ? analyzer.resolvedUnits()
+          : _resolveEach(analyzer, toVisit);
+      await for (final unit in units) {
         if (filter.shouldSkip(unit.path)) continue;
         if (round == 0) {
           filesScanned++;
@@ -298,6 +306,7 @@ final class ModernizePipeline {
         analyzer.stage(entry.key, entry.value);
         finalContent[entry.key] = entry.value;
       }
+      toVisit = pending.keys.toSet();
     }
 
     final changedFiles =
@@ -313,6 +322,17 @@ final class ModernizePipeline {
       finalContent: finalContent,
       passesByFile: passesByFile,
     );
+  }
+
+  /// Resolves each path in [paths], skipping any that no longer resolve.
+  Stream<ResolvedUnitResult> _resolveEach(
+    ProjectAnalyzer analyzer,
+    Set<String> paths,
+  ) async* {
+    for (final path in paths) {
+      final unit = await analyzer.resolve(path);
+      if (unit != null) yield unit;
+    }
   }
 }
 

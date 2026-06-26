@@ -45,6 +45,18 @@ final class ProjectAnalyzer {
     }
   }
 
+  /// Resolves a single [filePath], or returns null if it cannot be resolved.
+  ///
+  /// Used to re-check only the files that changed in the previous round instead
+  /// of re-resolving the whole project every time.
+  Future<ResolvedUnitResult?> resolve(String filePath) async {
+    for (final context in _contexts.contexts) {
+      final result = await context.currentSession.getResolvedUnit(filePath);
+      if (result is ResolvedUnitResult) return result;
+    }
+    return null;
+  }
+
   /// Stages new [content] for [filePath] in memory and marks it for re-analysis.
   void stage(String filePath, String content) {
     _provider.setOverlay(
