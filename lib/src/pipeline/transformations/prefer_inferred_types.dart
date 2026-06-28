@@ -174,6 +174,15 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     if (expr is ListLiteral && expr.typeArguments == null) return true;
     if (expr is SetOrMapLiteral && expr.typeArguments == null) return true;
     if (expr is NullLiteral) return true;
+    // A dot shorthand (`.new(...)`, `.named(...)`, `.value`) resolves only
+    // against the declared type; dropping the annotation would leave it with no
+    // context. (A single run never reaches this, since shorthands are produced
+    // later; it guards re-runs and hand-written code.)
+    if (expr is DotShorthandInvocation ||
+        expr is DotShorthandConstructorInvocation ||
+        expr is DotShorthandPropertyAccess) {
+      return true;
+    }
     if (expr is IntegerLiteral && declaredType is InterfaceType) {
       if (declaredType.element.name != 'int') return true;
     }
