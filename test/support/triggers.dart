@@ -130,9 +130,9 @@ environment:
 
 const String sortMembersTrigger = '''
 class S {
-  void m() {}
+  void beta() {}
 
-  final int x = 0;
+  void alpha() {}
 }
 ''';
 
