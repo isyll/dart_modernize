@@ -6,10 +6,10 @@
 /// (b) idempotent (a second run changes nothing), and (c) still analyze without
 /// errors.
 ///
-/// The fixture deliberately keeps each transformable construct owned by a single
-/// pass (no two passes target the same span), so the project converges in one
-/// run. Same-construct overlaps, which converge only across runs, are covered
-/// separately by `interaction_test.dart`; see `doc/ORDERING.md`.
+/// The transform stage is a fixed, dependency-ordered pipeline, so the project
+/// is fully modernized in one run. Cases where several passes target the same
+/// evolving construct are covered separately by `interaction_test.dart`; see
+/// `doc/ORDERING.md`.
 library;
 
 import 'dart:io';

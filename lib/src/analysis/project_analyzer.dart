@@ -6,9 +6,11 @@ import 'package:analyzer/file_system/physical_file_system.dart';
 /// Loads a project for analysis and lets the pipeline rewrite files in memory.
 ///
 /// Edits are staged in an in-memory overlay instead of being written straight to
-/// disk. That lets the pipeline re-resolve and transform the project again and
-/// again until it stops changing, without touching the user's files until it is
-/// ready. Call [initialize] once, then alternate [resolvedUnits] with [stage] /
+/// disk. That lets each transform stage re-resolve and rewrite the project
+/// without touching the user's files until the pipeline is ready. Unchanged
+/// files are served from the analyzer's cache, so re-resolving the whole project
+/// between stages only re-analyzes the files an earlier stage changed. Call
+/// [initialize] once, then alternate [resolvedUnits] with [stage] /
 /// [applyStagedChanges].
 final class ProjectAnalyzer {
   /// Absolute path to the project root.
@@ -43,18 +45,6 @@ final class ProjectAnalyzer {
         if (result is ResolvedUnitResult) yield result;
       }
     }
-  }
-
-  /// Resolves a single [filePath], or returns null if it cannot be resolved.
-  ///
-  /// Used to re-check only the files that changed in the previous round instead
-  /// of re-resolving the whole project every time.
-  Future<ResolvedUnitResult?> resolve(String filePath) async {
-    for (final context in _contexts.contexts) {
-      final result = await context.currentSession.getResolvedUnit(filePath);
-      if (result is ResolvedUnitResult) return result;
-    }
-    return null;
   }
 
   /// Stages new [content] for [filePath] in memory and marks it for re-analysis.

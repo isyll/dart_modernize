@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:path/path.dart' as p;
 
@@ -11,6 +10,7 @@ import '../engine/edit_collector.dart';
 import '../engine/file_filter.dart';
 import '../engine/import_organizer.dart';
 import '../engine/member_sorter.dart';
+import '../engine/source_edit.dart';
 import '../engine/unified_diff.dart';
 import '../modernize_exception.dart';
 import '../output/reporter.dart';
@@ -21,9 +21,12 @@ import 'transformations.dart';
 ///
 /// Stages: **validate** -> **transform** -> **finalize**.
 ///
-/// The transform stage rewrites files in memory and repeats until the project
-/// stops changing, so a pass can build on what an earlier pass produced (for
-/// example, dot-shorthands collapsing the result of a switch rewrite).
+/// The transform stage runs a fixed sequence of dependency-ordered pass groups
+/// (see [buildTransformationStages] and doc/ORDERING.md). Each group is resolved
+/// once and applied as a unit before the next runs, so a pass always sees the
+/// fully-applied output of every earlier group. The number of groups is a
+/// compile-time constant, so a single invocation is deterministic and converges
+/// without any "repeat until nothing changes" loop.
 ///
 /// The finalize order is fixed:
 ///   1. `dart fix --apply`   : fixes may remove imports, so it runs first.
@@ -31,10 +34,6 @@ import 'transformations.dart';
 ///   3. sort-members         : reorders class members after imports are clean.
 ///   4. `dart format`        : always last so previous edits are formatted.
 final class ModernizePipeline {
-  /// Safety cap on transform rounds. Real projects converge in a few rounds;
-  /// this only guards against a pass that never settles.
-  static const _maxRounds = 10;
-
   final CliOptions options;
   final Reporter reporter;
 
@@ -45,15 +44,15 @@ final class ModernizePipeline {
     await validateProject(options.path);
     reporter.validated();
 
-    final enabled = buildTransformations(options).where((t) => t.enabled);
-    if (enabled.isEmpty) {
+    if (!buildTransformations(options).any((t) => t.enabled)) {
       reporter.nothingToDo();
       return;
     }
-    final finalize = enabled.whereType<FinalizeTransformation>().toList();
+    final finalize = buildFinalizeTransformations(
+      options,
+    ).where((t) => t.enabled).toList();
 
-    // 2. Transform: apply structural passes to an in-memory copy, re-resolving
-    //    and re-running until nothing changes.
+    // 2. Transform: apply the structural stages to an in-memory copy.
     reporter.resolving();
     final filter = FileFilter.forProject(
       options.path,
@@ -69,13 +68,15 @@ final class ModernizePipeline {
     for (final path in result.changedFiles) {
       File(path).writeAsStringSync(result.finalContent[path]!);
     }
-    reporter.liveSummary(result.changedFiles.length);
 
     // 3. Finalize: run when structural changes happened OR finalize passes are
     //    enabled (they can fire even if no structural edits were made).
+    var finalizeResult = const _FinalizeResult(counts: {}, changedPaths: {});
     if (result.changedFiles.isNotEmpty || finalize.isNotEmpty) {
-      await _finalize(finalize, filter);
+      finalizeResult = await _finalize(finalize, filter);
     }
+
+    _reportCompletion(result, finalizeResult);
   }
 
   /// Returns every non-excluded `.dart` file under [projectPath].
@@ -90,8 +91,8 @@ final class ModernizePipeline {
 
   /// Runs `dart pub get` if the project has not yet been set up.
   ///
-  /// The `.dart_tool/package_config.json` file is the canonical marker that
-  /// `pub get` has been run. `dart fix` requires it.
+  /// `.dart_tool/package_config.json` is the marker that `pub get` has run;
+  /// `dart fix` requires it.
   Future<void> _ensurePubGet(String projectPath) async {
     final pkgConfig = File(
       p.join(projectPath, '.dart_tool', 'package_config.json'),
@@ -104,35 +105,40 @@ final class ModernizePipeline {
     }
   }
 
-  Future<void> _finalize(
+  Future<_FinalizeResult> _finalize(
     List<FinalizeTransformation> passes,
     FileFilter filter,
   ) async {
     reporter.finalizing();
 
     final projectPath = options.path;
+    final files = _dartFiles(projectPath, filter);
     final hasFixAll = passes.any((p) => p.name == 'fix-all');
     final hasOrganize = passes.any((p) => p.name == 'organize-imports');
     final hasSortMembers = passes.any((p) => p.name == 'sort-members');
 
-    // Fix-all: dart fix --apply.
-    // Runs before import organization so that fixes that remove imports are
-    // reflected before organize-imports decides what to prune.
+    final counts = <String, int>{};
+    final changedPaths = <String>{};
+
+    // Fix-all runs before import organization so that fixes which remove
+    // imports are reflected before organize-imports decides what to prune.
     if (hasFixAll) {
       reporter.finalizingStep('dart fix --apply');
       await _ensurePubGet(projectPath);
+      final before = _snapshot(files);
       await _runProcess(Platform.resolvedExecutable, [
         'fix',
         '--apply',
         projectPath,
       ]);
+      final fixed = _changedSince(before);
+      if (fixed.isNotEmpty) counts['fix-all'] = fixed.length;
+      changedPaths.addAll(fixed);
     }
 
-    // Organize-imports needs a resolved unit: its pruning is driven by
-    // unused-import diagnostics, so it runs pub get and resolves the project.
-    // Sort-members is syntactic, so on its own it only parses each file. The
-    // two passes touch different regions (directives vs members), so when both
-    // run their edits are computed on the same source and merged.
+    // Organize-imports needs a resolved unit (pruning is driven by unused-import
+    // diagnostics). Sort-members is syntactic; the two touch different regions
+    // (directives vs members), so when both run their edits merge on one source.
     if (hasOrganize) {
       await _ensurePubGet(projectPath);
       final stepLabel = [
@@ -140,32 +146,37 @@ final class ModernizePipeline {
         if (hasSortMembers) 'sort-members',
       ].join(' + ');
       reporter.finalizingStep(stepLabel);
+      var organized = 0;
+      var sorted = 0;
       final analyzer = ProjectAnalyzer(projectPath)..initialize();
       await for (final unit in analyzer.resolvedUnits()) {
         if (filter.shouldSkip(unit.path)) continue;
+        final importEdits = organizeImportEdits(
+          unit.content,
+          unit.unit,
+          unit.lineInfo,
+          unit.diagnostics,
+        );
+        final memberEdits = hasSortMembers
+            ? sortMemberEdits(unit.content, unit.unit, unit.lineInfo)
+            : const <SourceEdit>[];
         final collector = EditCollector()
-          ..addAll(
-            organizeImportEdits(
-              unit.content,
-              unit.unit,
-              unit.lineInfo,
-              unit.diagnostics,
-            ),
-          );
-        if (hasSortMembers) {
-          collector.addAll(
-            sortMemberEdits(unit.content, unit.unit, unit.lineInfo),
-          );
-        }
+          ..addAll(importEdits)
+          ..addAll(memberEdits);
         if (collector.isEmpty) continue;
         final modified = collector.apply(unit.content);
-        if (modified != unit.content) {
-          File(unit.path).writeAsStringSync(modified);
-        }
+        if (modified == unit.content) continue;
+        File(unit.path).writeAsStringSync(modified);
+        changedPaths.add(unit.path);
+        if (importEdits.isNotEmpty) organized++;
+        if (memberEdits.isNotEmpty) sorted++;
       }
+      if (organized > 0) counts['organize-imports'] = organized;
+      if (sorted > 0) counts['sort-members'] = sorted;
     } else if (hasSortMembers) {
       reporter.finalizingStep('sort-members');
-      for (final filePath in _dartFiles(projectPath, filter)) {
+      var sorted = 0;
+      for (final filePath in files) {
         final content = File(filePath).readAsStringSync();
         final parsed = parseString(
           content: content,
@@ -175,34 +186,70 @@ final class ModernizePipeline {
         final edits = sortMemberEdits(content, parsed.unit, parsed.lineInfo);
         if (edits.isEmpty) continue;
         final modified = (EditCollector()..addAll(edits)).apply(content);
-        if (modified != content) File(filePath).writeAsStringSync(modified);
+        if (modified == content) continue;
+        File(filePath).writeAsStringSync(modified);
+        changedPaths.add(filePath);
+        sorted++;
       }
+      if (sorted > 0) counts['sort-members'] = sorted;
     }
 
-    // dart format: always last so all previous edits end up consistently
-    // formatted. `dart format` does not honour `analyzer: exclude:` or the tool's
-    // own `--exclude`, so it is handed the same filtered file list the rest of
-    // the pipeline uses; otherwise it would reformat excluded files (e.g. golden
+    // dart format runs last so every prior edit ends up consistently formatted.
+    // `dart format` does not honour `analyzer: exclude:` or the tool's own
+    // `--exclude`, so it is handed the same filtered file list the rest of the
+    // pipeline uses; otherwise it would reformat excluded files (e.g. golden
     // fixtures). Exit 65 means a parse error (syntax newer than the local SDK);
     // the edits are already on disk, so that is a non-fatal warning.
-    final formatTargets = _dartFiles(projectPath, filter);
-    if (formatTargets.isNotEmpty) {
+    if (files.isNotEmpty) {
       reporter.finalizingStep('dart format');
+      final before = _snapshot(files);
       // Batch so a large project cannot blow past the OS command-line limit.
-      for (final batch in _batches(formatTargets, 200)) {
-        await _runProcess(Platform.resolvedExecutable, [
-          'format',
-          ...batch,
-        ], allowedExitCodes: {65});
+      for (final batch in _batches(files, 200)) {
+        await _runProcess(
+          Platform.resolvedExecutable,
+          ['format', ...batch],
+          allowedExitCodes: {65},
+        );
       }
+      final formatted = _changedSince(before);
+      if (formatted.isNotEmpty) counts['dart format'] = formatted.length;
+      changedPaths.addAll(formatted);
     }
+
+    return _FinalizeResult(counts: counts, changedPaths: changedPaths);
   }
 
-  /// Splits [items] into consecutive chunks of at most [size].
-  static Iterable<List<T>> _batches<T>(List<T> items, int size) sync* {
-    for (var i = 0; i < items.length; i += size) {
-      yield items.sublist(i, i + size > items.length ? items.length : i + size);
+  /// Builds the per-pass, files-changed map in canonical display order, merging
+  /// the structural passes with the finalize passes.
+  Map<String, int> _passCounts(_TransformResult result, _FinalizeResult fin) {
+    final structural = <String, int>{};
+    for (final passes in result.passesByFile.values) {
+      for (final name in passes) {
+        structural[name] = (structural[name] ?? 0) + 1;
+      }
     }
+    final all = {...structural, ...fin.counts};
+    final order = [
+      for (final stage in buildTransformationStages(options))
+        for (final t in stage) t.name,
+      'fix-all',
+      'organize-imports',
+      'sort-members',
+      'dart format',
+    ];
+    return {
+      for (final name in order)
+        if ((all[name] ?? 0) > 0) name: all[name]!,
+    };
+  }
+
+  void _reportCompletion(_TransformResult result, _FinalizeResult fin) {
+    final changed = {...result.changedFiles, ...fin.changedPaths};
+    reporter.completionSummary(
+      scanned: result.filesScanned,
+      changed: changed.length,
+      passCounts: _passCounts(result, fin),
+    );
   }
 
   void _reportDryRun(_TransformResult result) {
@@ -263,40 +310,32 @@ final class ModernizePipeline {
     }
   }
 
-  /// Runs the structural passes over the project until it reaches a fixpoint.
+  /// Runs the fixed sequence of structural stages over the project.
   ///
-  /// Edits are staged in memory; nothing is written to disk here. The first
-  /// round scans every file; later rounds only revisit files that changed in the
-  /// round before, since a file that stopped changing has nothing left to do.
-  /// Fresh pass instances are built each round so passes that cache project-wide
-  /// analysis (such as abstract-final-classes) see the re-resolved code.
+  /// Edits are staged in memory; nothing is written to disk here. Every stage
+  /// re-resolves the whole project, but the analyzer serves unchanged files from
+  /// cache, so only files an earlier stage touched are re-analyzed. Fresh pass
+  /// instances are built per stage so a pass that caches project-wide analysis
+  /// (such as abstract-final-classes) sees the re-resolved code.
   Future<_TransformResult> _transform(FileFilter filter) async {
     final analyzer = ProjectAnalyzer(options.path)..initialize();
     final originalContent = <String, String>{};
     final finalContent = <String, String>{};
     final passesByFile = <String, Set<String>>{};
-    var filesScanned = 0;
-    var toVisit = <String>{};
 
-    for (var round = 0; round < _maxRounds; round++) {
+    for (final stage in buildTransformationStages(options)) {
+      final passes = stage.where((t) => t.enabled).toList();
+      if (passes.isEmpty) continue;
+
       await analyzer.applyStagedChanges();
-      final passes = buildTransformations(
-        options,
-      ).where((t) => t.enabled && t is! FinalizeTransformation).toList();
 
-      // Compute every target file's new content against this round's resolution
-      // first, then stage them together. Staging mid-stream would invalidate the
-      // analysis session and skip files not yet visited this round.
+      // Compute each file's new content against this stage's resolution first,
+      // then stage them together. Staging mid-stream would invalidate the
+      // analysis session for files not yet visited this stage.
       final pending = <String, String>{};
-      final units = round == 0
-          ? analyzer.resolvedUnits()
-          : _resolveEach(analyzer, toVisit);
-      await for (final unit in units) {
+      await for (final unit in analyzer.resolvedUnits()) {
         if (filter.shouldSkip(unit.path)) continue;
-        if (round == 0) {
-          filesScanned++;
-          originalContent[unit.path] = unit.content;
-        }
+        originalContent.putIfAbsent(unit.path, () => unit.content);
 
         final collector = EditCollector();
         final touched = <String>[];
@@ -314,12 +353,10 @@ final class ModernizePipeline {
         (passesByFile[unit.path] ??= <String>{}).addAll(touched);
       }
 
-      if (pending.isEmpty) break;
       for (final entry in pending.entries) {
         analyzer.stage(entry.key, entry.value);
         finalContent[entry.key] = entry.value;
       }
-      toVisit = pending.keys.toSet();
     }
 
     final changedFiles =
@@ -329,7 +366,7 @@ final class ModernizePipeline {
           ..sort();
 
     return _TransformResult(
-      filesScanned: filesScanned,
+      filesScanned: originalContent.length,
       changedFiles: changedFiles,
       originalContent: originalContent,
       finalContent: finalContent,
@@ -337,21 +374,28 @@ final class ModernizePipeline {
     );
   }
 
-  /// Resolves each path in [paths], skipping any that no longer resolve.
-  Stream<ResolvedUnitResult> _resolveEach(
-    ProjectAnalyzer analyzer,
-    Set<String> paths,
-  ) async* {
-    for (final path in paths) {
-      final unit = await analyzer.resolve(path);
-      if (unit != null) yield unit;
+  /// Paths in [before] whose on-disk content has since changed.
+  static List<String> _changedSince(Map<String, String> before) => [
+    for (final entry in before.entries)
+      if (File(entry.key).readAsStringSync() != entry.value) entry.key,
+  ];
+
+  /// Splits [items] into consecutive chunks of at most [size].
+  static Iterable<List<T>> _batches<T>(List<T> items, int size) sync* {
+    for (var i = 0; i < items.length; i += size) {
+      yield items.sublist(i, i + size > items.length ? items.length : i + size);
     }
   }
+
+  /// Reads the current on-disk content of each path in [files].
+  static Map<String, String> _snapshot(List<String> files) => {
+    for (final f in files) f: File(f).readAsStringSync(),
+  };
 }
 
 /// Outcome of the structural transform stage.
 class _TransformResult {
-  /// Number of files looked at (counted on the first round).
+  /// Number of non-excluded `.dart` files looked at.
   final int filesScanned;
 
   /// Paths whose final content differs from disk, sorted.
@@ -373,4 +417,16 @@ class _TransformResult {
     required this.finalContent,
     required this.passesByFile,
   });
+}
+
+/// Outcome of the finalize stage.
+class _FinalizeResult {
+  /// Files changed per finalize pass (`fix-all`, `organize-imports`,
+  /// `sort-members`, `dart format`).
+  final Map<String, int> counts;
+
+  /// All paths the finalize stage changed.
+  final Set<String> changedPaths;
+
+  const _FinalizeResult({required this.counts, required this.changedPaths});
 }

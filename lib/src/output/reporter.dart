@@ -81,9 +81,38 @@ final class Reporter {
     _out(usage);
   }
 
-  void liveSummary(int changed) {
+  /// Prints the end-of-run banner: how many files changed and how many each
+  /// transformation touched, in canonical pass order.
+  void completionSummary({
+    required int scanned,
+    required int changed,
+    required Map<String, int> passCounts,
+  }) {
     _out(_rule());
-    _out('  ${_bold('$changed')} file(s) changed.');
+    if (changed == 0) {
+      _out(
+        '  ${_bold('✓')} Already modern -- $scanned file(s) scanned, '
+        'nothing to change.',
+      );
+      _out(_rule());
+      return;
+    }
+    _out(
+      '  ${_green('✓')} ${_bold('Modernized $changed of $scanned file(s).')}',
+    );
+    if (passCounts.isNotEmpty) {
+      _out('');
+      final nameWidth = passCounts.keys
+          .map((k) => k.length)
+          .reduce((a, b) => a > b ? a : b);
+      for (final entry in passCounts.entries) {
+        final noun = entry.value == 1 ? 'file' : 'files';
+        _out(
+          '  ${entry.key.padRight(nameWidth)}  '
+          '${_green(entry.value.toString().padLeft(4))} $noun',
+        );
+      }
+    }
     _out(_rule());
   }
 

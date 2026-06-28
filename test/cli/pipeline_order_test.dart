@@ -1,10 +1,12 @@
-/// Spec for the pipeline's fixed pass order.
+/// Spec for the transform stage's fixed, dependency-ordered pipeline.
 ///
-/// Order is part of the contract: structural rewrites (dot shorthands, private
-/// named parameters, primary constructors) run before cosmetic ones (organize
-/// imports, sort members) and bulk fixes (fix-all) last, so each later pass sees
-/// the output of the earlier ones. `buildTransformations` is the single source
-/// of that order; the pipeline only filters it by `enabled` at run time.
+/// The transform stage is a fixed sequence of pass groups (see doc/ORDERING.md):
+/// each group is resolved and applied as a unit before the next runs, so a pass
+/// always sees the fully-applied output of every earlier group. There is no
+/// "repeat until nothing changes" loop. The layering is the contract: a pass
+/// that consumes what another produces must sit in a strictly later stage, and
+/// a pass that copies a span verbatim must precede the passes that edit inside
+/// it. Those invariants are encoded here so a re-layering that breaks them fails.
 library;
 
 import 'package:dart_modernize/dart_modernize.dart';
@@ -12,120 +14,111 @@ import 'package:dart_modernize/src/pipeline/transformations.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('pipeline order', () {
-    test('passes are built in the fixed documented order', () {
-      final names = buildTransformations(_options()).map((t) => t.name);
-      expect(names, _documentedOrder);
-    });
-
-    test('every structural pass precedes every cosmetic and bulk pass', () {
-      // The documented rationale (see doc/ORDERING.md): shape-changing passes
-      // run ahead of the whole-file reorderers and the bulk catch-all. Encoded
-      // as an invariant so a reordering that violates it fails here, not just
-      // the exact-list check above.
-      final order = buildTransformations(
+  group('transform stage layering', () {
+    test('stages are built in the documented structure', () {
+      final stages = buildTransformationStages(
         _options(),
-      ).map((t) => t.name).toList();
-      final lastStructural = _structural
-          .map(order.indexOf)
-          .reduce((a, b) => a > b ? a : b);
-      final firstCosmetic = _cosmeticAndBulk
-          .map(order.indexOf)
-          .reduce((a, b) => a < b ? a : b);
-      expect(
-        lastStructural,
-        lessThan(firstCosmetic),
-        reason: 'structural passes must all come before cosmetic/bulk passes',
-      );
+      ).map((s) => s.map((t) => t.name).toList()).toList();
+
+      expect(stages, [
+        ['primary-constructors'],
+        [
+          'switch-expressions',
+          'cascades',
+          'super-parameters',
+          'private-named-parameters',
+        ],
+        ['inline-return', 'prefer-inferred-types'],
+        ['expression-bodies', 'final-locals'],
+        [
+          'dot-shorthands',
+          'string-interpolation',
+          'null-aware-spread',
+          'null-aware-elements',
+          'abstract-final-classes',
+        ],
+      ]);
     });
 
-    test('disabling passes preserves the order of the rest', () {
-      final transforms = buildTransformations(
-        _options(privateNamedParameters: false, organizeImports: false),
+    test('every dependency edge runs producer-before-consumer', () {
+      final stageOf = _stageIndex(_options());
+
+      // (producer, consumer): producer must be in a strictly earlier stage.
+      const edges = [
+        // Container rewrites settle before the inner edits land.
+        ('primary-constructors', 'cascades'),
+        ('primary-constructors', 'dot-shorthands'),
+        // The longest chain: a folded cascade is returned, arrowed, collapsed.
+        ('cascades', 'inline-return'),
+        ('inline-return', 'expression-bodies'),
+        ('expression-bodies', 'dot-shorthands'),
+        // switch expressions are produced before their arms are arrowed/collapsed.
+        ('switch-expressions', 'expression-bodies'),
+        ('switch-expressions', 'dot-shorthands'),
+        // prefer-inferred-types drops a redundant annotation, so a declared
+        // type is gone before dot-shorthands could turn the value into `.new`.
+        ('cascades', 'prefer-inferred-types'),
+        ('prefer-inferred-types', 'final-locals'),
+        ('prefer-inferred-types', 'dot-shorthands'),
+        // a partly-forwarded super(...) is settled before its args collapse.
+        ('super-parameters', 'dot-shorthands'),
+      ];
+
+      for (final (producer, consumer) in edges) {
+        expect(
+          stageOf[producer],
+          lessThan(stageOf[consumer]!),
+          reason: '$producer must run in an earlier stage than $consumer',
+        );
+      }
+    });
+
+    test(
+      'finalize passes run fix-all, then organize-imports, then sort-members',
+      () {
+        final names = buildFinalizeTransformations(
+          _options(),
+        ).map((t) => t.name);
+        expect(names, ['fix-all', 'organize-imports', 'sort-members']);
+      },
+    );
+
+    test('disabling a pass keeps it in place, just flagged off', () {
+      final stages = buildTransformationStages(
+        _options(cascades: false, dotShorthands: false),
       );
+      final names = stages.expand((s) => s).map((t) => t.name);
 
-      // The full canonical sequence is always present...
-      expect(transforms.map((t) => t.name), _documentedOrder);
-
-      // ...with the disabled ones flagged, not removed or reordered.
+      // The full set is still present, in the same layout...
+      expect(names, contains('cascades'));
+      expect(names, contains('dot-shorthands'));
+      // ...with the disabled ones flagged off, not removed.
       expect(
-        transforms
-            .firstWhere((t) => t.name == 'private-named-parameters')
+        stages.expand((s) => s).firstWhere((t) => t.name == 'cascades').enabled,
+        isFalse,
+      );
+      expect(
+        stages
+            .expand((s) => s)
+            .firstWhere((t) => t.name == 'dot-shorthands')
             .enabled,
         isFalse,
       );
-      expect(
-        transforms.firstWhere((t) => t.name == 'organize-imports').enabled,
-        isFalse,
-      );
-
-      // What actually runs is the enabled subset, still in canonical order.
-      expect(transforms.where((t) => t.enabled).map((t) => t.name), [
-        'dot-shorthands',
-        'primary-constructors',
-        'super-parameters',
-        'switch-expressions',
-        'cascades',
-        'inline-return',
-        'final-locals',
-        'prefer-inferred-types',
-        'expression-bodies',
-        'string-interpolation',
-        'null-aware-spread',
-        'null-aware-elements',
-        'sort-members',
-        'fix-all',
-        'abstract-final-classes',
-      ]);
     });
   });
 }
 
-/// Whole-file reorderers and the bulk catch-all: they run after structure is
-/// settled.
-const _cosmeticAndBulk = <String>[
-  'organize-imports',
-  'sort-members',
-  'fix-all',
-  'abstract-final-classes',
-];
-
-const _documentedOrder = <String>[
-  'dot-shorthands',
-  'private-named-parameters',
-  'primary-constructors',
-  'super-parameters',
-  'switch-expressions',
-  'cascades',
-  'inline-return',
-  'final-locals',
-  'prefer-inferred-types',
-  'expression-bodies',
-  'string-interpolation',
-  'null-aware-spread',
-  'null-aware-elements',
-  'organize-imports',
-  'sort-members',
-  'fix-all',
-  'abstract-final-classes',
-];
-
-/// Shape-changing passes: they rewrite declarations and statements.
-const _structural = <String>[
-  'dot-shorthands',
-  'private-named-parameters',
-  'primary-constructors',
-  'super-parameters',
-  'switch-expressions',
-  'cascades',
-  'inline-return',
-  'final-locals',
-  'prefer-inferred-types',
-  'expression-bodies',
-  'string-interpolation',
-  'null-aware-spread',
-  'null-aware-elements',
-];
+/// Maps each structural pass name to the index of the stage it runs in.
+Map<String, int> _stageIndex(CliOptions options) {
+  final index = <String, int>{};
+  final stages = buildTransformationStages(options);
+  for (var i = 0; i < stages.length; i++) {
+    for (final t in stages[i]) {
+      index[t.name] = i;
+    }
+  }
+  return index;
+}
 
 CliOptions _options({
   bool dotShorthands = true,

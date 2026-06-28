@@ -4,12 +4,13 @@
 /// when several passes apply to the same file, and often the same construct, in
 /// a single run.
 ///
-/// The pipeline re-runs its passes until the project stops changing (see
-/// `doc/ORDERING.md`), so one invocation produces the fully modernized result
-/// even when a pass only becomes applicable after an earlier pass has rewritten
-/// the code: for example, dot-shorthands collapsing the value arms of a switch
-/// expression that switch-expressions just produced. Each case asserts that
-/// converged output from a single run, and that a second run changes nothing.
+/// The transform stage is a fixed sequence of dependency-ordered pass groups
+/// (see `doc/ORDERING.md`), so one invocation produces the fully modernized
+/// result even when a pass only becomes applicable after an earlier pass has
+/// rewritten the code: for example, dot-shorthands collapsing the value arms of
+/// a switch expression that switch-expressions just produced. Each case asserts
+/// that converged output from a single run, and that a second run changes
+/// nothing.
 library;
 
 import 'package:test/test.dart';

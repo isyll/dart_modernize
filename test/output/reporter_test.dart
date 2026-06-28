@@ -75,6 +75,30 @@ void main() {
       expect(text, contains('expression-bodies'));
     });
 
+    test('completionSummary: shows totals and per-pass file counts', () {
+      final out = StringBuffer();
+      makeNoColor(out: out).completionSummary(
+        scanned: 10,
+        changed: 3,
+        passCounts: {'dot-shorthands': 2, 'organize-imports': 1},
+      );
+      final text = out.toString();
+      expect(text, isNot(contains('\x1b[')));
+      expect(text, contains('Modernized 3 of 10'));
+      expect(text, contains('dot-shorthands'));
+      expect(text, contains('organize-imports'));
+    });
+
+    test('completionSummary: no changes prints an "already modern" line', () {
+      final out = StringBuffer();
+      makeNoColor(
+        out: out,
+      ).completionSummary(scanned: 7, changed: 0, passCounts: const {});
+      final text = out.toString();
+      expect(text, contains('Already modern'));
+      expect(text, contains('7 file(s) scanned'));
+    });
+
     test('error: no ANSI codes', () {
       final err = StringBuffer();
       makeNoColor(err: err).error('something went wrong');
