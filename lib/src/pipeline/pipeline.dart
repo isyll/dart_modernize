@@ -180,16 +180,29 @@ final class ModernizePipeline {
     }
 
     // dart format: always last so all previous edits end up consistently
-    // formatted. Exit 65 means the formatter encountered a parse error (e.g.
-    // the project uses syntax newer than the locally-installed SDK). The
-    // transformation has already been written to disk, so treat this as a
-    // non-fatal warning rather than aborting the pipeline.
-    reporter.finalizingStep('dart format');
-    await _runProcess(
-      Platform.resolvedExecutable,
-      ['format', projectPath],
-      allowedExitCodes: {65},
-    );
+    // formatted. `dart format` does not honour `analyzer: exclude:` or the tool's
+    // own `--exclude`, so it is handed the same filtered file list the rest of
+    // the pipeline uses; otherwise it would reformat excluded files (e.g. golden
+    // fixtures). Exit 65 means a parse error (syntax newer than the local SDK);
+    // the edits are already on disk, so that is a non-fatal warning.
+    final formatTargets = _dartFiles(projectPath, filter);
+    if (formatTargets.isNotEmpty) {
+      reporter.finalizingStep('dart format');
+      // Batch so a large project cannot blow past the OS command-line limit.
+      for (final batch in _batches(formatTargets, 200)) {
+        await _runProcess(Platform.resolvedExecutable, [
+          'format',
+          ...batch,
+        ], allowedExitCodes: {65});
+      }
+    }
+  }
+
+  /// Splits [items] into consecutive chunks of at most [size].
+  static Iterable<List<T>> _batches<T>(List<T> items, int size) sync* {
+    for (var i = 0; i < items.length; i += size) {
+      yield items.sublist(i, i + size > items.length ? items.length : i + size);
+    }
   }
 
   void _reportDryRun(_TransformResult result) {
