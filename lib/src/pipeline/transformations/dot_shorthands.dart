@@ -349,8 +349,16 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       final element = invocation.methodName.element;
       if (element is ExecutableElement) return element.typeParameters;
     }
-    // Constructor type parameters belong to the class and are fixed by the
-    // created type, never inferred purely from the argument here.
+    // A constructor with no explicit `<...>` infers the class's type arguments
+    // from its own arguments, so a parameter typed by one of those type
+    // variables offers no downward context (collapsing it would erase the only
+    // thing the type could be inferred from). With explicit `<...>` the type is
+    // fixed, so the arguments are safe to collapse.
+    if (invocation is InstanceCreationExpression &&
+        invocation.constructorName.type.typeArguments == null) {
+      final cls = invocation.constructorName.element?.enclosingElement;
+      if (cls is InterfaceElement) return cls.typeParameters;
+    }
     return const [];
   }
 
