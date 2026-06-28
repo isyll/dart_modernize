@@ -102,14 +102,38 @@ void defineCombinedGoldenSuite({
       );
     });
 
-    test('is idempotent (second run changes nothing)', () async {
-      final secondRun = await invokeCli(project, args: args);
-      expect(secondRun.exitCode, 0, reason: secondRun.stderr);
+    test('is idempotent (further runs change nothing)', () async {
+      // Two more runs: a single converged run must stay put no matter how many
+      // times the tool is re-applied.
+      for (var pass = 2; pass <= 3; pass++) {
+        final rerun = await invokeCli(project, args: args);
+        expect(rerun.exitCode, 0, reason: rerun.stderr);
+        for (final c in cases) {
+          expect(
+            rerun.read(c.projectFile),
+            firstRun.read(c.projectFile),
+            reason: '"${c.name}" changed on run #$pass; not idempotent',
+          );
+        }
+      }
+    });
+
+    test('output is deterministic across independent runs', () async {
+      // A fresh project with byte-identical inputs must converge to byte-
+      // identical outputs: the result cannot depend on hidden ordering or state.
+      final fresh = createProject(
+        files: {for (final c in cases) c.projectFile: c.input},
+        pubspec: pubspec,
+      );
+      final freshRun = await invokeCli(fresh, args: args);
+      expect(freshRun.exitCode, 0, reason: freshRun.stderr);
       for (final c in cases) {
         expect(
-          secondRun.read(c.projectFile),
+          freshRun.read(c.projectFile),
           firstRun.read(c.projectFile),
-          reason: '"${c.name}" changed on the second run; not idempotent',
+          reason:
+              '"${c.name}" differs between two independent runs; output is '
+              'not deterministic',
         );
       }
     });

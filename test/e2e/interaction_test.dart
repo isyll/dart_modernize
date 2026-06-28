@@ -226,6 +226,58 @@ String greet(String name) {
 String greet(String name) => 'Hello, \$name!';
 ''',
     );
+
+    _composes(
+      'prefer-inferred-types drops a redundant field type so dot-shorthands '
+      'never introduces a .new',
+      passes: {'prefer_inferred_types', 'dot_shorthands'},
+      input: '''
+class Provider {
+  Provider(this.id);
+  final int id;
+}
+
+class Holder {
+  final Provider provider = Provider(1);
+}
+''',
+      expected: '''
+class Provider {
+  Provider(this.id);
+  final int id;
+}
+
+class Holder {
+  final provider = Provider(1);
+}
+''',
+    );
+
+    _composes(
+      'dot-shorthands collapses an assignment target inside the body '
+      'expression-bodies produces',
+      passes: {'dot_shorthands', 'expression_bodies'},
+      input: '''
+enum Mode { fast, slow }
+
+class Engine {
+  Mode mode = Mode.fast;
+
+  void boost() {
+    mode = Mode.slow;
+  }
+}
+''',
+      expected: '''
+enum Mode { fast, slow }
+
+class Engine {
+  Mode mode = .fast;
+
+  void boost() => mode = .slow;
+}
+''',
+    );
   });
 }
 

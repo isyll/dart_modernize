@@ -1,8 +1,8 @@
 /// Behavioural spec: the tool is idempotent.
 ///
-/// Modernization must converge: running it on already-modernized code makes no
-/// further edits. The test runs the CLI twice against the same project: the
-/// first pass must change something, the second pass must change nothing.
+/// Modernization must converge in one run and stay put forever after. The first
+/// run must change the file; every subsequent run must be a byte-for-byte no-op,
+/// checked three runs deep.
 library;
 
 import 'package:test/test.dart';
@@ -10,48 +10,59 @@ import 'package:test/test.dart';
 import '../support/cli_harness.dart';
 
 void main() {
-  test('running twice produces no second-run changes', () async {
+  test('first run modernizes, then further runs change nothing', () async {
     final project = createProject(files: {'lib/a.dart': _multiPass});
 
     final run1 = await invokeCli(project);
-    final afterFirst = run1.read('lib/a.dart');
-
-    final run2 = await invokeCli(project);
-    final afterSecond = run2.read('lib/a.dart');
-
     expect(run1.exitCode, 0, reason: run1.stderr);
-    expect(run2.exitCode, 0, reason: run2.stderr);
-
+    final afterFirst = run1.read('lib/a.dart');
     expect(
       afterFirst,
       isNot(_multiPass),
       reason: 'the first run should modernize the file',
     );
-    expect(
-      afterSecond,
-      afterFirst,
-      reason: 'the second run must be a no-op on already-modernized code',
-    );
+
+    for (var pass = 2; pass <= 3; pass++) {
+      final rerun = await invokeCli(project);
+      expect(rerun.exitCode, 0, reason: rerun.stderr);
+      expect(
+        rerun.read('lib/a.dart'),
+        afterFirst,
+        reason: 'run #$pass must be a no-op on already-modernized code',
+      );
+    }
   });
 }
 
-/// Exercises several passes at once (import pruning + sorting, dot shorthands,
-/// private named parameters, and member sorting) so idempotence is checked
-/// across passes, not just one.
+/// Exercises many passes at once so idempotence is checked across their
+/// interaction, not just one in isolation: prefer-inferred-types drops the
+/// `final Logger` annotation, dot-shorthands collapses an enum field initializer
+/// and an assignment target, private-named-parameters folds `this._retries`,
+/// expression-bodies arrows `toggle`, and sort-members reorders the members.
 const String _multiPass = '''
-import 'dart:math';
 import 'dart:convert';
 
 enum Mode { fast, slow }
 
+class Logger {}
+
 class Config {
+  final Logger _logger = Logger();
   final int _retries;
 
   Config({required int retries}) : _retries = retries;
 
-  Mode mode() => Mode.fast;
+  Mode _mode = Mode.fast;
+
+  void toggle() {
+    _mode = Mode.slow;
+  }
+
+  Mode mode() => _mode;
 
   int get retries => _retries;
+
+  Logger get logger => _logger;
 }
 
 String dump(Object o) => jsonEncode(o);
