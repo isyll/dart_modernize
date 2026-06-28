@@ -194,12 +194,11 @@ final class ModernizePipeline {
       if (sorted > 0) counts['sort-members'] = sorted;
     }
 
-    // dart format runs last so every prior edit ends up consistently formatted.
-    // `dart format` does not honour `analyzer: exclude:` or the tool's own
-    // `--exclude`, so it is handed the same filtered file list the rest of the
-    // pipeline uses; otherwise it would reformat excluded files (e.g. golden
-    // fixtures). Exit 65 means a parse error (syntax newer than the local SDK);
-    // the edits are already on disk, so that is a non-fatal warning.
+    // dart format runs last. It does not honour `analyzer: exclude:` or
+    // `--exclude`, so it is given the same filtered file list as the rest of the
+    // pipeline; otherwise it would reformat excluded files. Exit 65 is a parse
+    // error (syntax newer than the local SDK); the edits are already on disk, so
+    // it is non-fatal.
     if (files.isNotEmpty) {
       reporter.finalizingStep('dart format');
       final before = _snapshot(files);

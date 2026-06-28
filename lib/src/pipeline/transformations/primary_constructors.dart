@@ -119,7 +119,6 @@ class _Visitor extends RecursiveAstVisitor<void> {
     final allNamed = typedParams.every((p) => p.isNamed);
     if (hasNamed && !allNamed) return;
 
-    // Build primary constructor parameter strings.
     final primaryParams = <String>[];
     final consumedNames = <String>{};
 
@@ -152,7 +151,6 @@ class _Visitor extends RecursiveAstVisitor<void> {
       retained.add(member);
     }
 
-    // Build replacement text.
     final classIndent = _leadingIndent(cls.offset);
 
     final paramsText = hasNamed

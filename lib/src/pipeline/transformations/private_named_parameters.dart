@@ -97,12 +97,11 @@ class _Visitor extends RecursiveAstVisitor<void> {
     final initializers = node.initializers;
     if (initializers.isEmpty) return;
 
-    // Resolve the enclosing class via the element model.
     final constructorElem = node.declaredFragment?.element;
     if (constructorElem == null) return;
     final classElem = constructorElem.enclosingElement;
 
-    // Build a map: parameter element → formal parameter AST node.
+    // Parameter element -> its formal-parameter AST node.
     final paramByElement = <Element, FormalParameter>{};
     for (final param in node.parameters.parameters) {
       final element = param.declaredFragment?.element;
