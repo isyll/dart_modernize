@@ -69,5 +69,27 @@ void main() {
         reason: 'a --exclude file must not be reformatted by dart format',
       );
     });
+
+    test(
+      'deeply nested build/ output is skipped, not descended into',
+      () async {
+        // The file walk must prune build/ rather than recurse through it. Real
+        // build trees nest far deeper than this and, on Windows, can exceed the
+        // path limit and make a recursive listing throw mid-scan.
+        final result = await runCli(
+          files: {
+            'lib/app.dart': "final greeting = 'hi';\n",
+            'build/a/b/c/d/e/f/gen.dart': unformatted,
+          },
+        );
+
+        expect(result.exitCode, 0, reason: result.stderr);
+        expect(
+          result.read('build/a/b/c/d/e/f/gen.dart'),
+          unformatted,
+          reason: 'a file under build/ must be left untouched',
+        );
+      },
+    );
   });
 }
