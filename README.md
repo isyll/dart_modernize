@@ -339,13 +339,13 @@ return Connection(host)
 var name = user.displayName;
 var multiplier = getMultiplier();
 print(name);
-return multiplier * base;
+return multiplier * rate;
 
 // after
 final name = user.displayName;
 final multiplier = getMultiplier();
 print(name);
-return multiplier * base;
+return multiplier * rate;
 ```
 
 > Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures.
