@@ -88,6 +88,13 @@ class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
     if (node.interfaceKeyword != null) return;
     if (node.mixinKeyword != null) return;
 
+    // A static-only holder stands alone. A class that extends, implements, or
+    // mixes in another type takes part in a hierarchy and may be created as
+    // that type (test mocks are the common case), so leave it as-is.
+    if (node.extendsClause != null) return;
+    if (node.implementsClause != null) return;
+    if (node.withClause != null) return;
+
     final element = node.declaredFragment?.element;
     if (element == null) return;
     if (usedClasses.contains(element)) return;
