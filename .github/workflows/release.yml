@@ -46,16 +46,12 @@ jobs:
         if: steps.published.outputs.exists == 'false'
         run: dart pub publish --force
 
-      - name: Extract changelog entry
-        id: changelog
+      # Pull this version's section out of the changelog into a file, so its
+      # markdown (backticks, angle brackets) is never run through a shell.
+      - name: Build release notes
         run: |
           version="${GITHUB_REF_NAME#v}"
-          notes=$(awk "/^## ${version}/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md)
-          {
-            echo "notes<<EOF"
-            echo "$notes"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          awk "/^## ${version}/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md > release_notes.md
 
       - name: Create GitHub Release
         env:
@@ -63,4 +59,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
-            --notes "${{ steps.changelog.outputs.notes }}"
+            --notes-file release_notes.md
