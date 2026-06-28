@@ -54,7 +54,7 @@ class Point {
 <td>
 
 ```dart
-final Color c = .blue;
+final c = Color.blue;
 
 Button(
   style: .flat,
@@ -155,14 +155,14 @@ Seventeen focused passes, grouped into five families. Each one is independently 
 
 | | Feature | Description |
 |:--:|:--|:--|
-| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous, including return positions, typed variables, arguments, and collection literals. |
+| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous: arguments, return positions, assignments, equality checks, and collection literals. |
 | 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
 | ➡️ | **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
 | 🧵 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into clean `'a $b c'` interpolation. |
 | 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
 | ↩️ | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
 | 📌 | **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
-| 🏷️ | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type, and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
+| 🏷️ | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
 | ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
@@ -185,23 +185,23 @@ Each pass is shown as a minimal before/after, paired with the safety rule that d
 
 Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous.
+**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions, assignments, equality checks, and collection elements.
 
 ```dart
 // before
-final Color c = Color.blue;
-Duration timeout = Duration.zero;
-int port = int.parse(raw);
 Service create() => Service();
 Widget child(Event e) => dispatch(Event());
+visibility = Visibility.hidden;
+if (mode == Mode.fast) tick();
 
 // after
-final Color c = .blue;
-Duration timeout = .zero;
-int port = .parse(raw);
 Service create() => .new();
 Widget child(Event e) => dispatch(.new());
+visibility = .hidden;
+if (mode == .fast) tick();
 ```
+
+> In a typed declaration the redundant type is dropped instead of shortened, so the full pipeline turns `final Color c = Color.blue` into `final c = Color.blue` rather than `final Color c = .blue` (see prefer inferred types).
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 
@@ -357,14 +357,16 @@ return multiplier * rate;
 final String name = user.displayName;
 const int retries = 3;
 final List<String> tags = [];
+final Logger _log = Logger();
 
 // after
 final name = user.displayName;
 const retries = 3;
 final tags = <String>[];
+final _log = Logger();
 ```
 
-> Applies only when the initializer's inferred type is exactly the declared type. Covers local finals/consts/bare-typed locals, top-level consts, and static const fields; non-const fields and non-const top-level variables are left alone.
+> Applies only when the initializer's inferred type is exactly the declared type. Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`. Mutable fields and non-const top-level variables are left alone.
 
 ### ❓ Null-aware collections
 
@@ -584,10 +586,10 @@ Run `dart_modernize --help` for the complete, always up to date reference. Every
 
 1. **Validate.** Checks that a `pubspec.yaml` exists and declares an SDK constraint, so the project can be resolved.
 2. **Resolve.** Loads the project with full type resolution, library by library.
-3. **Transform.** Each file is resolved once; every enabled pass reads that one tree and contributes edits, which are then applied together.
+3. **Transform.** Runs a fixed sequence of dependency-ordered pass groups. Each group is resolved once and applied as a unit before the next runs, so a pass that builds on an earlier one (a shorthand over a freshly produced switch expression, say) sees the finished result. The number of groups is fixed, so a single run is deterministic, with no "repeat until nothing changes" loop. See [`doc/ORDERING.md`](doc/ORDERING.md).
 4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, and runs `dart format`.
 
-Re-running is safe: the tool converges to a stable result and is **idempotent** by design.
+Re-running is safe: one run fully converges, and every run after that is a byte-for-byte no-op. The tool is **deterministic** and **idempotent** by design.
 
 <br>
 
