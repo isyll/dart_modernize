@@ -213,7 +213,9 @@ final class CliOptions {
   factory CliOptions.fromResults(ArgResults results) {
     final rest = results.rest;
     return .new(
-      path: p.absolute(rest.isNotEmpty ? rest.first : p.current),
+      // Normalize so the analyzer always receives an absolute path with the
+      // platform's separator (e.g. `dart_modernize C:/proj` on Windows).
+      path: p.normalize(p.absolute(rest.isNotEmpty ? rest.first : p.current)),
       dryRun: results['dry-run'] as bool,
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,

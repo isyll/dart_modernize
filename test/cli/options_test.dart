@@ -1,4 +1,5 @@
 import 'package:dart_modernize/dart_modernize.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
@@ -70,11 +71,17 @@ void main() {
       expect(options.sortMembers, isTrue);
     });
 
-    test('positional path argument is captured', () {
+    test('positional path is captured, made absolute, and normalized', () {
       final options = CliOptions.fromResults(
-        buildArgParser().parse(['/some/project']),
+        buildArgParser().parse(['sub/project']),
       );
-      expect(options.path, endsWith('some/project'));
+      expect(p.isAbsolute(options.path), isTrue);
+      expect(options.path, endsWith(p.join('sub', 'project')));
+      // The analyzer rejects mixed separators (e.g. `C:/proj` on Windows), so
+      // normalization must leave only the platform separator behind.
+      if (p.separator == r'\') {
+        expect(options.path, isNot(contains('/')));
+      }
     });
 
     test('--no-cascades disables only that transformation', () {
