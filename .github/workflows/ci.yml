@@ -38,6 +38,7 @@ jobs:
           restore-keys: pub-${{ runner.os }}-
 
       - run: dart pub get
-      - run: dart format --set-exit-if-changed .
+      # Golden fixtures hold deliberately unformatted code, so skip them.
+      - run: dart format --output none --set-exit-if-changed $(git ls-files '*.dart' ':!test/fixtures')
       - run: dart analyze --fatal-infos
       - run: dart test

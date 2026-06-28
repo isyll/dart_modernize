@@ -5,7 +5,8 @@
 3. Make your changes: all logic goes in `lib/src/`, tests in `test/`.
 4. Ensure these all pass before opening a PR:
    ```sh
-   dart format --set-exit-if-changed .
+   # format everything except the golden fixtures, which are kept unformatted
+   dart format $(git ls-files '*.dart' ':!test/fixtures')
    dart analyze --fatal-infos
    dart test
    ```
