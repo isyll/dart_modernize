@@ -78,13 +78,36 @@ final class ModernizePipeline {
   }
 
   /// Returns every non-excluded `.dart` file under [projectPath].
+  ///
+  /// Walks the tree by hand instead of `listSync(recursive: true)` so it can
+  /// prune whole directories up front: hidden ones (`.dart_tool`, `.git`) and
+  /// any the filter excludes (`build/`, `--exclude` paths). That keeps it out of
+  /// deep build-output trees, which on Windows can exceed the path limit and
+  /// throw mid-listing. A directory that cannot be listed is skipped rather than
+  /// aborting the whole walk.
   List<String> _dartFiles(String projectPath, FileFilter filter) {
-    return Directory(projectPath)
-        .listSync(recursive: true)
-        .whereType<File>()
-        .map((f) => f.path)
-        .where((fp) => fp.endsWith('.dart') && !filter.shouldSkip(fp))
-        .toList();
+    final result = <String>[];
+    final stack = <Directory>[Directory(projectPath)];
+    while (stack.isNotEmpty) {
+      final List<FileSystemEntity> entries;
+      try {
+        entries = stack.removeLast().listSync(followLinks: false);
+      } on FileSystemException {
+        continue;
+      }
+      for (final entity in entries) {
+        if (entity is Directory) {
+          if (p.basename(entity.path).startsWith('.')) continue;
+          if (filter.shouldSkip(p.join(entity.path, '_.dart'))) continue;
+          stack.add(entity);
+        } else if (entity is File &&
+            entity.path.endsWith('.dart') &&
+            !filter.shouldSkip(entity.path)) {
+          result.add(entity.path);
+        }
+      }
+    }
+    return result;
   }
 
   /// Runs `dart pub get` if the project has not yet been set up.
