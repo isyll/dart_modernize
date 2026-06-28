@@ -44,7 +44,7 @@ const allFeatures = <String>[
 
 /// A minimal, dependency-free pubspec that satisfies the tool's validator and
 /// lets the analyzer resolve SDK (`dart:`) types without a `pub get`.
-const String defaultPubspec = '''
+const defaultPubspec = '''
 name: fixture_project
 environment:
   sdk: ">=3.12.0 <4.0.0"
@@ -77,7 +77,7 @@ const featureFlags = <String, String>{
 };
 
 /// Path to the CLI entry point, relative to [_packageRoot].
-const String _binPath = 'bin/dart_modernize.dart';
+const _binPath = 'bin/dart_modernize.dart';
 
 /// Absolute path to the package under test (the `dart test` working directory).
 final String _packageRoot = Directory.current.absolute.path;

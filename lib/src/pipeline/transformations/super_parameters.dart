@@ -66,7 +66,7 @@ class _Fold {
 class _ReferenceCounter extends RecursiveAstVisitor<void> {
   final Set<Element> targets;
 
-  final Map<Element, int> counts = {};
+  final counts = <Element, int>{};
 
   _ReferenceCounter(this.targets);
 
@@ -83,7 +83,7 @@ class _ReferenceCounter extends RecursiveAstVisitor<void> {
 class _SuperParameterVisitor extends RecursiveAstVisitor<void> {
   final String source;
 
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _SuperParameterVisitor(this.source);
 

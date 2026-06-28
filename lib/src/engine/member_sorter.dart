@@ -57,38 +57,38 @@ enum _MemberKind {
 }
 
 class _MemberSorter {
-  static final List<_PriorityItem> _priorities = [
-    _PriorityItem(false, _MemberKind.unitFunctionMain, false),
-    _PriorityItem(false, _MemberKind.unitVariableConst, false),
-    _PriorityItem(false, _MemberKind.unitVariableConst, true),
-    _PriorityItem(false, _MemberKind.unitVariable, false),
-    _PriorityItem(false, _MemberKind.unitVariable, true),
-    _PriorityItem(false, _MemberKind.unitAccessor, false),
-    _PriorityItem(false, _MemberKind.unitAccessor, true),
-    _PriorityItem(false, _MemberKind.unitFunction, false),
-    _PriorityItem(false, _MemberKind.unitFunction, true),
-    _PriorityItem(false, _MemberKind.unitGenericTypeAlias, false),
-    _PriorityItem(false, _MemberKind.unitGenericTypeAlias, true),
-    _PriorityItem(false, _MemberKind.unitFunctionType, false),
-    _PriorityItem(false, _MemberKind.unitFunctionType, true),
-    _PriorityItem(false, _MemberKind.unitClass, false),
-    _PriorityItem(false, _MemberKind.unitClass, true),
-    _PriorityItem(false, _MemberKind.unitExtensionType, false),
-    _PriorityItem(false, _MemberKind.unitExtensionType, true),
-    _PriorityItem(false, _MemberKind.unitExtension, false),
-    _PriorityItem(false, _MemberKind.unitExtension, true),
-    _PriorityItem(true, _MemberKind.classField, false),
-    _PriorityItem(true, _MemberKind.classAccessor, false),
-    _PriorityItem(true, _MemberKind.classAccessor, true),
-    _PriorityItem(false, _MemberKind.classField, false),
-    _PriorityItem(false, _MemberKind.classConstructor, false),
-    _PriorityItem(false, _MemberKind.classConstructor, true),
-    _PriorityItem(false, _MemberKind.classAccessor, false),
-    _PriorityItem(false, _MemberKind.classAccessor, true),
-    _PriorityItem(false, _MemberKind.classMethod, false),
-    _PriorityItem(false, _MemberKind.classMethod, true),
-    _PriorityItem(true, _MemberKind.classMethod, false),
-    _PriorityItem(true, _MemberKind.classMethod, true),
+  static final _priorities = <_PriorityItem>[
+    .new(false, .unitFunctionMain, false),
+    .new(false, .unitVariableConst, false),
+    .new(false, .unitVariableConst, true),
+    .new(false, .unitVariable, false),
+    .new(false, .unitVariable, true),
+    .new(false, .unitAccessor, false),
+    .new(false, .unitAccessor, true),
+    .new(false, .unitFunction, false),
+    .new(false, .unitFunction, true),
+    .new(false, .unitGenericTypeAlias, false),
+    .new(false, .unitGenericTypeAlias, true),
+    .new(false, .unitFunctionType, false),
+    .new(false, .unitFunctionType, true),
+    .new(false, .unitClass, false),
+    .new(false, .unitClass, true),
+    .new(false, .unitExtensionType, false),
+    .new(false, .unitExtensionType, true),
+    .new(false, .unitExtension, false),
+    .new(false, .unitExtension, true),
+    .new(true, .classField, false),
+    .new(true, .classAccessor, false),
+    .new(true, .classAccessor, true),
+    .new(false, .classField, false),
+    .new(false, .classConstructor, false),
+    .new(false, .classConstructor, true),
+    .new(false, .classAccessor, false),
+    .new(false, .classAccessor, true),
+    .new(false, .classMethod, false),
+    .new(false, .classMethod, true),
+    .new(true, .classMethod, false),
+    .new(true, .classMethod, true),
   ];
   final String _initialCode;
   final CompilationUnit _unit;
@@ -111,7 +111,7 @@ class _MemberSorter {
   _MemberInfo _memberInfo(_PriorityItem item, String name, AstNode member) {
     final nodeRange = nodeWithComments(_lineInfo, member);
     final text = code.substring(nodeRange.offset, nodeRange.end);
-    return _MemberInfo(item, name, nodeRange.offset, nodeRange.end, text);
+    return .new(item, name, nodeRange.offset, nodeRange.end, text);
   }
 
   void _sortAndReorderMembers(List<_MemberInfo> members) {
@@ -151,34 +151,32 @@ class _MemberSorter {
       var isStatic = false;
       String name;
       if (member is ConstructorDeclaration) {
-        kind = _MemberKind.classConstructor;
+        kind = .classConstructor;
         name = member.name?.lexeme ?? '';
       } else if (member is FieldDeclaration) {
         final fields = member.fields.variables;
         if (fields.isEmpty) return;
-        kind = _MemberKind.classField;
+        kind = .classField;
         isStatic = member.isStatic;
         name = fields.first.name.lexeme;
       } else if (member is MethodDeclaration) {
         isStatic = member.isStatic;
         name = member.name.lexeme;
         if (member.isGetter) {
-          kind = _MemberKind.classAccessor;
+          kind = .classAccessor;
           name += ' getter';
         } else if (member.isSetter) {
-          kind = _MemberKind.classAccessor;
+          kind = .classAccessor;
           name += ' setter';
         } else {
-          kind = _MemberKind.classMethod;
+          kind = .classMethod;
         }
       } else {
         // Unrecognized member kind; leave this class alone rather than risk a
         // bad reorder.
         return;
       }
-      members.add(
-        _memberInfo(_PriorityItem.forName(isStatic, name, kind), name, member),
-      );
+      members.add(_memberInfo(.forName(isStatic, name, kind), name, member));
     }
     _sortAndReorderMembers(members);
   }
@@ -190,7 +188,7 @@ class _MemberSorter {
       final priority2 = _priorityOf(o2.item);
       if (priority1 != priority2) return priority1 - priority2;
       // Never reorder class fields: initialization order must be preserved.
-      if (o1.item.kind == _MemberKind.classField) {
+      if (o1.item.kind == .classField) {
         return o1.offset - o2.offset;
       }
       var result = o1.name.toLowerCase().compareTo(o2.name.toLowerCase());
@@ -207,27 +205,27 @@ class _MemberSorter {
       _MemberKind kind;
       String name;
       if (member is ClassDeclaration) {
-        kind = _MemberKind.unitClass;
+        kind = .unitClass;
         name = member.namePart.typeName.lexeme;
       } else if (member is ClassTypeAlias) {
-        kind = _MemberKind.unitClass;
+        kind = .unitClass;
         name = member.name.lexeme;
       } else if (member is EnumDeclaration) {
-        kind = _MemberKind.unitClass;
+        kind = .unitClass;
         name = member.namePart.typeName.lexeme;
       } else if (member is ExtensionTypeDeclaration) {
-        kind = _MemberKind.unitExtensionType;
+        kind = .unitExtensionType;
         name = member.namePart.typeName.lexeme;
       } else if (member is ExtensionDeclaration) {
-        kind = _MemberKind.unitExtension;
+        kind = .unitExtension;
         name = member.name?.lexeme ?? '';
       } else if (member is FunctionDeclaration) {
         name = member.name.lexeme;
         if (member.isGetter) {
-          kind = _MemberKind.unitAccessor;
+          kind = .unitAccessor;
           name += ' getter';
         } else if (member.isSetter) {
-          kind = _MemberKind.unitAccessor;
+          kind = .unitAccessor;
           name += ' setter';
         } else {
           kind = name == 'main'
@@ -235,13 +233,13 @@ class _MemberSorter {
               : _MemberKind.unitFunction;
         }
       } else if (member is FunctionTypeAlias) {
-        kind = _MemberKind.unitFunctionType;
+        kind = .unitFunctionType;
         name = member.name.lexeme;
       } else if (member is GenericTypeAlias) {
-        kind = _MemberKind.unitGenericTypeAlias;
+        kind = .unitGenericTypeAlias;
         name = member.name.lexeme;
       } else if (member is MixinDeclaration) {
-        kind = _MemberKind.unitClass;
+        kind = .unitClass;
         name = member.name.lexeme;
       } else if (member is TopLevelVariableDeclaration) {
         final variables = member.variables.variables;
@@ -253,9 +251,7 @@ class _MemberSorter {
       } else {
         return;
       }
-      members.add(
-        _memberInfo(_PriorityItem.forName(false, name, kind), name, member),
-      );
+      members.add(_memberInfo(.forName(false, name, kind), name, member));
     }
     _sortAndReorderMembers(members);
   }
@@ -284,7 +280,7 @@ class _PriorityItem {
     if (other is! _PriorityItem) return false;
     // Class fields share one priority slot regardless of privacy so that
     // public and private fields keep their declared order.
-    if (kind == _MemberKind.classField) {
+    if (kind == .classField) {
       return other.kind == kind && other.isStatic == isStatic;
     }
     return other.kind == kind &&

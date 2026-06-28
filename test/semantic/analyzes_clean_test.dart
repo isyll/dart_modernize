@@ -43,7 +43,7 @@ void main() {
 
 /// Idiomatic, warning-free code that several passes would still modernize
 /// (dot shorthands on `Mode.fast`, a private named parameter for `_name`).
-const String _sample = '''
+const _sample = '''
 import 'dart:convert';
 
 enum Mode { fast, slow }

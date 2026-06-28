@@ -38,7 +38,7 @@ final class NullAwareElements implements Transformation {
 
 class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _NullAwareElementsVisitor(this.source);
 
@@ -89,7 +89,7 @@ class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
     final then = elem.thenElement;
     if (then is! Expression) return null;
 
-    Expression valueExpr = then;
+    var valueExpr = then;
     if (valueExpr is PostfixExpression && valueExpr.operator.lexeme == '!') {
       valueExpr = valueExpr.operand;
     }

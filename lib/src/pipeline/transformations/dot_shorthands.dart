@@ -43,7 +43,7 @@ final class DotShorthands implements Transformation {
 }
 
 class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
@@ -245,7 +245,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
 
       // Map key / value (climb through any control-flow wrappers).
       case MapLiteralEntry():
-        AstNode? ancestor = parent.parent;
+        var ancestor = parent.parent;
         while (ancestor is ForElement || ancestor is IfElement) {
           ancestor = ancestor!.parent;
         }
@@ -279,7 +279,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   /// Climbs through nested ForElement/IfElement wrappers to the nearest
   /// enclosing ListLiteral or SetOrMapLiteral and returns its element type.
   DartType? _enclosingCollectionElementType(CollectionElement element) {
-    AstNode? current = element.parent;
+    var current = element.parent;
     while (current is ForElement || current is IfElement) {
       current = current!.parent;
     }
@@ -389,7 +389,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   /// Walks up through `||`/`&&` and parentheses so a constant inside a combined
   /// pattern (`A || B`) is matched against the scrutinee too.
   DartType? _patternMatchedType(ConstantPattern pattern) {
-    AstNode? node = pattern.parent;
+    var node = pattern.parent;
     while (node is LogicalOrPattern ||
         node is LogicalAndPattern ||
         node is ParenthesizedPattern) {

@@ -373,12 +373,6 @@ final class ModernizePipeline {
     );
   }
 
-  /// Paths in [before] whose on-disk content has since changed.
-  static List<String> _changedSince(Map<String, String> before) => [
-    for (final entry in before.entries)
-      if (File(entry.key).readAsStringSync() != entry.value) entry.key,
-  ];
-
   /// Splits [items] into consecutive chunks of at most [size].
   static Iterable<List<T>> _batches<T>(List<T> items, int size) sync* {
     for (var i = 0; i < items.length; i += size) {
@@ -386,10 +380,28 @@ final class ModernizePipeline {
     }
   }
 
+  /// Paths in [before] whose on-disk content has since changed.
+  static List<String> _changedSince(Map<String, String> before) => [
+    for (final entry in before.entries)
+      if (File(entry.key).readAsStringSync() != entry.value) entry.key,
+  ];
+
   /// Reads the current on-disk content of each path in [files].
   static Map<String, String> _snapshot(List<String> files) => {
     for (final f in files) f: File(f).readAsStringSync(),
   };
+}
+
+/// Outcome of the finalize stage.
+class _FinalizeResult {
+  /// Files changed per finalize pass (`fix-all`, `organize-imports`,
+  /// `sort-members`, `dart format`).
+  final Map<String, int> counts;
+
+  /// All paths the finalize stage changed.
+  final Set<String> changedPaths;
+
+  const _FinalizeResult({required this.counts, required this.changedPaths});
 }
 
 /// Outcome of the structural transform stage.
@@ -416,16 +428,4 @@ class _TransformResult {
     required this.finalContent,
     required this.passesByFile,
   });
-}
-
-/// Outcome of the finalize stage.
-class _FinalizeResult {
-  /// Files changed per finalize pass (`fix-all`, `organize-imports`,
-  /// `sort-members`, `dart format`).
-  final Map<String, int> counts;
-
-  /// All paths the finalize stage changed.
-  final Set<String> changedPaths;
-
-  const _FinalizeResult({required this.counts, required this.changedPaths});
 }

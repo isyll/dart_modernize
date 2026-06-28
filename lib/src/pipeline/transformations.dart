@@ -18,6 +18,23 @@ import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
 import 'transformations/switch_expressions.dart';
 
+/// The finalize passes, in execution order. They run after the structural
+/// stages have settled, over the files on disk rather than through the per-unit
+/// AST loop (see [FinalizeTransformation]).
+List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
+    [
+      FixAll(enabled: options.fixAll),
+      OrganizeImports(enabled: options.organizeImports),
+      SortMembers(enabled: options.sortMembers),
+    ];
+
+/// Every transformation, flattened across stages and finalize. Used only to
+/// answer "is anything enabled at all?".
+List<Transformation> buildTransformations(CliOptions options) => [
+  for (final stage in buildTransformationStages(options)) ...stage,
+  ...buildFinalizeTransformations(options),
+];
+
 /// The structural transformation stages, in execution order.
 ///
 /// The transform stage is a fixed, dependency-ordered pipeline: each stage is
@@ -79,21 +96,4 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     NullAwareElements(enabled: options.nullAwareElements),
     AbstractFinalClasses(enabled: options.abstractFinalClasses),
   ],
-];
-
-/// The finalize passes, in execution order. They run after the structural
-/// stages have settled, over the files on disk rather than through the per-unit
-/// AST loop (see [FinalizeTransformation]).
-List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
-    [
-      FixAll(enabled: options.fixAll),
-      OrganizeImports(enabled: options.organizeImports),
-      SortMembers(enabled: options.sortMembers),
-    ];
-
-/// Every transformation, flattened across stages and finalize. Used only to
-/// answer "is anything enabled at all?".
-List<Transformation> buildTransformations(CliOptions options) => [
-  for (final stage in buildTransformationStages(options)) ...stage,
-  ...buildFinalizeTransformations(options),
 ];

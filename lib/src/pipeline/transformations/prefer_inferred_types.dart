@@ -1,7 +1,6 @@
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
-import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 
 import '../../engine/source_edit.dart';
@@ -43,7 +42,7 @@ final class PreferInferredTypes implements Transformation {
 
 class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _PreferInferredTypesVisitor(this.source);
 
@@ -78,7 +77,7 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
         wsLength++;
       }
       edits.add(
-        SourceEdit(
+        .new(
           offset: typeAnnotation.offset,
           length: typeAnnotation.length + wsLength,
           replacement: '',
@@ -86,7 +85,7 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
       );
     } else {
       edits.add(
-        SourceEdit(
+        .new(
           offset: typeAnnotation.offset,
           length: typeAnnotation.length,
           replacement: 'var',
@@ -213,7 +212,7 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     TypeAnnotation typeAnnotation,
     Expression initializer,
   ) {
-    if (declaredType.nullabilitySuffix != NullabilitySuffix.none) return;
+    if (declaredType.nullabilitySuffix != .none) return;
 
     final literal = _bareCollectionLiteral(initializer);
     if (literal == null) return;
@@ -228,7 +227,7 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
 
     _applyEdit(vars);
     edits.add(
-      SourceEdit(offset: literal.offset, length: 0, replacement: typeArgsText),
+      .new(offset: literal.offset, length: 0, replacement: typeArgsText),
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
@@ -32,9 +31,7 @@ final class PrimaryConstructors implements Transformation {
 
   @override
   Future<List<SourceEdit>> editsFor(ResolvedUnitResult unit) async {
-    if (!unit.libraryElement.featureSet.isEnabled(
-      Feature.primary_constructors,
-    )) {
+    if (!unit.libraryElement.featureSet.isEnabled(.primary_constructors)) {
       return const [];
     }
     final visitor = _Visitor(unit.content);
@@ -45,12 +42,18 @@ final class PrimaryConstructors implements Transformation {
 
 class _Visitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   /// Names of classes that appear in an `extends` clause within this file.
-  final Set<String> _extendedNames = {};
+  final _extendedNames = <String>{};
 
   _Visitor(this.source);
+
+  @override
+  void visitClassDeclaration(ClassDeclaration node) {
+    _tryRewrite(node);
+    super.visitClassDeclaration(node);
+  }
 
   @override
   void visitCompilationUnit(CompilationUnit node) {
@@ -63,10 +66,22 @@ class _Visitor extends RecursiveAstVisitor<void> {
     super.visitCompilationUnit(node);
   }
 
-  @override
-  void visitClassDeclaration(ClassDeclaration node) {
-    _tryRewrite(node);
-    super.visitClassDeclaration(node);
+  String _leadingIndent(int offset) {
+    var pos = offset - 1;
+    while (pos >= 0 && source[pos] != '\n') {
+      pos--;
+    }
+    final lineStart = pos + 1;
+    final buf = StringBuffer();
+    for (var i = lineStart; i < offset; i++) {
+      final ch = source[i];
+      if (ch == ' ' || ch == '\t') {
+        buf.write(ch);
+      } else {
+        break;
+      }
+    }
+    return buf.toString();
   }
 
   void _tryRewrite(ClassDeclaration cls) {
@@ -190,7 +205,7 @@ class _Visitor extends RecursiveAstVisitor<void> {
     }
 
     edits.add(
-      SourceEdit(
+      .new(
         offset: cls.offset,
         length: cls.end - cls.offset,
         replacement:
@@ -198,23 +213,5 @@ class _Visitor extends RecursiveAstVisitor<void> {
             '$typeParamsText($paramsText)$extendsText$withText$implementsText$body',
       ),
     );
-  }
-
-  String _leadingIndent(int offset) {
-    var pos = offset - 1;
-    while (pos >= 0 && source[pos] != '\n') {
-      pos--;
-    }
-    final lineStart = pos + 1;
-    final buf = StringBuffer();
-    for (var i = lineStart; i < offset; i++) {
-      final ch = source[i];
-      if (ch == ' ' || ch == '\t') {
-        buf.write(ch);
-      } else {
-        break;
-      }
-    }
-    return buf.toString();
   }
 }

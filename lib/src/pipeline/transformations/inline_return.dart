@@ -42,7 +42,7 @@ final class InlineReturn implements Transformation {
 
 class _InlineReturnVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _InlineReturnVisitor(this.source);
 
@@ -76,7 +76,7 @@ class _InlineReturnVisitor extends RecursiveAstVisitor<void> {
       if (_hasComment(decl, next)) continue;
 
       edits.add(
-        SourceEdit(
+        .new(
           offset: decl.offset,
           length: next.end - decl.offset,
           replacement:

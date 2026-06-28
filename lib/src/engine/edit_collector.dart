@@ -5,7 +5,7 @@ import 'source_edit.dart';
 /// Edits are sorted by offset before application. Overlapping edits are
 /// silently dropped; the earlier-offset edit wins.
 final class EditCollector {
-  final List<SourceEdit> _pending = [];
+  final _pending = <SourceEdit>[];
 
   bool get isEmpty => _pending.isEmpty;
   bool get isNotEmpty => _pending.isNotEmpty;

@@ -16,7 +16,7 @@ SourceEdit? computeSimpleDiff(String oldStr, String newStr) {
     final oldReplaceLength = oldStr.length - prefixLength - suffixLength;
     final newReplaceLength = newStr.length - prefixLength - suffixLength;
     if (oldReplaceLength >= 0 && newReplaceLength >= 0) {
-      return SourceEdit(
+      return .new(
         offset: prefixLength,
         length: oldReplaceLength,
         replacement: newStr.substring(
@@ -27,7 +27,7 @@ SourceEdit? computeSimpleDiff(String oldStr, String newStr) {
     }
     prefixLength--;
   }
-  return SourceEdit(offset: 0, length: oldStr.length, replacement: newStr);
+  return .new(offset: 0, length: oldStr.length, replacement: newStr);
 }
 
 /// Number of characters common to the start of [a] and [b].

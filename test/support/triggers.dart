@@ -9,13 +9,13 @@ library;
 
 import 'cli_harness.dart';
 
-const String abstractFinalClassesTrigger = '''
+const abstractFinalClassesTrigger = '''
 class Constants {
   static const maxRetries = 3;
 }
 ''';
 
-const String cascadesTrigger = '''
+const cascadesTrigger = '''
 Box makeBox() {
   final b = Box();
   b.width = 10;
@@ -29,19 +29,19 @@ class Box {
 }
 ''';
 
-const String dotShorthandsTrigger = '''
+const dotShorthandsTrigger = '''
 E pick() => E.a;
 
 enum E { a, b }
 ''';
 
-const String expressionBodiesTrigger = '''
+const expressionBodiesTrigger = '''
 int square(int x) {
   return x * x;
 }
 ''';
 
-const String finalLocalsTrigger = '''
+const finalLocalsTrigger = '''
 int compute() => 42;
 
 int result() {
@@ -51,7 +51,7 @@ int result() {
 ''';
 
 /// Analysis options enabling the lints the fix-all trigger relies on.
-const String fixAllLints = '''
+const fixAllLints = '''
 linter:
   rules:
     - annotate_overrides
@@ -59,7 +59,7 @@ linter:
     - unnecessary_new
 ''';
 
-const String fixAllTrigger = '''
+const fixAllTrigger = '''
 class A {
   String f() => '';
 }
@@ -69,7 +69,7 @@ class B extends A {
 }
 ''';
 
-const String inlineReturnTrigger = '''
+const inlineReturnTrigger = '''
 int compute() => 42;
 
 int result() {
@@ -78,18 +78,18 @@ int result() {
 }
 ''';
 
-const String nullAwareElementsTrigger = '''
+const nullAwareElementsTrigger = '''
 List<int?> pack(int? a) => [if (a != null) a];
 ''';
 
-const String nullAwareSpreadTrigger = '''
+const nullAwareSpreadTrigger = '''
 List<int> merge(List<int> base, List<int>? extra) {
   final result = [...base, if (extra != null) ...extra];
   return result.toList();
 }
 ''';
 
-const String organizeImportsTrigger = '''
+const organizeImportsTrigger = '''
 import 'dart:math';
 import 'dart:convert';
 
@@ -98,11 +98,11 @@ String f(num n) => jsonEncode(n * pi);
 
 /// A top-level const with a redundant explicit type; only prefer_inferred_types
 /// would remove it. No other pass touches a top-level const declaration.
-const String preferInferredTypesTrigger = '''
+const preferInferredTypesTrigger = '''
 const int timeout = 30;
 ''';
 
-const String primaryConstructorsTrigger = '''
+const primaryConstructorsTrigger = '''
 class P {
   final int x;
   final int y;
@@ -111,7 +111,7 @@ class P {
 }
 ''';
 
-const String privateNamedParametersTrigger = '''
+const privateNamedParametersTrigger = '''
 class C {
   final int _x;
 
@@ -122,13 +122,13 @@ class C {
 ''';
 
 /// A pubspec opting into the language version primary constructors require.
-const String pubspec313 = '''
+const pubspec313 = '''
 name: fixture_project
 environment:
   sdk: ">=3.13.0 <4.0.0"
 ''';
 
-const String sortMembersTrigger = '''
+const sortMembersTrigger = '''
 class S {
   void beta() {}
 
@@ -136,11 +136,11 @@ class S {
 }
 ''';
 
-const String stringInterpolationTrigger = '''
+const stringInterpolationTrigger = '''
 String greet(String name) => 'Hello, ' + name + '!';
 ''';
 
-const String superParametersTrigger = '''
+const superParametersTrigger = '''
 class Base {
   final int id;
 
@@ -152,7 +152,7 @@ class Derived extends Base {
 }
 ''';
 
-const String switchExpressionsTrigger = '''
+const switchExpressionsTrigger = '''
 int classify(int code) {
   int result;
   switch (code) {
@@ -167,7 +167,7 @@ int classify(int code) {
 ''';
 
 /// Trigger source keyed by feature folder name.
-const Map<String, String> triggers = {
+const triggers = <String, String>{
   'dot_shorthands': dotShorthandsTrigger,
   'private_named_parameters': privateNamedParametersTrigger,
   'primary_constructors': primaryConstructorsTrigger,

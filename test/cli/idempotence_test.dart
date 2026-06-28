@@ -39,7 +39,7 @@ void main() {
 /// `final Logger` annotation, dot-shorthands collapses an enum field initializer
 /// and an assignment target, private-named-parameters folds `this._retries`,
 /// expression-bodies arrows `toggle`, and sort-members reorders the members.
-const String _multiPass = '''
+const _multiPass = '''
 import 'dart:convert';
 
 enum Mode { fast, slow }

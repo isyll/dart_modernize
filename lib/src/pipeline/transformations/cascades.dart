@@ -44,7 +44,7 @@ final class Cascades implements Transformation {
 
 class _CascadeVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _CascadeVisitor(this.source);
 

@@ -44,7 +44,7 @@ sealed class _Segment {}
 
 class _StringInterpolationVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _StringInterpolationVisitor(this.source);
 

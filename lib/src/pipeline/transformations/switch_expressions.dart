@@ -67,7 +67,7 @@ final class _ReturnBody extends _ArmBody {
 
 class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _SwitchExprVisitor(this.source);
 
@@ -119,7 +119,7 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
 
     if (shape == 'return') {
       edits.add(
-        SourceEdit(
+        .new(
           offset: stmt.offset,
           length: stmt.end - stmt.offset,
           replacement: 'return $switchExpr;',
@@ -135,7 +135,7 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
     if (preceding != null) {
       final (decl, varName) = preceding;
       edits.add(
-        SourceEdit(
+        .new(
           offset: decl.offset,
           length: stmt.end - decl.offset,
           replacement: '${indent}final $varName = $switchExpr;',
@@ -145,7 +145,7 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
       final varName = targetElement.name ?? '';
       if (varName.isEmpty) return;
       edits.add(
-        SourceEdit(
+        .new(
           offset: stmt.offset,
           length: stmt.end - stmt.offset,
           replacement: '$varName = $switchExpr;',
@@ -173,7 +173,7 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
         if (member.statements.isEmpty) continue; // fallthrough
         final body = _parseBody(member.statements);
         if (body == null) return null;
-        result.add(_Arm(patterns: List.of(currentPatterns), body: body));
+        result.add(.new(patterns: .of(currentPatterns), body: body));
         currentPatterns.clear();
       } else if (member is SwitchCase) {
         // Pre-Dart-3 AST node: handle for completeness.
@@ -181,7 +181,7 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
         if (member.statements.isEmpty) continue;
         final body = _parseBody(member.statements);
         if (body == null) return null;
-        result.add(_Arm(patterns: List.of(currentPatterns), body: body));
+        result.add(.new(patterns: .of(currentPatterns), body: body));
         currentPatterns.clear();
       } else if (member is SwitchDefault) {
         // default: preceded by fallthrough cases, reject (rare, conservative).
@@ -190,7 +190,7 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
         currentPatterns.add(_DefaultPattern());
         final body = _parseBody(member.statements);
         if (body == null) return null;
-        result.add(_Arm(patterns: List.of(currentPatterns), body: body));
+        result.add(.new(patterns: .of(currentPatterns), body: body));
         currentPatterns.clear();
       }
     }

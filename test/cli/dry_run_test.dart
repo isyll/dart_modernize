@@ -82,7 +82,7 @@ void main() {
 
 /// A file three implemented passes touch at once: dot-shorthands (`.fast`),
 /// super-parameters (`super.id`), and expression-bodies (`square`).
-const String _multiPass = '''
+const _multiPass = '''
 enum Mode { fast, slow }
 
 class Base {

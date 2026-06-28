@@ -43,44 +43,6 @@ final class Reporter {
   }) : _outSink = out ?? stdout,
        _errSink = err ?? stderr;
 
-  void dryRunSummary({
-    required int scanned,
-    required int changed,
-    required int added,
-    required int removed,
-    required Map<String, int> passCounts,
-  }) {
-    _out(_rule());
-    _out(
-      '  ${_bold('dry run')} -- $changed of $scanned file(s) would change, '
-      'nothing written',
-    );
-    if (added > 0 || removed > 0) {
-      _out('  ${_green('+$added')} additions, ${_red('-$removed')} removals');
-    }
-    if (passCounts.isNotEmpty) {
-      _out('');
-      final nameWidth = passCounts.keys
-          .map((k) => k.length)
-          .reduce((a, b) => a > b ? a : b);
-      for (final entry in passCounts.entries) {
-        _out('  ${entry.key.padRight(nameWidth)}  ${entry.value} file(s)');
-      }
-    }
-    _out(_rule());
-  }
-
-  void error(String message) => _err(_errorText('Error: $message'));
-  void errorHint(String hint) => _err(_dim(hint));
-
-  void finalizing() => _out(_dim('Finalizing…'));
-
-  void finalizingStep(String label) => _out(_dim('  $label…'));
-  void help(String usage) {
-    _out('${_bold('Usage:')} dart_modernize [options] [path]\n');
-    _out(usage);
-  }
-
   /// Prints the end-of-run banner: how many files changed and how many each
   /// transformation touched, in canonical pass order.
   void completionSummary({
@@ -114,6 +76,45 @@ final class Reporter {
       }
     }
     _out(_rule());
+  }
+
+  void dryRunSummary({
+    required int scanned,
+    required int changed,
+    required int added,
+    required int removed,
+    required Map<String, int> passCounts,
+  }) {
+    _out(_rule());
+    _out(
+      '  ${_bold('dry run')} -- $changed of $scanned file(s) would change, '
+      'nothing written',
+    );
+    if (added > 0 || removed > 0) {
+      _out('  ${_green('+$added')} additions, ${_red('-$removed')} removals');
+    }
+    if (passCounts.isNotEmpty) {
+      _out('');
+      final nameWidth = passCounts.keys
+          .map((k) => k.length)
+          .reduce((a, b) => a > b ? a : b);
+      for (final entry in passCounts.entries) {
+        _out('  ${entry.key.padRight(nameWidth)}  ${entry.value} file(s)');
+      }
+    }
+    _out(_rule());
+  }
+
+  void error(String message) => _err(_errorText('Error: $message'));
+
+  void errorHint(String hint) => _err(_dim(hint));
+
+  void finalizing() => _out(_dim('Finalizing…'));
+  void finalizingStep(String label) => _out(_dim('  $label…'));
+
+  void help(String usage) {
+    _out('${_bold('Usage:')} dart_modernize [options] [path]\n');
+    _out(usage);
   }
 
   void nothingToDo() {

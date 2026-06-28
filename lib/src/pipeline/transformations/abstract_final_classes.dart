@@ -67,49 +67,10 @@ final class AbstractFinalClasses implements Transformation {
   }
 }
 
-class _UsageCollector extends RecursiveAstVisitor<void> {
-  final Set<InterfaceElement> usedClasses = {};
-
-  @override
-  void visitInstanceCreationExpression(InstanceCreationExpression node) {
-    final type = node.staticType;
-    if (type is InterfaceType) usedClasses.add(type.element);
-    super.visitInstanceCreationExpression(node);
-  }
-
-  @override
-  void visitClassDeclaration(ClassDeclaration node) {
-    _addFromNamedType(node.extendsClause?.superclass);
-    for (final t in node.implementsClause?.interfaces ?? <NamedType>[]) {
-      _addFromNamedType(t);
-    }
-    for (final t in node.withClause?.mixinTypes ?? <NamedType>[]) {
-      _addFromNamedType(t);
-    }
-    super.visitClassDeclaration(node);
-  }
-
-  @override
-  void visitMixinDeclaration(MixinDeclaration node) {
-    for (final t in node.onClause?.superclassConstraints ?? <NamedType>[]) {
-      _addFromNamedType(t);
-    }
-    for (final t in node.implementsClause?.interfaces ?? <NamedType>[]) {
-      _addFromNamedType(t);
-    }
-    super.visitMixinDeclaration(node);
-  }
-
-  void _addFromNamedType(NamedType? namedType) {
-    final type = namedType?.type;
-    if (type is InterfaceType) usedClasses.add(type.element);
-  }
-}
-
 class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
   final String source;
   final Set<InterfaceElement> usedClasses;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _AbstractFinalVisitor(this.source, this.usedClasses);
 
@@ -168,7 +129,7 @@ class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
     }
 
     edits.add(
-      SourceEdit(
+      .new(
         offset: node.classKeyword.offset,
         length: 0,
         replacement: 'abstract final ',
@@ -179,13 +140,18 @@ class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
       final lineStart = _startOfContainingLine(privateCtorAst.offset);
       final lineEnd = _endOfContainingLine(privateCtorAst.end);
       edits.add(
-        SourceEdit(
-          offset: lineStart,
-          length: lineEnd - lineStart,
-          replacement: '',
-        ),
+        .new(offset: lineStart, length: lineEnd - lineStart, replacement: ''),
       );
     }
+  }
+
+  int _endOfContainingLine(int end) {
+    var pos = end;
+    while (pos < source.length && source[pos] != '\n') {
+      pos++;
+    }
+    if (pos < source.length) pos++;
+    return pos;
   }
 
   bool _isPrivatePreventingCtorElement(ConstructorElement ctor) {
@@ -202,15 +168,6 @@ class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
     }
     return pos + 1;
   }
-
-  int _endOfContainingLine(int end) {
-    var pos = end;
-    while (pos < source.length && source[pos] != '\n') {
-      pos++;
-    }
-    if (pos < source.length) pos++;
-    return pos;
-  }
 }
 
 class _CtorFinder extends RecursiveAstVisitor<void> {
@@ -222,5 +179,44 @@ class _CtorFinder extends RecursiveAstVisitor<void> {
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {
     if (node.declaredFragment?.element == target) found = node;
+  }
+}
+
+class _UsageCollector extends RecursiveAstVisitor<void> {
+  final usedClasses = <InterfaceElement>{};
+
+  @override
+  void visitClassDeclaration(ClassDeclaration node) {
+    _addFromNamedType(node.extendsClause?.superclass);
+    for (final t in node.implementsClause?.interfaces ?? <NamedType>[]) {
+      _addFromNamedType(t);
+    }
+    for (final t in node.withClause?.mixinTypes ?? <NamedType>[]) {
+      _addFromNamedType(t);
+    }
+    super.visitClassDeclaration(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    final type = node.staticType;
+    if (type is InterfaceType) usedClasses.add(type.element);
+    super.visitInstanceCreationExpression(node);
+  }
+
+  @override
+  void visitMixinDeclaration(MixinDeclaration node) {
+    for (final t in node.onClause?.superclassConstraints ?? <NamedType>[]) {
+      _addFromNamedType(t);
+    }
+    for (final t in node.implementsClause?.interfaces ?? <NamedType>[]) {
+      _addFromNamedType(t);
+    }
+    super.visitMixinDeclaration(node);
+  }
+
+  void _addFromNamedType(NamedType? namedType) {
+    final type = namedType?.type;
+    if (type is InterfaceType) usedClasses.add(type.element);
   }
 }

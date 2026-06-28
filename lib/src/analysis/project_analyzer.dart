@@ -16,23 +16,28 @@ final class ProjectAnalyzer {
   /// Absolute path to the project root.
   final String projectPath;
 
-  final OverlayResourceProvider _provider = OverlayResourceProvider(
-    PhysicalResourceProvider.INSTANCE,
-  );
+  final _provider = OverlayResourceProvider(PhysicalResourceProvider.INSTANCE);
 
   AnalysisContextCollection? _collection;
   int _stamp = 1;
 
   ProjectAnalyzer(this.projectPath);
 
+  AnalysisContextCollection get _contexts =>
+      _collection ?? (throw StateError('Call initialize() first.'));
+
+  /// Applies all staged changes so the next [resolvedUnits] call sees them.
+  Future<void> applyStagedChanges() async {
+    for (final context in _contexts.contexts) {
+      await context.applyPendingFileChanges();
+    }
+  }
+
   /// Initialises the analysis context. Must be called before any other method.
-  void initialize() => _collection = AnalysisContextCollection(
+  void initialize() => _collection = .new(
     includedPaths: [projectPath],
     resourceProvider: _provider,
   );
-
-  AnalysisContextCollection get _contexts =>
-      _collection ?? (throw StateError('Call initialize() first.'));
 
   /// Yields every resolved Dart library unit in the project, in file order.
   ///
@@ -56,13 +61,6 @@ final class ProjectAnalyzer {
     );
     for (final context in _contexts.contexts) {
       context.changeFile(filePath);
-    }
-  }
-
-  /// Applies all staged changes so the next [resolvedUnits] call sees them.
-  Future<void> applyStagedChanges() async {
-    for (final context in _contexts.contexts) {
-      await context.applyPendingFileChanges();
     }
   }
 }

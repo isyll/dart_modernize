@@ -33,7 +33,7 @@ final class NullAwareSpread implements Transformation {
 
 class _NullAwareSpreadVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _NullAwareSpreadVisitor(this.source);
 

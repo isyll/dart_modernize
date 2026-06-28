@@ -44,7 +44,7 @@ final class FinalLocals implements Transformation {
 
 class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
   final String source;
-  final List<SourceEdit> edits = [];
+  final edits = <SourceEdit>[];
 
   _FinalLocalsVisitor(this.source);
 
@@ -75,7 +75,7 @@ class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
 
     final varToken = vars.keyword!;
     edits.add(
-      SourceEdit(
+      .new(
         offset: varToken.offset,
         length: varToken.length,
         replacement: 'final',

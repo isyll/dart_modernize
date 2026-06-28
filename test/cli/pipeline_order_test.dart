@@ -108,18 +108,6 @@ void main() {
   });
 }
 
-/// Maps each structural pass name to the index of the stage it runs in.
-Map<String, int> _stageIndex(CliOptions options) {
-  final index = <String, int>{};
-  final stages = buildTransformationStages(options);
-  for (var i = 0; i < stages.length; i++) {
-    for (final t in stages[i]) {
-      index[t.name] = i;
-    }
-  }
-  return index;
-}
-
 CliOptions _options({
   bool dotShorthands = true,
   bool privateNamedParameters = true,
@@ -162,3 +150,15 @@ CliOptions _options({
   abstractFinalClasses: abstractFinalClasses,
   preferInferredTypes: preferInferredTypes,
 );
+
+/// Maps each structural pass name to the index of the stage it runs in.
+Map<String, int> _stageIndex(CliOptions options) {
+  final index = <String, int>{};
+  final stages = buildTransformationStages(options);
+  for (var i = 0; i < stages.length; i++) {
+    for (final t in stages[i]) {
+      index[t.name] = i;
+    }
+  }
+  return index;
+}

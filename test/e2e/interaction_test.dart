@@ -17,8 +17,6 @@ import 'package:test/test.dart';
 
 import '../support/cli_harness.dart';
 
-const _file = 'lib/c.dart';
-
 void main() {
   group('passes compose to a fixpoint in one run', () {
     _composes(
@@ -280,6 +278,8 @@ class Engine {
     );
   });
 }
+
+const _file = 'lib/c.dart';
 
 /// Registers a test that runs the CLI with only [passes] enabled and asserts the
 /// file converges to [expected] in a single run, then stays put on a re-run.
