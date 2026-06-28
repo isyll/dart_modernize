@@ -221,7 +221,13 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       case NamedArgument() when identical(parent.argumentExpression, node):
         return _argumentContext(parent);
 
-      // `pattern => node` in a switch expression: inherits the switch's context.
+      // A branch of a `?:` conditional: takes the conditional's own context.
+      case ConditionalExpression()
+          when identical(parent.thenExpression, node) ||
+              identical(parent.elseExpression, node):
+        return _contextType(parent);
+
+      // `pattern => node` in a switch expression: takes the switch's context.
       case SwitchExpressionCase() when identical(parent.expression, node):
         final switchExpr = parent.parent;
         return switchExpr is SwitchExpression ? _contextType(switchExpr) : null;
@@ -299,26 +305,39 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// Declared return type of the nearest enclosing synchronous, non-generator
-  /// function, or null when it is absent (inferred) or the body is async/*.
+  /// The value type a `return e;` or `=> e` produces in the enclosing function.
+  ///
+  /// For a sync function it is the declared return type. For an `async` function
+  /// it is `T` from a `Future<T>` return type. Generators and closures (whose
+  /// return type is inferred) have no usable context, so they give null.
   DartType? _enclosingReturnType(AstNode from) {
     AstNode? current = from;
     while (current != null && current is! FunctionBody) {
       current = current.parent;
     }
     if (current is! FunctionBody) return null;
-    if (!current.isSynchronous || current.isGenerator) return null;
+    if (current.isGenerator) return null;
 
     final owner = current.parent;
-    if (owner is MethodDeclaration) return owner.returnType?.type;
-    if (owner is FunctionExpression) {
-      final declaration = owner.parent;
-      // A bare function expression (closure) has an inferred return type.
-      return declaration is FunctionDeclaration
-          ? declaration.returnType?.type
+    final DartType? declared;
+    if (owner is MethodDeclaration) {
+      declared = owner.returnType?.type;
+    } else if (owner is FunctionExpression &&
+        owner.parent is FunctionDeclaration) {
+      declared = (owner.parent as FunctionDeclaration).returnType?.type;
+    } else {
+      declared = null;
+    }
+    if (declared == null) return null;
+
+    if (current.isAsynchronous) {
+      return declared is InterfaceType &&
+              declared.isDartAsyncFuture &&
+              declared.typeArguments.length == 1
+          ? declared.typeArguments.first
           : null;
     }
-    return null;
+    return declared;
   }
 
   /// Type parameters of the generic element being invoked at [argument]'s call.
