@@ -20,10 +20,11 @@ import '../transformation.dart';
 /// to exactly the same type whose member/constructor is referenced, so that
 /// `.member` resolves to the identical element and the static type is
 /// unchanged. The context type is derived position by position (typed variable
-/// or field, return type, argument slot, collection element, equality
-/// right-hand side, switch case, switch pattern). Wherever the context type
-/// cannot be derived precisely, with `var`, `dynamic`, `Object`, an inferred
-/// type variable, a supertype, or the left of `==`, the code is left untouched.
+/// or field, plain assignment target, return type, argument slot, collection
+/// element, equality right-hand side, switch case, switch pattern). Wherever the
+/// context type cannot be derived precisely, with `var`, `dynamic`, `Object`, an
+/// inferred type variable, a supertype, or the left of `==`, the code is left
+/// untouched.
 final class DotShorthands implements Transformation {
   @override
   final bool enabled;
@@ -189,6 +190,13 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       case VariableDeclaration() when identical(parent.initializer, node):
         final list = parent.parent;
         return list is VariableDeclarationList ? list.type?.type : null;
+
+      // `target = node` (plain assignment): the static type written to target.
+      // Compound (`+=`) and `??=` are excluded; their context is less direct.
+      case AssignmentExpression()
+          when identical(parent.rightHandSide, node) &&
+              parent.operator.lexeme == '=':
+        return parent.writeType;
 
       // `return node;`
       case ReturnStatement():
