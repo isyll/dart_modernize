@@ -213,7 +213,7 @@ final class ModernizePipeline {
       changedPaths.addAll(formatted);
     }
 
-    return _FinalizeResult(counts: counts, changedPaths: changedPaths);
+    return .new(counts: counts, changedPaths: changedPaths);
   }
 
   /// Builds the per-pass, files-changed map in canonical display order, merging
@@ -362,7 +362,7 @@ final class ModernizePipeline {
             .toList()
           ..sort();
 
-    return _TransformResult(
+    return .new(
       filesScanned: originalContent.length,
       changedFiles: changedFiles,
       originalContent: originalContent,

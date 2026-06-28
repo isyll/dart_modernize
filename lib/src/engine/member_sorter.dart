@@ -228,9 +228,7 @@ class _MemberSorter {
           kind = .unitAccessor;
           name += ' setter';
         } else {
-          kind = name == 'main'
-              ? _MemberKind.unitFunctionMain
-              : _MemberKind.unitFunction;
+          kind = name == 'main' ? .unitFunctionMain : .unitFunction;
         }
       } else if (member is FunctionTypeAlias) {
         kind = .unitFunctionType;
@@ -244,9 +242,7 @@ class _MemberSorter {
       } else if (member is TopLevelVariableDeclaration) {
         final variables = member.variables.variables;
         if (variables.isEmpty) return;
-        kind = member.variables.isConst
-            ? _MemberKind.unitVariableConst
-            : _MemberKind.unitVariable;
+        kind = member.variables.isConst ? .unitVariableConst : .unitVariable;
         name = variables.first.name.lexeme;
       } else {
         return;
