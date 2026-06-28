@@ -29,11 +29,21 @@ jobs:
           restore-keys: pub-${{ runner.os }}-
 
       - run: dart pub get
-      - run: dart format --set-exit-if-changed .
+      # Golden fixtures hold deliberately unformatted code, so skip them.
+      - run: dart format --output none --set-exit-if-changed $(git ls-files '*.dart' ':!test/fixtures')
       - run: dart analyze --fatal-infos
       - run: dart test
 
+      - name: Check whether this version is already on pub.dev
+        id: published
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://pub.dev/api/packages/dart_modernize/versions/$version")
+          echo "exists=$([ "$code" = "200" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: Publish to pub.dev
+        if: steps.published.outputs.exists == 'false'
         run: dart pub publish --force
 
       - name: Extract changelog entry
