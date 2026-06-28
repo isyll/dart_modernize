@@ -4,17 +4,16 @@
 /// Two shapes are provided:
 ///
 ///   * [defineCombinedGoldenSuite]: exact before/after on curated files that
-///     deliberately combine several transformations, plus semantic-safety and
-///     idempotency checks. Use when the precise converged output matters.
+///     deliberately combine several transformations, plus analyze-clean,
+///     idempotency, and determinism checks. Use when the exact output matters.
 ///
 ///   * [defineRobustnessSuite]: runs every pass over already-modern files
 ///     (records, patterns, sealed classes, …) and asserts only that the tool
 ///     runs cleanly, the result still analyzes, and a second run is a no-op. No
 ///     byte-golden: this proves the tool never *breaks* modern code.
 ///
-/// Both batch every case into a single throwaway project and invoke the CLI
-/// twice total (once for output, once for idempotency) so the heavy subprocess
-/// cost stays bounded.
+/// Both batch every case into a single throwaway project to keep the subprocess
+/// cost down.
 library;
 
 import 'dart:io';
@@ -103,8 +102,8 @@ void defineCombinedGoldenSuite({
     });
 
     test('is idempotent (further runs change nothing)', () async {
-      // Two more runs: a single converged run must stay put no matter how many
-      // times the tool is re-applied.
+      // Once modernized, the project must stay put however many times the tool
+      // is re-applied.
       for (var pass = 2; pass <= 3; pass++) {
         final rerun = await invokeCli(project, args: args);
         expect(rerun.exitCode, 0, reason: rerun.stderr);
@@ -119,8 +118,8 @@ void defineCombinedGoldenSuite({
     });
 
     test('output is deterministic across independent runs', () async {
-      // A fresh project with byte-identical inputs must converge to byte-
-      // identical outputs: the result cannot depend on hidden ordering or state.
+      // A fresh project with byte-identical inputs must produce byte-identical
+      // outputs: the result cannot depend on hidden ordering or state.
       final fresh = createProject(
         files: {for (final c in cases) c.projectFile: c.input},
         pubspec: pubspec,

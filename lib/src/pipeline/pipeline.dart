@@ -21,12 +21,10 @@ import 'transformations.dart';
 ///
 /// Stages: **validate** -> **transform** -> **finalize**.
 ///
-/// The transform stage runs a fixed sequence of dependency-ordered pass groups
-/// (see [buildTransformationStages] and doc/ORDERING.md). Each group is resolved
-/// once and applied as a unit before the next runs, so a pass always sees the
-/// fully-applied output of every earlier group. The number of groups is a
-/// compile-time constant, so a single invocation is deterministic and converges
-/// without any "repeat until nothing changes" loop.
+/// The transform stage runs a fixed sequence of pass groups (see
+/// [buildTransformationStages] and doc/ORDERING.md). Each group is resolved once
+/// and applied before the next runs, so a pass sees the finished output of every
+/// group before it.
 ///
 /// The finalize order is fixed:
 ///   1. `dart fix --apply`   : fixes may remove imports, so it runs first.

@@ -35,33 +35,24 @@ List<Transformation> buildTransformations(CliOptions options) => [
   ...buildFinalizeTransformations(options),
 ];
 
-/// The structural transformation stages, in execution order.
+/// The transform stages, in execution order. Each stage is resolved once and
+/// applied before the next stage runs. See doc/ORDERING.md.
 ///
-/// The transform stage is a fixed, dependency-ordered pipeline: each stage is
-/// resolved once and applied as a unit, then the next stage runs against the
-/// re-resolved result. There is no "repeat until nothing changes" loop, so the
-/// number of resolutions is a compile-time constant and the output is fully
-/// deterministic. See doc/ORDERING.md for the dependency graph.
+/// Two rules decide which stage a pass belongs to:
+///   * a pass that builds on another pass's output runs in a later stage
+///     (cascades -> inline-return -> expression-bodies -> dot-shorthands is the
+///     longest such chain);
+///   * a pass that rewrites a whole span (primary constructors, cascades, the
+///     switch rewrite) runs before the passes that edit inside that span.
 ///
-/// Two rules fix the layering:
-///   * a pass that *consumes* a construct another pass *produces* runs in a
-///     later stage (cascades -> inline-return -> expression-bodies -> dot
-///     shorthands is the longest such chain);
-///   * a pass that copies a span verbatim (primary constructors, cascades, the
-///     switch rewrite, ...) runs before the passes that edit inside that span,
-///     so a container rewrite never discards an inner edit.
-///
-/// Passes within one stage are mutually independent: they target disjoint
-/// syntactic regions, so their relative order never changes the result.
+/// Passes in the same stage touch separate parts of the code, so their order
+/// within a stage does not matter.
 List<List<Transformation>> buildTransformationStages(CliOptions options) => [
-  // 1. Outermost class restructuring. Primary constructors rewrite a whole
-  //    class and copy retained members verbatim, so they run first and alone;
-  //    later stages modernize those members on the re-resolved tree.
+  // 1. Primary constructors rewrite a whole class and copy its other members
+  //    verbatim, so they run first; later stages then modernize those members.
   [PrimaryConstructors(enabled: options.primaryConstructors)],
 
-  // 2. Structural producers: fold statement runs and synthesize the new
-  //    constructs (cascades, switch expressions, super/private parameters)
-  //    that later stages build on.
+  // 2. Fold statement runs and build the new constructs later stages read.
   [
     SwitchExpressions(enabled: options.switchExpressions),
     Cascades(enabled: options.cascades),
@@ -69,26 +60,22 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     PrivateNamedParameters(enabled: options.privateNamedParameters),
   ],
 
-  // 3. Consumers of stage 2. inline-return collapses a folded cascade that is
-  //    then returned; prefer-inferred-types drops or relocates a redundant type
-  //    annotation (including onto a cascade's bare collection target).
+  // 3. inline-return collapses a folded cascade that is then returned;
+  //    prefer-inferred-types drops or relocates a redundant type annotation.
   [
     InlineReturn(enabled: options.inlineReturn),
     PreferInferredTypes(enabled: options.preferInferredTypes),
   ],
 
-  // 4. expression-bodies arrows the single-statement body inline-return just
-  //    produced; final-locals upgrades the `var` prefer-inferred-types emits.
+  // 4. expression-bodies arrows the body inline-return just produced;
+  //    final-locals upgrades the `var` prefer-inferred-types emits.
   [
     ExpressionBodies(enabled: options.expressionBodies),
     FinalLocals(enabled: options.finalLocals),
   ],
 
-  // 5. Innermost edits, run last. By now prefer-inferred-types has dropped
-  //    redundant annotations (a dropped type is preferred over a `.new`
-  //    shorthand) and every container pass has settled, so dot-shorthands sees
-  //    final positions. abstract-final-classes needs the whole project resolved
-  //    to its final shape before deciding which classes are safe to seal.
+  // 5. Innermost edits, run last so they see final positions. abstract-final
+  //    needs the whole project resolved to decide which classes are safe to seal.
   [
     DotShorthands(enabled: options.dotShorthands),
     StringInterpolation(enabled: options.stringInterpolation),

@@ -6,10 +6,9 @@
 /// (b) idempotent (a second run changes nothing), and (c) still analyze without
 /// errors.
 ///
-/// The transform stage is a fixed, dependency-ordered pipeline, so the project
-/// is fully modernized in one run. Cases where several passes target the same
-/// evolving construct are covered separately by `interaction_test.dart`; see
-/// `doc/ORDERING.md`.
+/// One run modernizes the whole project. Cases where several passes target the
+/// same evolving construct are covered separately by `interaction_test.dart`;
+/// see `doc/ORDERING.md`.
 library;
 
 import 'dart:io';

@@ -1,12 +1,8 @@
-/// Spec for the transform stage's fixed, dependency-ordered pipeline.
+/// Spec for the transform stage's pass ordering (see doc/ORDERING.md).
 ///
-/// The transform stage is a fixed sequence of pass groups (see doc/ORDERING.md):
-/// each group is resolved and applied as a unit before the next runs, so a pass
-/// always sees the fully-applied output of every earlier group. There is no
-/// "repeat until nothing changes" loop. The layering is the contract: a pass
-/// that consumes what another produces must sit in a strictly later stage, and
-/// a pass that copies a span verbatim must precede the passes that edit inside
-/// it. Those invariants are encoded here so a re-layering that breaks them fails.
+/// The stage layout is the contract: a pass that builds on another's output sits
+/// in a later stage, and a pass that rewrites a whole span runs before the
+/// passes that edit inside it. These checks fail if a change breaks that layout.
 library;
 
 import 'package:dart_modernize/dart_modernize.dart';

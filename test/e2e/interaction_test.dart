@@ -4,13 +4,10 @@
 /// when several passes apply to the same file, and often the same construct, in
 /// a single run.
 ///
-/// The transform stage is a fixed sequence of dependency-ordered pass groups
-/// (see `doc/ORDERING.md`), so one invocation produces the fully modernized
-/// result even when a pass only becomes applicable after an earlier pass has
-/// rewritten the code: for example, dot-shorthands collapsing the value arms of
-/// a switch expression that switch-expressions just produced. Each case asserts
-/// that converged output from a single run, and that a second run changes
-/// nothing.
+/// One run produces the finished result even when a pass only applies after an
+/// earlier pass has rewritten the code (for example, dot-shorthands collapsing
+/// the value arms of a switch expression that switch-expressions produced). Each
+/// case checks that result from a single run, and that a second run is a no-op.
 library;
 
 import 'package:test/test.dart';
@@ -18,7 +15,7 @@ import 'package:test/test.dart';
 import '../support/cli_harness.dart';
 
 void main() {
-  group('passes compose to a fixpoint in one run', () {
+  group('passes combine in a single run', () {
     _composes(
       'switch-expressions, expression-bodies and dot-shorthands turn a '
       'statement switch into an arrow-bodied switch expression with shorthands',
@@ -282,7 +279,7 @@ class Engine {
 const _file = 'lib/c.dart';
 
 /// Registers a test that runs the CLI with only [passes] enabled and asserts the
-/// file converges to [expected] in a single run, then stays put on a re-run.
+/// file reaches [expected] in a single run, then stays put on a re-run.
 void _composes(
   String description, {
   required Set<String> passes,
@@ -295,7 +292,7 @@ void _composes(
 
     final run1 = await invokeCli(project, args: args);
     expect(run1.exitCode, 0, reason: run1.stderr);
-    expect(run1.read(_file), expected, reason: 'one run should fully converge');
+    expect(run1.read(_file), expected, reason: 'one run should be enough');
 
     final run2 = await invokeCli(project, args: args);
     expect(run2.exitCode, 0, reason: run2.stderr);

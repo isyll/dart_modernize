@@ -1,8 +1,7 @@
 /// Behavioural spec: the tool is idempotent.
 ///
-/// Modernization must converge in one run and stay put forever after. The first
-/// run must change the file; every subsequent run must be a byte-for-byte no-op,
-/// checked three runs deep.
+/// One run does all the work; every run after that changes nothing. The first
+/// run must change the file; runs two and three must be byte-for-byte no-ops.
 library;
 
 import 'package:test/test.dart';

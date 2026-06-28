@@ -201,7 +201,7 @@ visibility = .hidden;
 if (mode == .fast) tick();
 ```
 
-> In a typed declaration the redundant type is dropped instead of shortened, so the full pipeline turns `final Color c = Color.blue` into `final c = Color.blue` rather than `final Color c = .blue` (see prefer inferred types).
+> In a typed declaration the type is dropped instead, so `final Color c = Color.blue` becomes `final c = Color.blue` (see prefer inferred types).
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 
@@ -586,10 +586,10 @@ Run `dart_modernize --help` for the complete, always up to date reference. Every
 
 1. **Validate.** Checks that a `pubspec.yaml` exists and declares an SDK constraint, so the project can be resolved.
 2. **Resolve.** Loads the project with full type resolution, library by library.
-3. **Transform.** Runs a fixed sequence of dependency-ordered pass groups. Each group is resolved once and applied as a unit before the next runs, so a pass that builds on an earlier one (a shorthand over a freshly produced switch expression, say) sees the finished result. The number of groups is fixed, so a single run is deterministic, with no "repeat until nothing changes" loop. See [`doc/ORDERING.md`](doc/ORDERING.md).
+3. **Transform.** Runs a fixed sequence of pass groups. Each group is resolved once and applied before the next runs, so a pass that builds on an earlier one (a shorthand over a switch expression another pass produced, say) reads the finished result. See [`doc/ORDERING.md`](doc/ORDERING.md).
 4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, and runs `dart format`.
 
-Re-running is safe: one run fully converges, and every run after that is a byte-for-byte no-op. The tool is **deterministic** and **idempotent** by design.
+Re-running is safe: the first run does all the work and later runs change nothing. The tool is **idempotent** by design.
 
 <br>
 
