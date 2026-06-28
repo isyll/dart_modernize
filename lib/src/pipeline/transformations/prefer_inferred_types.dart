@@ -19,8 +19,11 @@ import '../transformation.dart';
 /// literal and the annotation is removed. Also fires when the bare literal is
 /// the cascade target (i.e., after the cascades pass has run).
 ///
-/// Scope: local finals/consts/bare-typed, top-level const, static const fields.
-/// Non-const class fields and non-const top-level variables are left untouched.
+/// Scope: local finals/consts/bare-typed, top-level const, and `final`/`const`
+/// fields (instance or static) that have an initializer. A `final Foo _x = Foo()`
+/// field becomes `final _x = Foo()`, which is preferred over the `.new()`
+/// shorthand dot-shorthands would otherwise emit. Mutable fields and non-const
+/// top-level variables are left untouched.
 final class PreferInferredTypes implements Transformation {
   @override
   final bool enabled;
@@ -46,7 +49,7 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitFieldDeclaration(FieldDeclaration node) {
-    if (node.isStatic && node.fields.isConst) {
+    if (node.fields.isConst || node.fields.isFinal) {
       _collect(node.fields, isLocal: false);
     }
     super.visitFieldDeclaration(node);

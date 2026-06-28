@@ -145,8 +145,8 @@ ArgParser buildArgParser() => .new()
     help:
         'Remove a redundant explicit type annotation when the initializer\'s '
         'inferred static type is exactly the declared type. Applies to local '
-        'variables (final/const/bare-typed) and const declarations anywhere '
-        '(top-level const, static const fields).',
+        'variables (final/const/bare-typed), top-level consts, and '
+        'final/const fields with an initializer.',
   );
 
 /// Parsed and validated CLI options, passed through the pipeline.
