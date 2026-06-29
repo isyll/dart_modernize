@@ -10,7 +10,7 @@
 
 Please **do not** open a public issue for security vulnerabilities.
 
-Email **isylla@softvalleylabs.com** with:
+Email **isyll711@gmail.com** with:
 
 1. A description of the vulnerability and its potential impact.
 2. Steps to reproduce or a proof-of-concept.
