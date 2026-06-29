@@ -70,12 +70,18 @@ void main() {
     });
 
     test(
-      'finalize passes run fix-all, then organize-imports, then sort-members',
+      'finalize passes run fix-all, organize-imports, sort-members, then '
+      'sort-constructors-first',
       () {
         final names = buildFinalizeTransformations(
           _options(),
         ).map((t) => t.name);
-        expect(names, ['fix-all', 'organize-imports', 'sort-members']);
+        expect(names, [
+          'fix-all',
+          'organize-imports',
+          'sort-members',
+          'sort-constructors-first',
+        ]);
       },
     );
 
@@ -119,6 +125,7 @@ CliOptions _options({
   bool nullAwareElements = true,
   bool organizeImports = true,
   bool sortMembers = true,
+  bool sortConstructorsFirst = true,
   bool fixAll = true,
   bool abstractFinalClasses = true,
   bool preferInferredTypes = true,
@@ -142,6 +149,7 @@ CliOptions _options({
   nullAwareElements: nullAwareElements,
   organizeImports: organizeImports,
   sortMembers: sortMembers,
+  sortConstructorsFirst: sortConstructorsFirst,
   fixAll: fixAll,
   abstractFinalClasses: abstractFinalClasses,
   preferInferredTypes: preferInferredTypes,

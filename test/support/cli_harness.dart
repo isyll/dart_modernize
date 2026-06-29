@@ -38,6 +38,7 @@ const allFeatures = <String>[
   'null_aware_elements',
   'organize_imports',
   'sort_members',
+  'sort_constructors_first',
   'fix_all',
   'abstract_final_classes',
 ];
@@ -72,6 +73,7 @@ const featureFlags = <String, String>{
   'null_aware_elements': 'null-aware-elements',
   'organize_imports': 'organize-imports',
   'sort_members': 'sort-members',
+  'sort_constructors_first': 'sort-constructors-first',
   'fix_all': 'fix-all',
   'abstract_final_classes': 'abstract-final-classes',
 };

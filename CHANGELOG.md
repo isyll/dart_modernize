@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Add `--sort-constructors-first` pass: moves constructor declarations before
+  all other class members, satisfying the `sort_constructors_first` lint rule.
+  Enabled by default; disable with `--no-sort-constructors-first`.
+
 ## 0.1.1
 
 - Skip `build/` and other excluded or hidden directories while scanning, so the

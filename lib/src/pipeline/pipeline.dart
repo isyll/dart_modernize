@@ -9,6 +9,7 @@ import '../cli/options.dart';
 import '../engine/edit_collector.dart';
 import '../engine/file_filter.dart';
 import '../engine/import_organizer.dart';
+import '../engine/constructor_sorter.dart';
 import '../engine/member_sorter.dart';
 import '../engine/source_edit.dart';
 import '../engine/unified_diff.dart';
@@ -27,10 +28,11 @@ import 'transformations.dart';
 /// group before it.
 ///
 /// The finalize order is fixed:
-///   1. `dart fix --apply`   : fixes may remove imports, so it runs first.
-///   2. organize-imports     : sorts/prunes after fixes have settled.
-///   3. sort-members         : reorders class members after imports are clean.
-///   4. `dart format`        : always last so previous edits are formatted.
+///   1. `dart fix --apply`       : fixes may remove imports, so it runs first.
+///   2. organize-imports         : sorts/prunes after fixes have settled.
+///   3. sort-members             : reorders class members after imports are clean.
+///   4. sort-constructors-first  : lifts constructors before all other members.
+///   5. `dart format`            : always last so previous edits are formatted.
 final class ModernizePipeline {
   final CliOptions options;
   final Reporter reporter;
@@ -137,6 +139,8 @@ final class ModernizePipeline {
     final hasFixAll = passes.any((p) => p.name == 'fix-all');
     final hasOrganize = passes.any((p) => p.name == 'organize-imports');
     final hasSortMembers = passes.any((p) => p.name == 'sort-members');
+    final hasSortConstructorsFirst =
+        passes.any((p) => p.name == 'sort-constructors-first');
 
     final counts = <String, int>{};
     final changedPaths = <String>{};
@@ -215,6 +219,34 @@ final class ModernizePipeline {
       if (sorted > 0) counts['sort-members'] = sorted;
     }
 
+    // sort-constructors-first reads files as left on disk by the previous steps
+    // (fix-all, organize-imports, sort-members) and lifts every constructor
+    // declaration before all other class members.
+    if (hasSortConstructorsFirst) {
+      reporter.finalizingStep('sort-constructors-first');
+      var sorted = 0;
+      for (final filePath in files) {
+        final content = File(filePath).readAsStringSync();
+        final parsed = parseString(
+          content: content,
+          path: filePath,
+          throwIfDiagnostics: false,
+        );
+        final edits = sortConstructorsFirstEdits(
+          content,
+          parsed.unit,
+          parsed.lineInfo,
+        );
+        if (edits.isEmpty) continue;
+        final modified = (EditCollector()..addAll(edits)).apply(content);
+        if (modified == content) continue;
+        File(filePath).writeAsStringSync(modified);
+        changedPaths.add(filePath);
+        sorted++;
+      }
+      if (sorted > 0) counts['sort-constructors-first'] = sorted;
+    }
+
     // dart format runs last. It does not honour `analyzer: exclude:` or
     // `--exclude`, so it is given the same filtered file list as the rest of the
     // pipeline; otherwise it would reformat excluded files. Exit 65 is a parse
@@ -255,6 +287,7 @@ final class ModernizePipeline {
       'fix-all',
       'organize-imports',
       'sort-members',
+      'sort-constructors-first',
       'dart format',
     ];
     return {

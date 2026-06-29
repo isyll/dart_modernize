@@ -104,18 +104,18 @@ const int timeout = 30;
 
 const primaryConstructorsTrigger = '''
 class P {
+  P(this.x, this.y);
+
   final int x;
   final int y;
-
-  P(this.x, this.y);
 }
 ''';
 
 const privateNamedParametersTrigger = '''
 class C {
-  final int _x;
-
   C({required int x}) : _x = x;
+
+  final int _x;
 
   int get x => _x;
 }
@@ -126,6 +126,14 @@ const pubspec313 = '''
 name: fixture_project
 environment:
   sdk: ">=3.13.0 <4.0.0"
+''';
+
+const sortConstructorsFirstTrigger = '''
+class Marker {
+  final int id;
+
+  Marker(int id) : this.id = id;
+}
 ''';
 
 const sortMembersTrigger = '''
@@ -142,9 +150,9 @@ String greet(String name) => 'Hello, ' + name + '!';
 
 const superParametersTrigger = '''
 class Base {
-  final int id;
-
   Base({required this.id});
+
+  final int id;
 }
 
 class Derived extends Base {
@@ -183,6 +191,7 @@ const triggers = <String, String>{
   'null_aware_elements': nullAwareElementsTrigger,
   'organize_imports': organizeImportsTrigger,
   'sort_members': sortMembersTrigger,
+  'sort_constructors_first': sortConstructorsFirstTrigger,
   'fix_all': fixAllTrigger,
   'abstract_final_classes': abstractFinalClassesTrigger,
 };

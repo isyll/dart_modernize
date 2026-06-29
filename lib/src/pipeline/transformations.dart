@@ -13,6 +13,7 @@ import 'transformations/organize_imports.dart';
 import 'transformations/prefer_inferred_types.dart';
 import 'transformations/primary_constructors.dart';
 import 'transformations/private_named_parameters.dart';
+import 'transformations/sort_constructors_first.dart';
 import 'transformations/sort_members.dart';
 import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
@@ -26,6 +27,7 @@ List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
       FixAll(enabled: options.fixAll),
       OrganizeImports(enabled: options.organizeImports),
       SortMembers(enabled: options.sortMembers),
+      SortConstructorsFirst(enabled: options.sortConstructorsFirst),
     ];
 
 /// Every transformation, flattened across stages and finalize. Used only to

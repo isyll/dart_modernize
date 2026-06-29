@@ -8,7 +8,7 @@ Token parse(int code) => switch (code) {
 };
 
 class Token {
-  final String value;
-
   Token(this.value);
+
+  final String value;
 }

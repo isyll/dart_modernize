@@ -17,10 +17,10 @@ int weightOf(int code) => switch (code) {
 enum Priority { low, high }
 
 class Task {
-  final String _name;
-
-  final Priority priority;
   Task({required this._name, required this.priority});
+
+  final String _name;
+  final Priority priority;
 
   String get name => _name;
 }

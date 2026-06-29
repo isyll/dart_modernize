@@ -147,6 +147,13 @@ ArgParser buildArgParser() => .new()
         'inferred static type is exactly the declared type. Applies to local '
         'variables (final/const/bare-typed), top-level consts, and '
         'final/const fields with an initializer.',
+  )
+  ..addFlag(
+    'sort-constructors-first',
+    defaultsTo: true,
+    help:
+        'Move constructor declarations before all other class members, '
+        'satisfying the sort_constructors_first lint rule.',
   );
 
 /// Parsed and validated CLI options, passed through the pipeline.
@@ -184,6 +191,7 @@ final class CliOptions {
   final bool finalLocals;
   final bool abstractFinalClasses;
   final bool preferInferredTypes;
+  final bool sortConstructorsFirst;
 
   const CliOptions({
     required this.path,
@@ -208,6 +216,7 @@ final class CliOptions {
     required this.finalLocals,
     required this.abstractFinalClasses,
     required this.preferInferredTypes,
+    required this.sortConstructorsFirst,
   });
 
   factory CliOptions.fromResults(ArgResults results) {
@@ -237,6 +246,7 @@ final class CliOptions {
       finalLocals: results['final-locals'] as bool,
       abstractFinalClasses: results['abstract-final-classes'] as bool,
       preferInferredTypes: results['prefer-inferred-types'] as bool,
+      sortConstructorsFirst: results['sort-constructors-first'] as bool,
     );
   }
 }
