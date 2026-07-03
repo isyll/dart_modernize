@@ -70,7 +70,7 @@ class Point(int _x, int _y);
 <td>
 
 ```dart
-const allowed = <Permission>{
+const List<Permission> allowed = {
   Permission.camera,
   Permission.microphone,
   Permission.storage,
