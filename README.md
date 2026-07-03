@@ -151,7 +151,7 @@ final tags = ['base', ?extra];
 
 ## 🚀 What it does
 
-Seventeen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
+Eighteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
 
 | | Feature | Description |
 |:--:|:--|:--|
@@ -170,6 +170,7 @@ Seventeen focused passes, grouped into five families. Each one is independently 
 | ⬆️ | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | 📦 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | 🔤 | **Sort members** | Reorders members into the canonical order. |
+| 🔝 | **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
 | 🩹 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
 | 🏛️ | **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
 
@@ -480,6 +481,24 @@ class Account {
 class Account {
   final String id;
   Account(this.id);
+  void deposit(int n) {}
+}
+```
+
+**🔝 Sort constructors first**: lifts every constructor ahead of the other members of a class, enum, mixin, or extension type, satisfying the `sort_constructors_first` lint. It runs after sort members, so the two compose: sort members settles the canonical order, then this pass moves the constructors to the front. Attached doc comments and annotations travel with their constructor.
+
+```dart
+// before
+class Account {
+  final String id;
+  Account(this.id);
+  void deposit(int n) {}
+}
+
+// after
+class Account {
+  Account(this.id);
+  final String id;
   void deposit(int n) {}
 }
 ```

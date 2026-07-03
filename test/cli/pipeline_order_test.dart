@@ -69,21 +69,16 @@ void main() {
       }
     });
 
-    test(
-      'finalize passes run fix-all, organize-imports, sort-members, then '
-      'sort-constructors-first',
-      () {
-        final names = buildFinalizeTransformations(
-          _options(),
-        ).map((t) => t.name);
-        expect(names, [
-          'fix-all',
-          'organize-imports',
-          'sort-members',
-          'sort-constructors-first',
-        ]);
-      },
-    );
+    test('finalize passes run fix-all, organize-imports, sort-members, then '
+        'sort-constructors-first', () {
+      final names = buildFinalizeTransformations(_options()).map((t) => t.name);
+      expect(names, [
+        'fix-all',
+        'organize-imports',
+        'sort-members',
+        'sort-constructors-first',
+      ]);
+    });
 
     test('disabling a pass keeps it in place, just flagged off', () {
       final stages = buildTransformationStages(

@@ -139,8 +139,9 @@ final class ModernizePipeline {
     final hasFixAll = passes.any((p) => p.name == 'fix-all');
     final hasOrganize = passes.any((p) => p.name == 'organize-imports');
     final hasSortMembers = passes.any((p) => p.name == 'sort-members');
-    final hasSortConstructorsFirst =
-        passes.any((p) => p.name == 'sort-constructors-first');
+    final hasSortConstructorsFirst = passes.any(
+      (p) => p.name == 'sort-constructors-first',
+    );
 
     final counts = <String, int>{};
     final changedPaths = <String>{};

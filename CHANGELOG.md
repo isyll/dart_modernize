@@ -2,8 +2,10 @@
 
 ## 0.2.0
 
-- Add `--sort-constructors-first` pass: moves constructor declarations before
-  all other class members, satisfying the `sort_constructors_first` lint rule.
+- Add `--sort-constructors-first` pass: moves every constructor before the other
+  members of a class, enum, mixin, or extension type, satisfying the
+  `sort_constructors_first` lint. Attached doc comments and annotations move with
+  their constructor, and the pass runs after `--sort-members` so the two compose.
   Enabled by default; disable with `--no-sort-constructors-first`.
 
 ## 0.1.1
