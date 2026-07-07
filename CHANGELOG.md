@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- No user-facing changes; removes duplicate test run from the release workflow.
+
 ## 0.2.1
 
 - Fix README code example: use explicit `Set<Permission>` type annotation.
