@@ -598,7 +598,7 @@ Run `dart_modernize --help` for the complete, always up to date reference. Every
 
 The tool skips files in three ways, checked in order.
 
-**Built-in** - always excluded, no configuration required:
+**Built-in**: always excluded, no configuration required.
 
 | Pattern | Reason |
 |:--|:--|
@@ -606,7 +606,7 @@ The tool skips files in three ways, checked in order.
 | `*.gr.dart`, `*.pb.dart`, `*.pbenum.dart` | Router and protobuf outputs |
 | `build/**` | Build directory |
 
-**`analysis_options.yaml`** - honored automatically. Any pattern listed under `analyzer: exclude:` is treated as an exclusion without any extra flags:
+**`analysis_options.yaml`**: honored automatically. Any pattern listed under `analyzer: exclude:` is picked up without any extra flags:
 
 ```yaml
 analyzer:
@@ -615,7 +615,7 @@ analyzer:
     - test/golden/**
 ```
 
-**`--exclude` flag** - for ad-hoc patterns not already in `analysis_options.yaml`. The pattern is matched against the path relative to the project root and the flag can be repeated:
+**`--exclude` flag**: for ad-hoc patterns not already in `analysis_options.yaml`. The pattern is matched against the path relative to the project root and the flag can be repeated:
 
 ```sh
 # Exclude a single directory
