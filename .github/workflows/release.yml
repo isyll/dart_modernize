@@ -7,15 +7,49 @@ on:
 
 jobs:
   # CI already tests every commit that lands on main; no need to re-run here.
+  # This job waits for CI to pass on the same SHA before publishing.
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write # required for pub.dev publish
+      actions: read   # required to poll CI workflow status
     steps:
       - uses: actions/checkout@v7
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - name: Wait for CI to pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="${{ github.sha }}"
+          repo="${{ github.repository }}"
+          echo "Waiting for CI to complete on $sha..."
+          for i in $(seq 1 40); do
+            run=$(gh api "repos/$repo/actions/workflows/ci.yml/runs?head_sha=$sha" \
+              --jq '.workflow_runs[0] // empty')
+            if [ -z "$run" ]; then
+              echo "CI run not found yet (attempt $i/40)"
+              sleep 30
+              continue
+            fi
+            status=$(echo "$run" | jq -r '.status')
+            conclusion=$(echo "$run" | jq -r '.conclusion')
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "CI passed"
+                exit 0
+              else
+                echo "CI did not pass: $conclusion"
+                exit 1
+              fi
+            fi
+            echo "CI is $status (attempt $i/40)"
+            sleep 30
+          done
+          echo "Timed out waiting for CI after 20 minutes"
+          exit 1
 
       - uses: dart-lang/setup-dart@v1
         with:
