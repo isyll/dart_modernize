@@ -162,7 +162,7 @@ Eighteen focused passes, grouped into five families. Each one is independently t
 | 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
 | ↩️ | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
 | 📌 | **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
-| 🏷️ | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
+| 🏷️ | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type and that type is obvious from the initializer (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
 | ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
@@ -202,7 +202,7 @@ visibility = .hidden;
 if (mode == .fast) tick();
 ```
 
-> In a typed declaration the type is dropped instead, so `final Color c = Color.blue` becomes `final c = Color.blue` (see prefer inferred types).
+> In a typed declaration whose type the initializer makes obvious, the type is dropped instead (see prefer inferred types); otherwise the annotation stays and supplies the context, so `final Color c = Color.blue` becomes `final Color c = .blue`.
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 
@@ -355,19 +355,19 @@ return multiplier * rate;
 
 ```dart
 // before
-final String name = user.displayName;
+final String name = 'guest';
 const int retries = 3;
 final List<String> tags = [];
 final Logger _log = Logger();
 
 // after
-final name = user.displayName;
+final name = 'guest';
 const retries = 3;
 final tags = <String>[];
 final _log = Logger();
 ```
 
-> Applies only when the initializer's inferred type is exactly the declared type. Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`. Mutable fields and non-const top-level variables are left alone.
+> Applies only when the initializer's inferred type is exactly the declared type **and** that type is obvious from the initializer, matching the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. A literal, an explicitly-typed collection literal, a spelled-out constructor call, a cast, or a cascade/prefix over one of these is obvious; a method call, property access, bare identifier, or generic constructor with inferred type arguments is not, and keeps its annotation (dropping it would trip `specify_nonobvious_*`, which `dart fix` then reverts). Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`. Mutable fields and non-const top-level variables are left alone.
 
 ### ❓ Null-aware collections
 

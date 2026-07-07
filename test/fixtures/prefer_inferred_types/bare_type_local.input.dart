@@ -1,8 +1,4 @@
-class Foo {}
-
-Foo makeFoo() => Foo();
-
 void main() {
-  Foo f = makeFoo();
-  print(f);
+  int count = 42;
+  print(count);
 }

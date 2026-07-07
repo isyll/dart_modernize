@@ -123,27 +123,19 @@ Color pick() => .red;
     );
 
     _composes(
-      'prefer-inferred-types drops the annotation and final-locals upgrades '
-      'the resulting var',
+      'prefer-inferred-types drops the obvious annotation and final-locals '
+      'upgrades the resulting var',
       passes: {'prefer_inferred_types', 'final_locals'},
       input: '''
-class Foo {}
-
-Foo makeFoo() => Foo();
-
 void main() {
-  Foo f = makeFoo();
-  print(f);
+  int count = 42;
+  print(count);
 }
 ''',
       expected: '''
-class Foo {}
-
-Foo makeFoo() => Foo();
-
 void main() {
-  final f = makeFoo();
-  print(f);
+  final count = 42;
+  print(count);
 }
 ''',
     );
