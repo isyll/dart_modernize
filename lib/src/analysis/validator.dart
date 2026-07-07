@@ -1,9 +1,16 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:pub_semver/pub_semver.dart';
 import 'package:yaml/yaml.dart';
 
 import '../modernize_exception.dart';
+
+/// The lowest Dart SDK the modernized output is guaranteed to compile against.
+///
+/// The transformations emit 3.12+ idioms, so a project whose SDK constraint
+/// admits an older version would be broken by them.
+final Version _minimumSdk = Version(3, 12, 0);
 
 /// Validates that the project at [projectPath] is ready for modernization.
 ///
@@ -35,5 +42,21 @@ void _checkPubspec(String projectPath) {
     );
   }
 
-  // TODO: parse the constraint and verify >=3.12.0 is satisfied.
+  final VersionConstraint constraint;
+  try {
+    constraint = VersionConstraint.parse(sdk);
+  } on FormatException {
+    throw ModernizeException(
+      'pubspec.yaml has an invalid SDK constraint: "$sdk".',
+    );
+  }
+
+  final atLeastMinimum = VersionRange(min: _minimumSdk, includeMin: true);
+  if (!atLeastMinimum.allowsAll(constraint)) {
+    throw ModernizeException(
+      'This tool targets Dart $_minimumSdk or newer, but the project SDK '
+      'constraint "$sdk" allows an older version. Raise the pubspec.yaml SDK '
+      'constraint to ">=$_minimumSdk <4.0.0" before modernizing.',
+    );
+  }
 }
