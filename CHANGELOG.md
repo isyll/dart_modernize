@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- Trim trailing whitespace from subprocess stderr in error messages (e.g. `dart fix`, `dart format` failures).
+
 ## 0.2.2
 
 - No user-facing changes; removes duplicate test run from the release workflow.

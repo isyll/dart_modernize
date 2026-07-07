@@ -357,9 +357,10 @@ final class ModernizePipeline {
       workingDirectory: workingDirectory ?? options.path,
     );
     if (result.exitCode != 0 && !allowedExitCodes.contains(result.exitCode)) {
+      final stderr = '${result.stderr}'.trim();
       throw ModernizeException(
-        '$executable ${args.join(' ')} failed (exit ${result.exitCode}).\n'
-        '${result.stderr}',
+        '$executable ${args.join(' ')} failed (exit ${result.exitCode})'
+        '${stderr.isNotEmpty ? '.\n$stderr' : '.'}',
       );
     }
   }
