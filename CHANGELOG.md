@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix README code example: use explicit `Set<Permission>` type annotation.
+
 ## 0.2.0
 
 - Add `--sort-constructors-first` pass: moves every constructor before the other
