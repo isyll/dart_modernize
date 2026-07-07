@@ -20,11 +20,11 @@ import '../transformation.dart';
 /// to exactly the same type whose member/constructor is referenced, so that
 /// `.member` resolves to the identical element and the static type is
 /// unchanged. The context type is derived position by position (typed variable
-/// or field, plain assignment target, return type, argument slot, collection
-/// element, record field, equality right-hand side, switch case, switch
-/// pattern). Wherever the context type cannot be derived precisely, with `var`,
-/// `dynamic`, `Object`, an inferred type variable, a supertype, or the left of
-/// `==`, the code is left untouched.
+/// or field, plain assignment target, return type, `yield` in a generator,
+/// argument slot, collection element, record field, equality right-hand side,
+/// `??` right-hand side, switch case, switch pattern). Wherever the context type
+/// cannot be derived precisely, with `var`, `dynamic`, `Object`, an inferred
+/// type variable, a supertype, or the left of `==`, the code is left untouched.
 ///
 /// Record literals are supported too. A positional field takes its context from
 /// the matching positional field of the record's own context type, and a named
@@ -218,12 +218,26 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       case ExpressionFunctionBody() when identical(parent.expression, node):
         return _enclosingReturnType(parent);
 
+      // `yield node;` in a generator: the element type of the produced sequence.
+      // `yield* node` is excluded because it yields a whole sequence, not one
+      // element.
+      case YieldStatement()
+          when identical(parent.expression, node) && parent.star == null:
+        return _enclosingYieldType(parent);
+
       // `a == node` / `a != node`: only the right operand has a context type.
       case BinaryExpression()
           when (parent.operator.lexeme == '==' ||
                   parent.operator.lexeme == '!=') &&
               identical(parent.rightOperand, node):
         return parent.leftOperand.staticType;
+
+      // `a ?? node`: the right operand takes the whole `??` expression's own
+      // context type (that is where a `??` pushes its context).
+      case BinaryExpression()
+          when parent.operator.lexeme == '??' &&
+              identical(parent.rightOperand, node):
+        return _contextType(parent);
 
       // Positional argument.
       case ArgumentList():
@@ -386,6 +400,37 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
           : null;
     }
     return declared;
+  }
+
+  /// The element type a `yield e;` produces: `T` from the enclosing generator's
+  /// `Iterable<T>` (`sync*`) or `Stream<T>` (`async*`) return type. Null when the
+  /// return type is not a single-argument sequence of the expected kind, or the
+  /// generator's return type is inferred (a closure).
+  DartType? _enclosingYieldType(YieldStatement statement) {
+    AstNode? current = statement;
+    while (current != null && current is! FunctionBody) {
+      current = current.parent;
+    }
+    if (current is! FunctionBody || !current.isGenerator) return null;
+
+    final owner = current.parent;
+    final DartType? declared;
+    if (owner is MethodDeclaration) {
+      declared = owner.returnType?.type;
+    } else if (owner is FunctionExpression &&
+        owner.parent is FunctionDeclaration) {
+      declared = (owner.parent as FunctionDeclaration).returnType?.type;
+    } else {
+      declared = null;
+    }
+    if (declared is! InterfaceType || declared.typeArguments.length != 1) {
+      return null;
+    }
+
+    final matches = current.isAsynchronous
+        ? declared.isDartAsyncStream
+        : declared.isDartCoreIterable;
+    return matches ? declared.typeArguments.first : null;
   }
 
   /// Type parameters of the generic element being invoked at [argument]'s call.
