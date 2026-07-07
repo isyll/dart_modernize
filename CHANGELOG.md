@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.0
+
+- Dot shorthands now collapse record fields. A positional field takes its
+  context from the matching field of the record's type and a named field from
+  the same-named field, so a list like
+  `[(StockReadingType.opening, label, Icons.sunny), ...]` becomes
+  `[(.opening, label, Icons.sunny), ...]`. When an untyped list of records has
+  no element type to fall back on, the inferred record element type is hoisted
+  onto the literal (`<(Foo, String)>[...]`) so the field shorthands have a
+  context to resolve against. Hoisting happens only when every field of the
+  record type is precise; a field typed `dynamic`, `Object`, `Null`, or an
+  unresolved type variable leaves the record untouched.
+- Dot shorthands also derive a context type through a `??` right-hand side
+  (`maybe ?? Color.blue` becomes `maybe ?? .blue`) and a `yield` in a `sync*` or
+  `async*` generator, matching the existing handling of returns and assignments.
+- `--prefer-inferred-types` now drops a type annotation only when the
+  initializer's type is obvious from the initializer (a literal, an
+  explicitly-typed collection literal, a spelled-out constructor call, a cast, or
+  a cascade or prefix over one of these), matching the analyzer's
+  `omit_obvious_*` / `specify_nonobvious_*` rules. A non-obvious initializer such
+  as a method call or property access keeps its annotation, so the pass no longer
+  introduces a `specify_nonobvious_*` diagnostic that `dart fix` would revert
+  (which made a `--no-fix-all` run disagree with a full run).
+- Reject a project whose pubspec SDK constraint allows a Dart version older than
+  3.12. The transformations emit 3.12+ idioms, so such a project would be broken
+  by them; raise the constraint to `>=3.12.0 <4.0.0` before modernizing.
+
 ## 0.2.3
 
 - Trim trailing whitespace from subprocess stderr in error messages (e.g. `dart fix`, `dart format` failures).

@@ -1,6 +1,6 @@
 name: dart_modernize
 description: A CLI tool that modernizes Dart and Flutter codebases by applying idiomatic patterns, enforcing conventions, and automating tedious upgrades.
-version: 0.2.3
+version: 0.3.0
 repository: https://github.com/isyll/dart_modernize
 homepage: https://github.com/isyll/dart_modernize
 issue_tracker: https://github.com/isyll/dart_modernize/issues
