@@ -218,6 +218,24 @@ List<Widget> build() => [.new(a: a, b: b), .new(a: 'genial')];
 
 > Refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable, anywhere the shortened form would not resolve to the exact same element.
 
+Record fields collapse too. Each field takes its context from the matching field of the record's type (positional by index, named by name), and an untyped list of records has its inferred element type hoisted so the field shorthands resolve:
+
+```dart
+// before
+final options = [
+  (StockReadingType.opening, 'Opening', Icons.sunny),
+  (StockReadingType.closing, 'Closing', Icons.night),
+];
+
+// after
+final options = <(StockReadingType, String, IconData)>[
+  (.opening, 'Opening', Icons.sunny),
+  (.closing, 'Closing', Icons.night),
+];
+```
+
+> The record element type is hoisted only when every field is precise; a field typed `dynamic`, `Object`, `Null`, or an unresolved type variable leaves the record untouched.
+
 **🔀 Switch expressions**: rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
 
 ```dart
