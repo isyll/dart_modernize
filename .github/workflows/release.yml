@@ -6,35 +6,8 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v6
-        with:
-          path: ~/.pub-cache
-          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: pub-${{ runner.os }}-
-
-      - run: dart pub get
-      # Golden fixtures hold deliberately unformatted code, so skip them.
-      - run: dart format --output none --set-exit-if-changed $(git ls-files '*.dart' ':!test/fixtures')
-      - run: dart analyze --fatal-infos
-      - run: dart test
-
-  # Separate job so the pub.dev token is minted right before publishing. Folding
-  # this into the test job would let the (short-lived) token expire during the
-  # test run, which pub.dev then rejects as "invalid timestamps".
+  # CI already tests every commit that lands on main; no need to re-run here.
   publish:
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
