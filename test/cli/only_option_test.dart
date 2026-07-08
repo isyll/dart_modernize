@@ -15,34 +15,6 @@ import 'package:test/test.dart';
 import '../support/cli_harness.dart';
 import '../support/triggers.dart';
 
-/// The enabled state of every transformation, keyed by its CLI flag name.
-///
-/// Lets a test assert over [transformationNames] without hard-coding each of
-/// the eighteen boolean getters.
-Map<String, bool> _enabledByName(CliOptions o) => {
-  'dot-shorthands': o.dotShorthands,
-  'private-named-parameters': o.privateNamedParameters,
-  'primary-constructors': o.primaryConstructors,
-  'super-parameters': o.superParameters,
-  'switch-expressions': o.switchExpressions,
-  'expression-bodies': o.expressionBodies,
-  'organize-imports': o.organizeImports,
-  'sort-members': o.sortMembers,
-  'fix-all': o.fixAll,
-  'cascades': o.cascades,
-  'string-interpolation': o.stringInterpolation,
-  'null-aware-spread': o.nullAwareSpread,
-  'null-aware-elements': o.nullAwareElements,
-  'inline-return': o.inlineReturn,
-  'final-locals': o.finalLocals,
-  'abstract-final-classes': o.abstractFinalClasses,
-  'prefer-inferred-types': o.preferInferredTypes,
-  'sort-constructors-first': o.sortConstructorsFirst,
-};
-
-CliOptions _parse(List<String> args) =>
-    CliOptions.fromResults(buildArgParser().parse(args));
-
 void main() {
   group('--only parsing', () {
     test('transformationNames matches every wired transformation flag', () {
@@ -183,3 +155,31 @@ void main() {
     );
   });
 }
+
+/// The enabled state of every transformation, keyed by its CLI flag name.
+///
+/// Lets a test assert over [transformationNames] without hard-coding each of
+/// the eighteen boolean getters.
+Map<String, bool> _enabledByName(CliOptions o) => {
+  'dot-shorthands': o.dotShorthands,
+  'private-named-parameters': o.privateNamedParameters,
+  'primary-constructors': o.primaryConstructors,
+  'super-parameters': o.superParameters,
+  'switch-expressions': o.switchExpressions,
+  'expression-bodies': o.expressionBodies,
+  'organize-imports': o.organizeImports,
+  'sort-members': o.sortMembers,
+  'fix-all': o.fixAll,
+  'cascades': o.cascades,
+  'string-interpolation': o.stringInterpolation,
+  'null-aware-spread': o.nullAwareSpread,
+  'null-aware-elements': o.nullAwareElements,
+  'inline-return': o.inlineReturn,
+  'final-locals': o.finalLocals,
+  'abstract-final-classes': o.abstractFinalClasses,
+  'prefer-inferred-types': o.preferInferredTypes,
+  'sort-constructors-first': o.sortConstructorsFirst,
+};
+
+CliOptions _parse(List<String> args) =>
+    .fromResults(buildArgParser().parse(args));
