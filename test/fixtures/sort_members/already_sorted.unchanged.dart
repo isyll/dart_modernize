@@ -1,10 +1,10 @@
 // Negative: members already follow canonical order
-// (fields -> constructors -> getters -> methods). Nothing to reorder.
+// (constructors -> fields -> getters -> methods). Nothing to reorder.
 class Account {
+  Account(this.id);
+
   final String id;
   int _balance = 0;
-
-  Account(this.id);
 
   int get balance => _balance;
 

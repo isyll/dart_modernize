@@ -1,8 +1,12 @@
 /// Reorders top-level declarations and the members inside each class, enum,
-/// mixin, and extension into a canonical order: fields, then constructors, then
+/// mixin, and extension into a canonical order: constructors, then fields, then
 /// getters/setters, then methods. Within a group, members are sorted by name
 /// (public before private), except fields, which keep their declared order so
 /// field initialization order never changes.
+///
+/// Constructors come first so the canonical order already satisfies the
+/// `sort_constructors_first` lint; that keeps this pass and the
+/// `sort-constructors-first` pass in agreement, so neither can undo the other.
 ///
 /// Members only swap places and keep their original blank-line gaps, so the
 /// rewritten file is the same length and the final `dart format` pass tidies up
@@ -79,12 +83,12 @@ class _MemberSorter {
     .new(false, .unitExtensionType, true),
     .new(false, .unitExtension, false),
     .new(false, .unitExtension, true),
+    .new(false, .classConstructor, false),
+    .new(false, .classConstructor, true),
     .new(true, .classField, false),
     .new(true, .classAccessor, false),
     .new(true, .classAccessor, true),
     .new(false, .classField, false),
-    .new(false, .classConstructor, false),
-    .new(false, .classConstructor, true),
     .new(false, .classAccessor, false),
     .new(false, .classAccessor, true),
     .new(false, .classMethod, false),

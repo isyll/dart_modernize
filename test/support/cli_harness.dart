@@ -175,12 +175,17 @@ Future<CliResult> runCli({
 
 /// CLI flags that disable a single [feature], leaving all others enabled.
 ///
-/// Exception: when [feature] is `organize_imports`, sort_members is also
-/// disabled because the analysis server's sortMembers request sorts import
-/// directives too, causing the two passes to overlap on that operation.
+/// Two features overlap with sort_members and so disable it too; without that,
+/// sort_members would still rewrite the trigger with the target flag off:
+///   * `organize_imports`: the analysis server's sortMembers request sorts
+///     import directives too, so the two overlap on that operation; and
+///   * `sort_constructors_first`: sort_members now also emits constructors
+///     first, so it would lift the constructor that the sort_constructors_first
+///     trigger relies on staying put.
 List<String> withoutFeatureArgs(String feature) => [
   '--no-${featureFlags[feature]}',
-  if (feature == 'organize_imports') '--no-sort-members',
+  if (feature == 'organize_imports' || feature == 'sort_constructors_first')
+    '--no-sort-members',
 ];
 
 /// The outcome of a single CLI invocation against a throwaway project.

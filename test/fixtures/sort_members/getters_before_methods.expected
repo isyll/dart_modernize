@@ -1,7 +1,7 @@
 class Temp {
-  final double _celsius;
-
   Temp(this._celsius);
+
+  final double _celsius;
 
   double get celsius => _celsius;
 

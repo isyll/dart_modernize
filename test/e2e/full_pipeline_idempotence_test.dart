@@ -1,7 +1,7 @@
 /// Full-pipeline safety spec over a realistic, multi-file project.
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
-/// is modernized with all seventeen structural passes enabled at once, and the
+/// is modernized with all eighteen passes enabled at once, and the
 /// result must be (a) actually transformed by every applicable structural pass,
 /// (b) idempotent (a second run changes nothing), and (c) still analyze without
 /// errors.
@@ -138,11 +138,15 @@ class Worker extends Base {
 }
 ''';
 
-/// All seventeen structural passes (fixture-folder names).
+/// All eighteen passes (fixture-folder names).
 ///
 /// primary_constructors and switch_expressions do not fire on the project
 /// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
 /// for the latter) but are included so the set covers all passes.
+///
+/// sort_members and sort_constructors_first are both included: they order class
+/// members and must agree, so enabling both keeps the idempotence check honest
+/// (see pass_convergence_test.dart).
 const _stable = <String>{
   'dot_shorthands',
   'private_named_parameters',
@@ -159,6 +163,7 @@ const _stable = <String>{
   'null_aware_elements',
   'organize_imports',
   'sort_members',
+  'sort_constructors_first',
   'fix_all',
   'abstract_final_classes',
 };

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1
+
+- Fix `sort-members` and `sort-constructors-first` disagreeing about where
+  constructors go. `sort-members` used to order fields before constructors while
+  `sort-constructors-first` lifts constructors before every other member, so
+  running one after the other on the same file flip-flopped it forever and the
+  tool never settled (`--only sort-members` then `--only sort-constructors-first`
+  each undid the other). `sort-members` now emits constructors first, matching
+  the `sort_constructors_first` lint, so the two passes agree and each is a
+  no-op on the other's output. A full default run is unaffected; only a
+  standalone `--only sort-members` changes order.
+
 ## 0.4.0
 
 - Add `--only`, an allow-list that runs just the transformation(s) you name and
