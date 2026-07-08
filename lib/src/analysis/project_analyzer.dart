@@ -13,15 +13,15 @@ import 'package:analyzer/file_system/physical_file_system.dart';
 /// [initialize] once, then alternate [resolvedUnits] with [stage] /
 /// [applyStagedChanges].
 final class ProjectAnalyzer {
+  ProjectAnalyzer(this.projectPath);
+
   /// Absolute path to the project root.
   final String projectPath;
 
   final _provider = OverlayResourceProvider(PhysicalResourceProvider.INSTANCE);
-
   AnalysisContextCollection? _collection;
-  int _stamp = 1;
 
-  ProjectAnalyzer(this.projectPath);
+  int _stamp = 1;
 
   AnalysisContextCollection get _contexts =>
       _collection ?? (throw StateError('Call initialize() first.'));

@@ -6,10 +6,10 @@ import 'package:path/path.dart' as p;
 import '../analysis/project_analyzer.dart';
 import '../analysis/validator.dart';
 import '../cli/options.dart';
+import '../engine/constructor_sorter.dart';
 import '../engine/edit_collector.dart';
 import '../engine/file_filter.dart';
 import '../engine/import_organizer.dart';
-import '../engine/constructor_sorter.dart';
 import '../engine/member_sorter.dart';
 import '../engine/source_edit.dart';
 import '../engine/unified_diff.dart';
@@ -34,10 +34,10 @@ import 'transformations.dart';
 ///   4. sort-constructors-first  : lifts constructors before all other members.
 ///   5. `dart format`            : always last so previous edits are formatted.
 final class ModernizePipeline {
-  final CliOptions options;
-  final Reporter reporter;
-
   const ModernizePipeline({required this.options, required this.reporter});
+  final CliOptions options;
+
+  final Reporter reporter;
 
   Future<void> run() async {
     // 1. Validate: fast-fail before touching the analyzer.
@@ -89,7 +89,7 @@ final class ModernizePipeline {
   /// aborting the whole walk.
   List<String> _dartFiles(String projectPath, FileFilter filter) {
     final result = <String>[];
-    final stack = <Directory>[Directory(projectPath)];
+    final stack = <Directory>[.new(projectPath)];
     while (stack.isNotEmpty) {
       final List<FileSystemEntity> entries;
       try {
@@ -450,18 +450,26 @@ final class ModernizePipeline {
 
 /// Outcome of the finalize stage.
 class _FinalizeResult {
+  const _FinalizeResult({required this.counts, required this.changedPaths});
+
   /// Files changed per finalize pass (`fix-all`, `organize-imports`,
   /// `sort-members`, `dart format`).
   final Map<String, int> counts;
 
   /// All paths the finalize stage changed.
   final Set<String> changedPaths;
-
-  const _FinalizeResult({required this.counts, required this.changedPaths});
 }
 
 /// Outcome of the structural transform stage.
 class _TransformResult {
+  _TransformResult({
+    required this.filesScanned,
+    required this.changedFiles,
+    required this.originalContent,
+    required this.finalContent,
+    required this.passesByFile,
+  });
+
   /// Number of non-excluded `.dart` files looked at.
   final int filesScanned;
 
@@ -476,12 +484,4 @@ class _TransformResult {
 
   /// The passes that edited each changed file, keyed by path.
   final Map<String, Set<String>> passesByFile;
-
-  _TransformResult({
-    required this.filesScanned,
-    required this.changedFiles,
-    required this.originalContent,
-    required this.finalContent,
-    required this.passesByFile,
-  });
 }

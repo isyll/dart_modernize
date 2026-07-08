@@ -185,6 +185,13 @@ List<String> withoutFeatureArgs(String feature) => [
 
 /// The outcome of a single CLI invocation against a throwaway project.
 final class CliResult {
+  CliResult({
+    required this.project,
+    required this.exitCode,
+    required this.stdout,
+    required this.stderr,
+  });
+
   /// Root directory of the throwaway project the tool ran against.
   final Directory project;
 
@@ -196,13 +203,6 @@ final class CliResult {
 
   /// Captured standard error.
   final String stderr;
-
-  CliResult({
-    required this.project,
-    required this.exitCode,
-    required this.stdout,
-    required this.stderr,
-  });
 
   /// Whether a file relative to the project root exists.
   bool exists(String relativePath) =>

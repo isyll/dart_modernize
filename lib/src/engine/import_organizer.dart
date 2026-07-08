@@ -96,13 +96,6 @@ enum _DirectiveGroup {
 }
 
 class _DirectiveInfo implements Comparable<_DirectiveInfo> {
-  final UriBasedDirective directive;
-  final _DirectiveGroup priority;
-  final String uri;
-  final int offset;
-  final int end;
-  final String text;
-
   _DirectiveInfo(
     this.directive,
     this.priority,
@@ -111,6 +104,13 @@ class _DirectiveInfo implements Comparable<_DirectiveInfo> {
     this.end,
     this.text,
   );
+  final UriBasedDirective directive;
+  final _DirectiveGroup priority;
+  final String uri;
+  final int offset;
+  final int end;
+
+  final String text;
 
   @override
   int compareTo(_DirectiveInfo other) {
@@ -126,18 +126,6 @@ class _DirectiveInfo implements Comparable<_DirectiveInfo> {
 enum _DirectiveSortKind { import, export, part }
 
 class _ImportOrganizer {
-  static final _ignoreMatcher = RegExp(r'//+[ ]*ignore:');
-  final String _initialCode;
-  final CompilationUnit _unit;
-  final LineInfo _lineInfo;
-  final List<Diagnostic> _diagnostics;
-
-  final bool removeUnused;
-  String code;
-  String endOfLine = '\n';
-
-  bool hasUnresolvedIdentifierError = false;
-
   _ImportOrganizer(
     this._initialCode,
     this._unit,
@@ -150,6 +138,18 @@ class _ImportOrganizer {
       (d) => d.diagnosticCode.isUnresolvedIdentifier,
     );
   }
+  static final _ignoreMatcher = RegExp(r'//+[ ]*ignore:');
+  final String _initialCode;
+  final CompilationUnit _unit;
+  final LineInfo _lineInfo;
+
+  final List<Diagnostic> _diagnostics;
+  final bool removeUnused;
+  String code;
+
+  String endOfLine = '\n';
+
+  bool hasUnresolvedIdentifierError = false;
 
   String? run() {
     _organizeDirectives();

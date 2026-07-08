@@ -186,6 +186,14 @@ Map<String, String> _supportFiles(String feature) {
 
 /// One golden case: the file as it lands in the project plus its expected text.
 final class GoldenCase {
+  GoldenCase({
+    required this.name,
+    required this.projectFile,
+    required this.input,
+    required this.expected,
+    required this.isNegative,
+  });
+
   /// Human-readable case name (the fixture stem), used as the test description.
   final String name;
 
@@ -200,12 +208,4 @@ final class GoldenCase {
 
   /// True for `*.unchanged.dart` cases where `expected == input`.
   final bool isNegative;
-
-  GoldenCase({
-    required this.name,
-    required this.projectFile,
-    required this.input,
-    required this.expected,
-    required this.isNegative,
-  });
 }

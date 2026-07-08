@@ -13,10 +13,10 @@ bool _isStringType(DartType? type) => type?.isDartCoreString == true;
 /// Before: `'Hello, ' + name + '!'`
 /// After:  `'Hello, $name!'`
 final class StringInterpolation implements Transformation {
+  const StringInterpolation({required this.enabled});
+
   @override
   final bool enabled;
-
-  const StringInterpolation({required this.enabled});
 
   @override
   String get name => 'string-interpolation';
@@ -30,23 +30,23 @@ final class StringInterpolation implements Transformation {
 }
 
 final class _ExpressionSegment extends _Segment {
+  _ExpressionSegment(this.node, {required this.needsBraces});
   final Expression node;
   final bool needsBraces;
-  _ExpressionSegment(this.node, {required this.needsBraces});
 }
 
 final class _LiteralSegment extends _Segment {
-  final String value;
   _LiteralSegment(this.value);
+  final String value;
 }
 
 sealed class _Segment {}
 
 class _StringInterpolationVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _StringInterpolationVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitBinaryExpression(BinaryExpression node) {

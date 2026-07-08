@@ -26,13 +26,13 @@ List<SourceEdit> sortConstructorsFirstEdits(
 }
 
 class _ConstructorSorter {
+  _ConstructorSorter(this._initial, this._unit, this._lineInfo)
+    : _code = _initial;
   final String _initial;
   final CompilationUnit _unit;
   final LineInfo _lineInfo;
-  String _code;
 
-  _ConstructorSorter(this._initial, this._unit, this._lineInfo)
-    : _code = _initial;
+  String _code;
 
   String? run() {
     for (final node in _unit.declarations) {
@@ -72,7 +72,7 @@ class _ConstructorSorter {
     for (final m in members) {
       final range = nodeWithComments(_lineInfo, m);
       entries.add(
-        _Entry(
+        .new(
           isConstructor: m is ConstructorDeclaration,
           offset: range.offset,
           end: range.end,
@@ -110,15 +110,15 @@ class _ConstructorSorter {
 }
 
 final class _Entry {
-  final bool isConstructor;
-  final int offset;
-  final int end;
-  final String text;
-
   _Entry({
     required this.isConstructor,
     required this.offset,
     required this.end,
     required this.text,
   });
+  final bool isConstructor;
+  final int offset;
+  final int end;
+
+  final String text;
 }

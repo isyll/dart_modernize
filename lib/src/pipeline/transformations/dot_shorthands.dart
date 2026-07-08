@@ -33,10 +33,10 @@ import '../transformation.dart';
 /// (`<(Foo, String)>[...]`) so the field shorthands have a context to resolve
 /// against, but only when every field of that record type is precise.
 final class DotShorthands implements Transformation {
+  const DotShorthands({required this.enabled});
+
   @override
   final bool enabled;
-
-  const DotShorthands({required this.enabled});
 
   @override
   String get name => 'dot-shorthands';
@@ -141,6 +141,32 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
         if (elseEl != null && _anyElementCollapses([elseEl], elementType)) {
           return true;
         }
+      }
+    }
+    return false;
+  }
+
+  /// Whether any field of [record] would collapse to a shorthand, given [type]
+  /// as the record's context type. Positional fields are matched by index,
+  /// named fields by name; nested record fields recurse through [_wouldCollapse].
+  bool _anyRecordFieldCollapses(RecordLiteral record, RecordType type) {
+    if (!_isPreciseRecordType(type)) return false;
+
+    var index = 0;
+    for (final field in record.fields) {
+      final DartType? fieldContext;
+      if (field is RecordLiteralNamedField) {
+        fieldContext = _namedFieldType(type, field.name.lexeme);
+      } else {
+        final positional = type.positionalFields;
+        fieldContext = index < positional.length
+            ? positional[index].type
+            : null;
+        index++;
+      }
+      if (fieldContext != null &&
+          _wouldCollapse(field.fieldExpression, fieldContext)) {
+        return true;
       }
     }
     return false;
@@ -320,30 +346,6 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     }
   }
 
-  /// Context type for the field of [record] whose value expression is [node]:
-  /// the matching field of the record's own (precise) context type. Positional
-  /// fields match by index, named fields by name. Returns null when the record's
-  /// context type is not a precise record type, so an imprecise record neither
-  /// shortens its fields nor is hoisted (see [_annotateInferredList]).
-  DartType? _recordFieldContext(RecordLiteral record, Expression node) {
-    final recordType = _contextType(record);
-    if (recordType is! RecordType || !_isPreciseRecordType(recordType)) {
-      return null;
-    }
-
-    var index = 0;
-    for (final field in record.fields) {
-      final isNamed = field is RecordLiteralNamedField;
-      if (identical(field.fieldExpression, node)) {
-        if (isNamed) return _namedFieldType(recordType, field.name.lexeme);
-        final positional = recordType.positionalFields;
-        return index < positional.length ? positional[index].type : null;
-      }
-      if (!isNamed) index++;
-    }
-    return null;
-  }
-
   /// Climbs through nested ForElement/IfElement wrappers to the nearest
   /// enclosing ListLiteral or SetOrMapLiteral and returns its element type.
   DartType? _enclosingCollectionElementType(CollectionElement element) {
@@ -455,6 +457,38 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return const [];
   }
 
+  /// Whether every field type of [type] is precise enough that hoisting the
+  /// record's display string reproduces the static type exactly and each field
+  /// shorthand has a concrete context. Rejects a field (anywhere in the record,
+  /// recursively) that no shorthand could ever resolve against.
+  bool _isPreciseRecordType(RecordType type) {
+    for (final field in type.positionalFields) {
+      if (!_isPreciseType(field.type)) return false;
+    }
+    for (final field in type.namedFields) {
+      if (!_isPreciseType(field.type)) return false;
+    }
+    return true;
+  }
+
+  /// Whether [type] is a fully resolved, precise type (see [_isPreciseRecordType]
+  /// for why this matters). Rejects the same catch-all/unresolved types the pass
+  /// never rewrites against elsewhere (`dynamic`, `Object`, `Null`, an inferred
+  /// type variable, an invalid type). Descends into record fields and interface
+  /// type arguments.
+  bool _isPreciseType(DartType type) {
+    if (type is DynamicType || type is InvalidType) return false;
+    if (type is TypeParameterType) return false;
+    if (type.isDartCoreNull || type.isDartCoreObject) return false;
+    if (type is RecordType) return _isPreciseRecordType(type);
+    if (type is InterfaceType) {
+      for (final argument in type.typeArguments) {
+        if (!_isPreciseType(argument)) return false;
+      }
+    }
+    return true;
+  }
+
   bool _isStaticMember(Element? element) => switch (element) {
     FieldElement(:final isStatic) => isStatic,
     GetterElement(:final isStatic) => isStatic,
@@ -502,6 +536,14 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
+  /// The type of the named field called [name] in [type], or null if absent.
+  DartType? _namedFieldType(RecordType type, String name) {
+    for (final field in type.namedFields) {
+      if (field.name == name) return field.type;
+    }
+    return null;
+  }
+
   /// The matched value's type for a constant pattern in a `switch`, whether the
   /// pattern is a `case <pattern>:` in a switch statement or a `<pattern> =>`
   /// arm in a switch expression. Either way the matched value is the scrutinee.
@@ -533,22 +575,28 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// Whether [context] and [written] denote the same type: the same interface
-  /// type (same element and type arguments, ignoring nullability), or the same
-  /// record type (see [_sameRecordType]).
-  bool _sameType(DartType context, DartType written) {
-    if (context is RecordType && written is RecordType) {
-      return _sameRecordType(context, written);
+  /// Context type for the field of [record] whose value expression is [node]:
+  /// the matching field of the record's own (precise) context type. Positional
+  /// fields match by index, named fields by name. Returns null when the record's
+  /// context type is not a precise record type, so an imprecise record neither
+  /// shortens its fields nor is hoisted (see [_annotateInferredList]).
+  DartType? _recordFieldContext(RecordLiteral record, Expression node) {
+    final recordType = _contextType(record);
+    if (recordType is! RecordType || !_isPreciseRecordType(recordType)) {
+      return null;
     }
-    if (context is! InterfaceType || written is! InterfaceType) return false;
-    if (context.element != written.element) return false;
-    final a = context.typeArguments;
-    final b = written.typeArguments;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (!_sameType(a[i], b[i])) return false;
+
+    var index = 0;
+    for (final field in record.fields) {
+      final isNamed = field is RecordLiteralNamedField;
+      if (identical(field.fieldExpression, node)) {
+        if (isNamed) return _namedFieldType(recordType, field.name.lexeme);
+        final positional = recordType.positionalFields;
+        return index < positional.length ? positional[index].type : null;
+      }
+      if (!isNamed) index++;
     }
-    return true;
+    return null;
   }
 
   /// Whether two record types are the same: equal record nullability, the same
@@ -575,42 +623,20 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return true;
   }
 
-  /// The type of the named field called [name] in [type], or null if absent.
-  DartType? _namedFieldType(RecordType type, String name) {
-    for (final field in type.namedFields) {
-      if (field.name == name) return field.type;
+  /// Whether [context] and [written] denote the same type: the same interface
+  /// type (same element and type arguments, ignoring nullability), or the same
+  /// record type (see [_sameRecordType]).
+  bool _sameType(DartType context, DartType written) {
+    if (context is RecordType && written is RecordType) {
+      return _sameRecordType(context, written);
     }
-    return null;
-  }
-
-  /// Whether every field type of [type] is precise enough that hoisting the
-  /// record's display string reproduces the static type exactly and each field
-  /// shorthand has a concrete context. Rejects a field (anywhere in the record,
-  /// recursively) that no shorthand could ever resolve against.
-  bool _isPreciseRecordType(RecordType type) {
-    for (final field in type.positionalFields) {
-      if (!_isPreciseType(field.type)) return false;
-    }
-    for (final field in type.namedFields) {
-      if (!_isPreciseType(field.type)) return false;
-    }
-    return true;
-  }
-
-  /// Whether [type] is a fully resolved, precise type (see [_isPreciseRecordType]
-  /// for why this matters). Rejects the same catch-all/unresolved types the pass
-  /// never rewrites against elsewhere (`dynamic`, `Object`, `Null`, an inferred
-  /// type variable, an invalid type). Descends into record fields and interface
-  /// type arguments.
-  bool _isPreciseType(DartType type) {
-    if (type is DynamicType || type is InvalidType) return false;
-    if (type is TypeParameterType) return false;
-    if (type.isDartCoreNull || type.isDartCoreObject) return false;
-    if (type is RecordType) return _isPreciseRecordType(type);
-    if (type is InterfaceType) {
-      for (final argument in type.typeArguments) {
-        if (!_isPreciseType(argument)) return false;
-      }
+    if (context is! InterfaceType || written is! InterfaceType) return false;
+    if (context.element != written.element) return false;
+    final a = context.typeArguments;
+    final b = written.typeArguments;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!_sameType(a[i], b[i])) return false;
     }
     return true;
   }
@@ -670,30 +696,4 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       context is RecordType && _anyRecordFieldCollapses(node, context),
     _ => false,
   };
-
-  /// Whether any field of [record] would collapse to a shorthand, given [type]
-  /// as the record's context type. Positional fields are matched by index,
-  /// named fields by name; nested record fields recurse through [_wouldCollapse].
-  bool _anyRecordFieldCollapses(RecordLiteral record, RecordType type) {
-    if (!_isPreciseRecordType(type)) return false;
-
-    var index = 0;
-    for (final field in record.fields) {
-      final DartType? fieldContext;
-      if (field is RecordLiteralNamedField) {
-        fieldContext = _namedFieldType(type, field.name.lexeme);
-      } else {
-        final positional = type.positionalFields;
-        fieldContext = index < positional.length
-            ? positional[index].type
-            : null;
-        index++;
-      }
-      if (fieldContext != null &&
-          _wouldCollapse(field.fieldExpression, fieldContext)) {
-        return true;
-      }
-    }
-    return false;
-  }
 }

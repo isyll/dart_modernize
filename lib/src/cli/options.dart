@@ -160,41 +160,6 @@ ArgParser buildArgParser() => .new()
 
 /// Parsed and validated CLI options, passed through the pipeline.
 final class CliOptions {
-  /// Absolute path to the project root to modernize.
-  final String path;
-
-  /// When true, only prints a diff; no files are written.
-  final bool dryRun;
-
-  /// null = auto-detect terminal; true = force on; false = force off.
-  final bool? color;
-
-  /// When true, emit per-file progress and passes that made no changes.
-  final bool verbose;
-
-  /// Additional glob patterns supplied via `--exclude` flags.
-  final List<String> excludes;
-
-  /// Whether each transformation pass is enabled.
-  final bool dotShorthands;
-  final bool privateNamedParameters;
-  final bool primaryConstructors;
-  final bool superParameters;
-  final bool switchExpressions;
-  final bool expressionBodies;
-  final bool organizeImports;
-  final bool sortMembers;
-  final bool fixAll;
-  final bool cascades;
-  final bool inlineReturn;
-  final bool stringInterpolation;
-  final bool nullAwareSpread;
-  final bool nullAwareElements;
-  final bool finalLocals;
-  final bool abstractFinalClasses;
-  final bool preferInferredTypes;
-  final bool sortConstructorsFirst;
-
   const CliOptions({
     required this.path,
     required this.dryRun,
@@ -251,4 +216,41 @@ final class CliOptions {
       sortConstructorsFirst: results['sort-constructors-first'] as bool,
     );
   }
+
+  /// Absolute path to the project root to modernize.
+  final String path;
+
+  /// When true, only prints a diff; no files are written.
+  final bool dryRun;
+
+  /// null = auto-detect terminal; true = force on; false = force off.
+  final bool? color;
+
+  /// When true, emit per-file progress and passes that made no changes.
+  final bool verbose;
+
+  /// Additional glob patterns supplied via `--exclude` flags.
+  final List<String> excludes;
+
+  /// Whether each transformation pass is enabled.
+  final bool dotShorthands;
+  final bool privateNamedParameters;
+  final bool primaryConstructors;
+  final bool superParameters;
+  final bool switchExpressions;
+  final bool expressionBodies;
+  final bool organizeImports;
+  final bool sortMembers;
+  final bool fixAll;
+  final bool cascades;
+  final bool inlineReturn;
+  final bool stringInterpolation;
+  final bool nullAwareSpread;
+  final bool nullAwareElements;
+  final bool finalLocals;
+  final bool abstractFinalClasses;
+
+  final bool preferInferredTypes;
+
+  final bool sortConstructorsFirst;
 }

@@ -20,10 +20,10 @@ import '../transformation.dart';
 /// declaration is folded into `final x = switch (...) {...};`. Otherwise the
 /// switch is replaced with `x = switch (...) {...};` in place.
 final class SwitchExpressions implements Transformation {
+  const SwitchExpressions({required this.enabled});
+
   @override
   final bool enabled;
-
-  const SwitchExpressions({required this.enabled});
 
   @override
   String get name => 'switch-expressions';
@@ -37,23 +37,23 @@ final class SwitchExpressions implements Transformation {
 }
 
 final class _Arm {
+  _Arm({required this.patterns, required this.body});
   final List<_Pattern> patterns;
   final _ArmBody body;
-  _Arm({required this.patterns, required this.body});
   bool get hasDefault => patterns.any((p) => p is _DefaultPattern);
 }
 
 sealed class _ArmBody {}
 
 final class _AssignBody extends _ArmBody {
+  _AssignBody(this.lhs, this.rhsText);
   final SimpleIdentifier lhs;
   final String rhsText;
-  _AssignBody(this.lhs, this.rhsText);
 }
 
 final class _CasePattern extends _Pattern {
-  final Expression expr;
   _CasePattern(this.expr);
+  final Expression expr;
 }
 
 final class _DefaultPattern extends _Pattern {}
@@ -61,15 +61,15 @@ final class _DefaultPattern extends _Pattern {}
 sealed class _Pattern {}
 
 final class _ReturnBody extends _ArmBody {
-  final String exprText;
   _ReturnBody(this.exprText);
+  final String exprText;
 }
 
 class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _SwitchExprVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitSwitchStatement(SwitchStatement node) {
@@ -391,6 +391,6 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
 }
 
 final class _ThrowBody extends _ArmBody {
-  final String throwText;
   _ThrowBody(this.throwText);
+  final String throwText;
 }

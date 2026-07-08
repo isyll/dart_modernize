@@ -30,13 +30,13 @@ List<SourceEdit> sortMemberEdits(
 }
 
 class _MemberInfo {
+  _MemberInfo(this.item, this.name, this.offset, this.end, this.text);
   final _PriorityItem item;
   final String name;
   final int offset;
   final int end;
-  final String text;
 
-  _MemberInfo(this.item, this.name, this.offset, this.end, this.text);
+  final String text;
 }
 
 enum _MemberKind {
@@ -57,6 +57,8 @@ enum _MemberKind {
 }
 
 class _MemberSorter {
+  _MemberSorter(this._initialCode, this._unit, this._lineInfo)
+    : code = _initialCode;
   static final _priorities = <_PriorityItem>[
     .new(false, .unitFunctionMain, false),
     .new(false, .unitVariableConst, false),
@@ -91,14 +93,12 @@ class _MemberSorter {
     .new(true, .classMethod, true),
   ];
   final String _initialCode;
+
   final CompilationUnit _unit;
 
   final LineInfo _lineInfo;
 
   String code;
-
-  _MemberSorter(this._initialCode, this._unit, this._lineInfo)
-    : code = _initialCode;
 
   /// Sorts class members then unit members, returning the rewritten source or
   /// null when nothing changed.
@@ -259,14 +259,14 @@ class _MemberSorter {
 }
 
 class _PriorityItem {
-  final _MemberKind kind;
-  final bool isPrivate;
-  final bool isStatic;
-
   _PriorityItem(this.isStatic, this.kind, this.isPrivate);
-
   factory _PriorityItem.forName(bool isStatic, String name, _MemberKind kind) =>
       _PriorityItem(isStatic, kind, name.startsWith('_'));
+  final _MemberKind kind;
+
+  final bool isPrivate;
+
+  final bool isStatic;
 
   @override
   int get hashCode => Object.hash(kind, isPrivate, isStatic);

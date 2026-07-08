@@ -26,10 +26,10 @@ import '../transformation.dart';
 /// Pattern declarations (`var (x, y) = ...`) are a different AST node and
 /// are never visited.
 final class FinalLocals implements Transformation {
+  const FinalLocals({required this.enabled});
+
   @override
   final bool enabled;
-
-  const FinalLocals({required this.enabled});
 
   @override
   String get name => 'final-locals';
@@ -43,10 +43,10 @@ final class FinalLocals implements Transformation {
 }
 
 class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _FinalLocalsVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitVariableDeclarationStatement(VariableDeclarationStatement node) {
@@ -92,10 +92,10 @@ class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
 }
 
 class _ReassignmentFinder extends RecursiveAstVisitor<void> {
-  final Object target;
-  bool found = false;
-
   _ReassignmentFinder(this.target);
+  final Object target;
+
+  bool found = false;
 
   @override
   void visitAssignmentExpression(AssignmentExpression node) {

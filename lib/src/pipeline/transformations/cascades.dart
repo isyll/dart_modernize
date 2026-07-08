@@ -26,10 +26,10 @@ import '../transformation.dart';
 ///   * no right-hand side in the run references the target variable (which
 ///     would be unbound during cascade evaluation).
 final class Cascades implements Transformation {
+  const Cascades({required this.enabled});
+
   @override
   final bool enabled;
-
-  const Cascades({required this.enabled});
 
   @override
   String get name => 'cascades';
@@ -43,10 +43,10 @@ final class Cascades implements Transformation {
 }
 
 class _CascadeVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _CascadeVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitBlock(Block node) {
@@ -219,10 +219,10 @@ class _CascadeVisitor extends RecursiveAstVisitor<void> {
 }
 
 class _TargetFinder extends RecursiveAstVisitor<void> {
-  final Element target;
-  bool found = false;
-
   _TargetFinder(this.target);
+  final Element target;
+
+  bool found = false;
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {

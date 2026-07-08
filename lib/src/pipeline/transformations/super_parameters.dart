@@ -32,10 +32,10 @@ import '../transformation.dart';
 /// every argument is forwarded the `: super(...)` initializer is removed
 /// entirely; when only some are, the rest stay in the call.
 final class SuperParameters implements Transformation {
+  const SuperParameters({required this.enabled});
+
   @override
   final bool enabled;
-
-  const SuperParameters({required this.enabled});
 
   @override
   String get name => 'super-parameters';
@@ -51,6 +51,8 @@ final class SuperParameters implements Transformation {
 /// A parameter whose declaration and forwarding argument can collapse to
 /// `super.<name>`.
 class _Fold {
+  _Fold({required this.param, required this.argument, required this.dropType});
+
   final RegularFormalParameter param;
 
   /// The argument in the `super(...)` call that forwards [param].
@@ -58,17 +60,15 @@ class _Fold {
 
   /// Whether the explicit type is redundant and may be dropped.
   final bool dropType;
-
-  _Fold({required this.param, required this.argument, required this.dropType});
 }
 
 /// Counts references to a fixed set of parameter elements within a subtree.
 class _ReferenceCounter extends RecursiveAstVisitor<void> {
+  _ReferenceCounter(this.targets);
+
   final Set<Element> targets;
 
   final counts = <Element, int>{};
-
-  _ReferenceCounter(this.targets);
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
@@ -81,11 +81,11 @@ class _ReferenceCounter extends RecursiveAstVisitor<void> {
 }
 
 class _SuperParameterVisitor extends RecursiveAstVisitor<void> {
+  _SuperParameterVisitor(this.source);
+
   final String source;
 
   final edits = <SourceEdit>[];
-
-  _SuperParameterVisitor(this.source);
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {

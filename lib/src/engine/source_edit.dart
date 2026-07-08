@@ -3,6 +3,12 @@
 /// Edits must be non-overlapping. Use [EditCollector] to accumulate and apply
 /// a set of edits safely.
 final class SourceEdit implements Comparable<SourceEdit> {
+  const SourceEdit({
+    required this.offset,
+    required this.length,
+    required this.replacement,
+  });
+
   /// Zero-based character offset from the start of the file.
   final int offset;
 
@@ -11,12 +17,6 @@ final class SourceEdit implements Comparable<SourceEdit> {
 
   /// Text to insert at [offset] in place of [length] characters.
   final String replacement;
-
-  const SourceEdit({
-    required this.offset,
-    required this.length,
-    required this.replacement,
-  });
 
   /// One past the last replaced character.
   int get end => offset + length;

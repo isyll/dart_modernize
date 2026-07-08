@@ -7,10 +7,10 @@ import '../transformation.dart';
 ///
 /// Runs in the finalize phase, not through [editsFor]; [editsFor] is a no-op.
 final class FixAll implements FinalizeTransformation {
+  const FixAll({required this.enabled});
+
   @override
   final bool enabled;
-
-  const FixAll({required this.enabled});
 
   @override
   String get name => 'fix-all';

@@ -14,10 +14,10 @@ import '../transformation.dart';
 /// [editsFor] is a no-op; the real work happens in the pipeline's
 /// [_finalize] step via [sortConstructorsFirstEdits].
 final class SortConstructorsFirst implements FinalizeTransformation {
+  const SortConstructorsFirst({required this.enabled});
+
   @override
   final bool enabled;
-
-  const SortConstructorsFirst({required this.enabled});
 
   @override
   String get name => 'sort-constructors-first';

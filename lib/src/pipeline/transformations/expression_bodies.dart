@@ -24,10 +24,10 @@ import '../transformation.dart';
 ///     is collapsed instead, which keeps every edit non-overlapping and the
 ///     pass idempotent.
 final class ExpressionBodies implements Transformation {
+  const ExpressionBodies({required this.enabled});
+
   @override
   final bool enabled;
-
-  const ExpressionBodies({required this.enabled});
 
   @override
   String get name => 'expression-bodies';
@@ -52,10 +52,10 @@ class _ClosureFinder extends RecursiveAstVisitor<void> {
 }
 
 class _ExpressionBodyVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-
-  final edits = <SourceEdit>[];
   _ExpressionBodyVisitor(this.source);
+
+  final String source;
+  final edits = <SourceEdit>[];
 
   @override
   void visitBlockFunctionBody(BlockFunctionBody node) {

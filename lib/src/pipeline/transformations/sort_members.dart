@@ -7,10 +7,10 @@ import '../transformation.dart';
 ///
 /// Runs in the finalize phase, not through [editsFor]; [editsFor] is a no-op.
 final class SortMembers implements FinalizeTransformation {
+  const SortMembers({required this.enabled});
+
   @override
   final bool enabled;
-
-  const SortMembers({required this.enabled});
 
   @override
   String get name => 'sort-members';

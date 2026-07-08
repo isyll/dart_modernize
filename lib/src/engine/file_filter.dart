@@ -41,9 +41,6 @@ List<String> readAnalysisOptionsExcludes(String projectPath) {
 ///   2. Glob patterns from [projectPath]/analysis_options.yaml `analyzer: exclude:`.
 ///   3. Ad-hoc CLI `--exclude` glob patterns.
 final class FileFilter {
-  final String projectPath;
-  final List<Glob> _excludeGlobs;
-
   FileFilter({
     required this.projectPath,
     List<String> excludePatterns = const [],
@@ -60,6 +57,10 @@ final class FileFilter {
       ...cliExcludes,
     ],
   );
+
+  final String projectPath;
+
+  final List<Glob> _excludeGlobs;
 
   bool shouldSkip(String filePath) {
     if (isGeneratedFile(filePath)) return true;

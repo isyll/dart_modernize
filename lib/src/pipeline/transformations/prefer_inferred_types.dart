@@ -35,10 +35,10 @@ import '../transformation.dart';
 /// shorthand dot-shorthands would otherwise emit. Mutable fields and non-const
 /// top-level variables are left untouched.
 final class PreferInferredTypes implements Transformation {
+  const PreferInferredTypes({required this.enabled});
+
   @override
   final bool enabled;
-
-  const PreferInferredTypes({required this.enabled});
 
   @override
   String get name => 'prefer-inferred-types';
@@ -52,10 +52,10 @@ final class PreferInferredTypes implements Transformation {
 }
 
 class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _PreferInferredTypesVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitFieldDeclaration(FieldDeclaration node) {
@@ -120,42 +120,6 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// Whether the static type of [expr] is obvious from its own syntax, matching
-  /// the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. Only an
-  /// obvious initializer is eligible for Rule A; keeping a non-obvious one
-  /// avoids introducing a `specify_nonobvious_*` diagnostic (which fix-all would
-  /// then revert on the next run).
-  bool _hasObviousType(Expression expr) {
-    if (expr is IntegerLiteral ||
-        expr is DoubleLiteral ||
-        expr is BooleanLiteral ||
-        expr is SimpleStringLiteral ||
-        expr is AdjacentStrings ||
-        expr is StringInterpolation ||
-        expr is SymbolLiteral) {
-      return true;
-    }
-    // A collection literal is obvious only with explicit type arguments
-    // (`<int>[]`); a bare `[]` is left for Rule B to relocate onto.
-    if (expr is TypedLiteral) return expr.typeArguments != null;
-    // A cast names its result type outright.
-    if (expr is AsExpression) return true;
-    // `-1` is obvious; the operand decides.
-    if (expr is PrefixExpression) return _hasObviousType(expr.operand);
-    // A cascade has the static type of its target.
-    if (expr is CascadeExpression) return _hasObviousType(expr.target);
-    // `Foo()` / `Foo.named()` / `Foo<int>()` are obvious when the type is
-    // non-generic or its type arguments are written explicitly. A generic type
-    // with inferred arguments (`Box()` for a `Box<int>` target) is not.
-    if (expr is InstanceCreationExpression) {
-      final namedType = expr.constructorName.type;
-      if (namedType.typeArguments != null) return true;
-      final type = namedType.type;
-      return type is InterfaceType && type.typeArguments.isEmpty;
-    }
-    return false;
-  }
-
   void _collect(VariableDeclarationList vars, {required bool isLocal}) {
     final typeAnnotation = vars.type;
     if (typeAnnotation == null) return;
@@ -198,6 +162,42 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
       typeAnnotation,
       vars.variables.first.initializer!,
     );
+  }
+
+  /// Whether the static type of [expr] is obvious from its own syntax, matching
+  /// the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. Only an
+  /// obvious initializer is eligible for Rule A; keeping a non-obvious one
+  /// avoids introducing a `specify_nonobvious_*` diagnostic (which fix-all would
+  /// then revert on the next run).
+  bool _hasObviousType(Expression expr) {
+    if (expr is IntegerLiteral ||
+        expr is DoubleLiteral ||
+        expr is BooleanLiteral ||
+        expr is SimpleStringLiteral ||
+        expr is AdjacentStrings ||
+        expr is StringInterpolation ||
+        expr is SymbolLiteral) {
+      return true;
+    }
+    // A collection literal is obvious only with explicit type arguments
+    // (`<int>[]`); a bare `[]` is left for Rule B to relocate onto.
+    if (expr is TypedLiteral) return expr.typeArguments != null;
+    // A cast names its result type outright.
+    if (expr is AsExpression) return true;
+    // `-1` is obvious; the operand decides.
+    if (expr is PrefixExpression) return _hasObviousType(expr.operand);
+    // A cascade has the static type of its target.
+    if (expr is CascadeExpression) return _hasObviousType(expr.target);
+    // `Foo()` / `Foo.named()` / `Foo<int>()` are obvious when the type is
+    // non-generic or its type arguments are written explicitly. A generic type
+    // with inferred arguments (`Box()` for a `Box<int>` target) is not.
+    if (expr is InstanceCreationExpression) {
+      final namedType = expr.constructorName.type;
+      if (namedType.typeArguments != null) return true;
+      final type = namedType.type;
+      return type is InterfaceType && type.typeArguments.isEmpty;
+    }
+    return false;
   }
 
   /// Returns true when [declared] is exactly `List`, `Set`, or `Map` from

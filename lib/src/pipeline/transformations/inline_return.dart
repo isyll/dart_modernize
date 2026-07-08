@@ -24,10 +24,10 @@ import '../transformation.dart';
 ///   * no comment is attached to the declaration or sits between it and the
 ///     return that would be lost by removing the declaration line.
 final class InlineReturn implements Transformation {
+  const InlineReturn({required this.enabled});
+
   @override
   final bool enabled;
-
-  const InlineReturn({required this.enabled});
 
   @override
   String get name => 'inline-return';
@@ -41,10 +41,10 @@ final class InlineReturn implements Transformation {
 }
 
 class _InlineReturnVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _InlineReturnVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitBlock(Block node) {
@@ -117,10 +117,10 @@ class _InlineReturnVisitor extends RecursiveAstVisitor<void> {
 }
 
 class _TargetFinder extends RecursiveAstVisitor<void> {
-  final Element target;
-  bool found = false;
-
   _TargetFinder(this.target);
+  final Element target;
+
+  bool found = false;
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {

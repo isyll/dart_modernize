@@ -25,13 +25,13 @@ import '../transformation.dart';
 /// could be subclassed by downstream consumers not visible to the analyzer.
 /// The guard checks only the project under analysis.
 final class AbstractFinalClasses implements Transformation {
+  AbstractFinalClasses({required this.enabled});
+
   @override
   final bool enabled;
-
   bool _analyzed = false;
-  Set<InterfaceElement>? _usedClasses;
 
-  AbstractFinalClasses({required this.enabled});
+  Set<InterfaceElement>? _usedClasses;
 
   @override
   String get name => 'abstract-final-classes';
@@ -68,11 +68,11 @@ final class AbstractFinalClasses implements Transformation {
 }
 
 class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
+  _AbstractFinalVisitor(this.source, this.usedClasses);
   final String source;
   final Set<InterfaceElement> usedClasses;
-  final edits = <SourceEdit>[];
 
-  _AbstractFinalVisitor(this.source, this.usedClasses);
+  final edits = <SourceEdit>[];
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
@@ -178,10 +178,10 @@ class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
 }
 
 class _CtorFinder extends RecursiveAstVisitor<void> {
-  final ConstructorElement target;
-  ConstructorDeclaration? found;
-
   _CtorFinder(this.target);
+  final ConstructorElement target;
+
+  ConstructorDeclaration? found;
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {

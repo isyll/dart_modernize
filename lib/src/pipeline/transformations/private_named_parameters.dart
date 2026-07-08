@@ -32,10 +32,10 @@ import '../transformation.dart';
 /// parameters, the entire `: ...` list is removed.  When only some
 /// initializers are folded, the rest are kept verbatim.
 final class PrivateNamedParameters implements Transformation {
+  const PrivateNamedParameters({required this.enabled});
+
   @override
   final bool enabled;
-
-  const PrivateNamedParameters({required this.enabled});
 
   @override
   String get name => 'private-named-parameters';
@@ -49,25 +49,25 @@ final class PrivateNamedParameters implements Transformation {
 }
 
 class _Fold {
-  final RegularFormalParameter param;
-  final ConstructorFieldInitializer initializer;
-
-  /// The private field name (e.g. `'_x'`); becomes `this._x` in the output.
-  final String fieldName;
-
   _Fold({
     required this.param,
     required this.initializer,
     required this.fieldName,
   });
+  final RegularFormalParameter param;
+
+  final ConstructorFieldInitializer initializer;
+
+  /// The private field name (e.g. `'_x'`); becomes `this._x` in the output.
+  final String fieldName;
 }
 
 /// Counts references to a fixed set of parameter elements within a subtree.
 class _ReferenceCounter extends RecursiveAstVisitor<void> {
-  final Set<Element> targets;
-  final counts = <Element, int>{};
-
   _ReferenceCounter(this.targets);
+  final Set<Element> targets;
+
+  final counts = <Element, int>{};
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
@@ -80,10 +80,10 @@ class _ReferenceCounter extends RecursiveAstVisitor<void> {
 }
 
 class _Visitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _Visitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {

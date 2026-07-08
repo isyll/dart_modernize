@@ -30,11 +30,6 @@ bool resolveColor({required bool? colorFlag}) {
 /// Pass custom [out]/[err] sinks in tests to capture output without touching
 /// real stdout/stderr.
 final class Reporter {
-  final bool color;
-  final bool verbose;
-  final StringSink _outSink;
-  final StringSink _errSink;
-
   Reporter({
     required this.color,
     required this.verbose,
@@ -42,6 +37,11 @@ final class Reporter {
     StringSink? err,
   }) : _outSink = out ?? stdout,
        _errSink = err ?? stderr;
+  final bool color;
+  final bool verbose;
+  final StringSink _outSink;
+
+  final StringSink _errSink;
 
   /// Prints the end-of-run banner: how many files changed and how many each
   /// transformation touched, in canonical pass order.

@@ -15,10 +15,10 @@ import '../transformation.dart';
 /// stable reference (a local variable or parameter), so collapsing from two
 /// evaluations (test + use) to one preserves observable behaviour.
 final class NullAwareSpread implements Transformation {
+  const NullAwareSpread({required this.enabled});
+
   @override
   final bool enabled;
-
-  const NullAwareSpread({required this.enabled});
 
   @override
   String get name => 'null-aware-spread';
@@ -32,10 +32,10 @@ final class NullAwareSpread implements Transformation {
 }
 
 class _NullAwareSpreadVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _NullAwareSpreadVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitListLiteral(ListLiteral node) {

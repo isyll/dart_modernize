@@ -20,10 +20,10 @@ import '../transformation.dart';
 /// stable reference (a local variable or parameter), so collapsing from two
 /// evaluations (test + use) to one preserves observable behaviour.
 final class NullAwareElements implements Transformation {
+  const NullAwareElements({required this.enabled});
+
   @override
   final bool enabled;
-
-  const NullAwareElements({required this.enabled});
 
   @override
   String get name => 'null-aware-elements';
@@ -37,10 +37,10 @@ final class NullAwareElements implements Transformation {
 }
 
 class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
-  final String source;
-  final edits = <SourceEdit>[];
-
   _NullAwareElementsVisitor(this.source);
+  final String source;
+
+  final edits = <SourceEdit>[];
 
   @override
   void visitListLiteral(ListLiteral node) {

@@ -1,8 +1,8 @@
 /// Thrown when modernization cannot proceed safely.
 final class ModernizeException implements Exception {
-  final String message;
-
   const ModernizeException(this.message);
+
+  final String message;
 
   @override
   String toString() => 'ModernizeException: $message';

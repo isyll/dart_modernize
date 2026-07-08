@@ -21,10 +21,10 @@ import '../transformation.dart';
 /// Consumed fields move into the header: `final` fields become `final T name`,
 /// mutable fields become `var T name`.
 final class PrimaryConstructors implements Transformation {
+  const PrimaryConstructors({required this.enabled});
+
   @override
   final bool enabled;
-
-  const PrimaryConstructors({required this.enabled});
 
   @override
   String get name => 'primary-constructors';
@@ -41,13 +41,13 @@ final class PrimaryConstructors implements Transformation {
 }
 
 class _Visitor extends RecursiveAstVisitor<void> {
+  _Visitor(this.source);
   final String source;
+
   final edits = <SourceEdit>[];
 
   /// Names of classes that appear in an `extends` clause within this file.
   final _extendedNames = <String>{};
-
-  _Visitor(this.source);
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {

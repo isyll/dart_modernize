@@ -10,7 +10,7 @@ import '../modernize_exception.dart';
 ///
 /// The transformations emit 3.12+ idioms, so a project whose SDK constraint
 /// admits an older version would be broken by them.
-final Version _minimumSdk = Version(3, 12, 0);
+final Version _minimumSdk = .new(3, 12, 0);
 
 /// Validates that the project at [projectPath] is ready for modernization.
 ///
@@ -44,7 +44,7 @@ void _checkPubspec(String projectPath) {
 
   final VersionConstraint constraint;
   try {
-    constraint = VersionConstraint.parse(sdk);
+    constraint = .parse(sdk);
   } on FormatException {
     throw ModernizeException(
       'pubspec.yaml has an invalid SDK constraint: "$sdk".',
