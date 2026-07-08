@@ -1,6 +1,33 @@
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
+/// The flag name of every transformation, in the order the parser lists them.
+///
+/// This is the allow-list for `--only`. It must stay in sync with the
+/// `--<transformation>` flags declared in [buildArgParser] and with the `name`
+/// of each pass in `lib/src/pipeline/transformations/`; the
+/// `only-option` test cross-checks it against the test harness's feature map.
+const transformationNames = <String>[
+  'dot-shorthands',
+  'private-named-parameters',
+  'primary-constructors',
+  'super-parameters',
+  'switch-expressions',
+  'expression-bodies',
+  'organize-imports',
+  'sort-members',
+  'fix-all',
+  'cascades',
+  'string-interpolation',
+  'null-aware-spread',
+  'null-aware-elements',
+  'inline-return',
+  'final-locals',
+  'abstract-final-classes',
+  'prefer-inferred-types',
+  'sort-constructors-first',
+];
+
 /// Builds the [ArgParser] for the `dart_modernize` CLI.
 ArgParser buildArgParser() => .new()
   ..addFlag(
@@ -40,6 +67,15 @@ ArgParser buildArgParser() => .new()
     valueHelp: 'glob',
   )
   ..addSeparator('Transformations (all enabled by default):')
+  ..addMultiOption(
+    'only',
+    help:
+        'Run only the named transformation(s) and skip every other one. '
+        'Repeat the flag or comma-separate names to select several. When '
+        'given, this overrides the individual --<transformation> flags.',
+    valueHelp: 'transformation',
+    allowed: transformationNames,
+  )
   ..addFlag(
     'dot-shorthands',
     defaultsTo: true,
@@ -188,6 +224,14 @@ final class CliOptions {
 
   factory CliOptions.fromResults(ArgResults results) {
     final rest = results.rest;
+    // `--only` is an allow-list: when it names any pass, a transformation is
+    // enabled iff its name appears there, and the individual --<name> flags are
+    // ignored. When empty, each pass keeps its own flag's value (all on by
+    // default). Flag names double as pass names, so `results[name]` reads the
+    // matching flag.
+    final only = (results['only'] as List<String>).toSet();
+    bool enabled(String name) =>
+        only.isEmpty ? results[name] as bool : only.contains(name);
     return .new(
       // Normalize so the analyzer always receives an absolute path with the
       // platform's separator (e.g. `dart_modernize C:/proj` on Windows).
@@ -196,24 +240,24 @@ final class CliOptions {
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,
       excludes: results['exclude'] as List<String>,
-      dotShorthands: results['dot-shorthands'] as bool,
-      privateNamedParameters: results['private-named-parameters'] as bool,
-      primaryConstructors: results['primary-constructors'] as bool,
-      superParameters: results['super-parameters'] as bool,
-      switchExpressions: results['switch-expressions'] as bool,
-      expressionBodies: results['expression-bodies'] as bool,
-      organizeImports: results['organize-imports'] as bool,
-      sortMembers: results['sort-members'] as bool,
-      fixAll: results['fix-all'] as bool,
-      cascades: results['cascades'] as bool,
-      inlineReturn: results['inline-return'] as bool,
-      stringInterpolation: results['string-interpolation'] as bool,
-      nullAwareSpread: results['null-aware-spread'] as bool,
-      nullAwareElements: results['null-aware-elements'] as bool,
-      finalLocals: results['final-locals'] as bool,
-      abstractFinalClasses: results['abstract-final-classes'] as bool,
-      preferInferredTypes: results['prefer-inferred-types'] as bool,
-      sortConstructorsFirst: results['sort-constructors-first'] as bool,
+      dotShorthands: enabled('dot-shorthands'),
+      privateNamedParameters: enabled('private-named-parameters'),
+      primaryConstructors: enabled('primary-constructors'),
+      superParameters: enabled('super-parameters'),
+      switchExpressions: enabled('switch-expressions'),
+      expressionBodies: enabled('expression-bodies'),
+      organizeImports: enabled('organize-imports'),
+      sortMembers: enabled('sort-members'),
+      fixAll: enabled('fix-all'),
+      cascades: enabled('cascades'),
+      inlineReturn: enabled('inline-return'),
+      stringInterpolation: enabled('string-interpolation'),
+      nullAwareSpread: enabled('null-aware-spread'),
+      nullAwareElements: enabled('null-aware-elements'),
+      finalLocals: enabled('final-locals'),
+      abstractFinalClasses: enabled('abstract-final-classes'),
+      preferInferredTypes: enabled('prefer-inferred-types'),
+      sortConstructorsFirst: enabled('sort-constructors-first'),
     );
   }
 

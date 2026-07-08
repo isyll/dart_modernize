@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+- Add `--only`, an allow-list that runs just the transformation(s) you name and
+  skips every other one. Repeat the flag or comma-separate names to select
+  several (`--only cascades,inline-return`). When given, it overrides the
+  individual `--<transformation>` flags, so a single pass no longer requires
+  spelling out `--no-` for all the others. Unknown names are rejected with a
+  usage error listing the valid transformations.
+
 ## 0.3.0
 
 - Dot shorthands now collapse record fields. A positional field takes its

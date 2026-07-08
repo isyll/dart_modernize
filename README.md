@@ -597,9 +597,15 @@ dart_modernize
 # Target a path
 dart_modernize lib/
 
-# Pick and choose
+# Pick and choose: turn individual passes off
 dart_modernize --no-primary-constructors --dry-run
+
+# Or run only the passes you name, skipping every other one
+dart_modernize --only string-interpolation --dry-run
+dart_modernize --only cascades,inline-return
 ```
+
+`--only` is an allow-list: it runs just the transformation(s) you name and skips the rest. Repeat the flag or comma-separate names to select several. When given, it overrides the individual `--<transformation>` flags.
 
 <details>
 <summary><b>Full option list</b></summary>

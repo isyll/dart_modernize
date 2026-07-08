@@ -1,6 +1,7 @@
 library;
 
-export 'src/cli/options.dart' show CliOptions, buildArgParser;
+export 'src/cli/options.dart'
+    show CliOptions, buildArgParser, transformationNames;
 export 'src/engine/edit_collector.dart';
 export 'src/engine/source_edit.dart';
 export 'src/modernize_exception.dart';
