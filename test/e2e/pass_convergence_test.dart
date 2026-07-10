@@ -5,8 +5,8 @@
 /// looked like two passes with opposite ideas about the same thing, each undoing
 /// the other forever:
 ///
-///   dart_modernize --only sort-members             # put fields before constructors
-///   dart_modernize --only sort-constructors-first  # put constructors before fields
+///   dart_modernize sort-members             # put fields before constructors
+///   dart_modernize sort-constructors-first  # put constructors before fields
 ///
 /// Running one after the other flip-flopped every affected file, so the tool
 /// never settled. These tests pin the contract: `sort-members` already emits the
@@ -191,8 +191,8 @@ class Store {
           rerun.read(file),
           modernized,
           reason:
-              '--only $pass changed a fully-modernized file; it undoes work '
-              'another pass did',
+              'running only $pass changed a fully-modernized file; it undoes '
+              'work another pass did',
         );
       });
     }

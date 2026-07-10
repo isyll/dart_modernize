@@ -7,7 +7,7 @@ import 'modernize_exception.dart';
 import 'output/reporter.dart';
 import 'pipeline/pipeline.dart';
 
-const _version = '0.4.1';
+const _version = '0.5.0';
 
 /// Entry point for the `dart_modernize` CLI.
 ///
@@ -41,7 +41,16 @@ Future<void> run(List<String> arguments) async {
     return;
   }
 
-  final options = CliOptions.fromResults(results);
+  final CliOptions options;
+  try {
+    options = CliOptions.fromResults(results);
+  } on FormatException catch (e) {
+    earlyReporter
+      ..error(e.message)
+      ..errorHint('Run dart_modernize --help for usage.');
+    exit(64);
+  }
+
   final reporter = Reporter(
     color: resolveColor(colorFlag: options.color),
     verbose: options.verbose,

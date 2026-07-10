@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
-/// The flag name of every transformation, in the order the parser lists them.
+/// The name of every transformation, in the order the parser lists them.
 ///
-/// This is the allow-list for `--only`. It must stay in sync with the
-/// `--<transformation>` flags declared in [buildArgParser] and with the `name`
-/// of each pass in `lib/src/pipeline/transformations/`; the
-/// `only-option` test cross-checks it against the test harness's feature map.
+/// This is the allow-list for positional transformation selection: naming one
+/// of these as a positional argument runs only that pass. It must stay in sync
+/// with the `--<transformation>` flags declared in [buildArgParser] and with the
+/// `name` of each pass in `lib/src/pipeline/transformations/`; the
+/// positional-selection test cross-checks it against the test harness's feature
+/// map.
 const transformationNames = <String>[
   'dot-shorthands',
   'private-named-parameters',
@@ -66,15 +70,11 @@ ArgParser buildArgParser() => .new()
     help: 'Additional glob patterns to exclude (can be repeated).',
     valueHelp: 'glob',
   )
-  ..addSeparator('Transformations (all enabled by default):')
-  ..addMultiOption(
-    'only',
-    help:
-        'Run only the named transformation(s) and skip every other one. '
-        'Repeat the flag or comma-separate names to select several. When '
-        'given, this overrides the individual --<transformation> flags.',
-    valueHelp: 'transformation',
-    allowed: transformationNames,
+  ..addSeparator(
+    'Transformations (all run by default). Name one or more as positional '
+    'arguments to run only those, e.g. `dart_modernize cascades '
+    'inline-return`; otherwise turn individual passes off with the '
+    '--no-<name> flags below.',
   )
   ..addFlag(
     'dot-shorthands',
@@ -194,6 +194,20 @@ ArgParser buildArgParser() => .new()
         'satisfying the sort_constructors_first lint rule.',
   );
 
+/// Whether [arg] is unmistakably a filesystem path rather than a bare word.
+///
+/// Lets a positional argument be classified without touching the disk when it
+/// contains a separator, is `.`/`..`, is absolute, or names a Dart file. A bare
+/// word (`cascades`, `lib`) is only resolved to a path once it is ruled out as a
+/// transformation name and confirmed to exist on disk.
+bool _looksLikePath(String arg) =>
+    arg.contains('/') ||
+    arg.contains(r'\') ||
+    arg == '.' ||
+    arg == '..' ||
+    p.isAbsolute(arg) ||
+    arg.endsWith('.dart');
+
 /// Parsed and validated CLI options, passed through the pipeline.
 final class CliOptions {
   const CliOptions({
@@ -223,19 +237,38 @@ final class CliOptions {
   });
 
   factory CliOptions.fromResults(ArgResults results) {
-    final rest = results.rest;
-    // `--only` is an allow-list: when it names any pass, a transformation is
-    // enabled iff its name appears there, and the individual --<name> flags are
-    // ignored. When empty, each pass keeps its own flag's value (all on by
-    // default). Flag names double as pass names, so `results[name]` reads the
-    // matching flag.
-    final only = (results['only'] as List<String>).toSet();
+    // Positional arguments do double duty. A token that names a transformation
+    // selects just that pass (an allow-list); any other token is the target
+    // path. Naming any pass overrides the individual --<name> flags and turns
+    // every unnamed pass off; naming none leaves each pass at its flag's value
+    // (all on by default). Flag names double as pass names, so `results[name]`
+    // reads the matching flag.
+    final selected = <String>{};
+    final paths = <String>[];
+    for (final arg in results.rest) {
+      if (transformationNames.contains(arg)) {
+        selected.add(arg);
+      } else if (_looksLikePath(arg) || Directory(arg).existsSync()) {
+        paths.add(arg);
+      } else {
+        throw FormatException(
+          '"$arg" is not a known transformation or an existing directory. '
+          'Valid transformations: ${transformationNames.join(', ')}.',
+        );
+      }
+    }
+    if (paths.length > 1) {
+      throw FormatException(
+        'Expected at most one target path, but got: ${paths.join(', ')}.',
+      );
+    }
+
     bool enabled(String name) =>
-        only.isEmpty ? results[name] as bool : only.contains(name);
+        selected.isEmpty ? results[name] as bool : selected.contains(name);
     return .new(
       // Normalize so the analyzer always receives an absolute path with the
       // platform's separator (e.g. `dart_modernize C:/proj` on Windows).
-      path: p.normalize(p.absolute(rest.isNotEmpty ? rest.first : p.current)),
+      path: p.normalize(p.absolute(paths.isEmpty ? p.current : paths.first)),
       dryRun: results['dry-run'] as bool,
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,

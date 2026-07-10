@@ -16,6 +16,12 @@ finished output of the groups before it.
 is the single source of the layering. The pipeline only filters each stage by
 `enabled`; it never reorders.
 
+Selecting a subset of passes (by naming them as positional arguments, or turning
+some off with `--no-<name>`) only flips each pass's `enabled` flag. The stage
+sequence is unchanged, so a selected pass always runs in its stage's position no
+matter the order it is named on the command line: `dart_modernize inline-return
+cascades` still runs `cascades` (stage 2) before `inline-return` (stage 3).
+
 | Stage | Passes | Role |
 | ----- | ------ | ---- |
 | 1 | `primary-constructors` | Outermost class rewrite. |

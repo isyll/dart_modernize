@@ -597,24 +597,35 @@ dart_modernize
 # Target a path
 dart_modernize lib/
 
-# Pick and choose: turn individual passes off
+# Turn individual passes off
 dart_modernize --no-primary-constructors --dry-run
 
-# Or run only the passes you name, skipping every other one
-dart_modernize --only string-interpolation --dry-run
-dart_modernize --only cascades,inline-return
+# Run only the passes you name, skipping every other one
+dart_modernize string-interpolation --dry-run
+dart_modernize cascades inline-return
+
+# Combine a selection with a path
+dart_modernize lib/ cascades
 ```
 
-`--only` is an allow-list: it runs just the transformation(s) you name and skips the rest. Repeat the flag or comma-separate names to select several. When given, it overrides the individual `--<transformation>` flags.
+Two positional arguments, in any order:
 
-<details>
-<summary><b>Full option list</b></summary>
+* **`[transformation ...]`** &mdash; name one or more transformations to run **only** those and skip the rest. This is an allow-list; naming any pass overrides the `--no-<name>` toggles below. Naming none runs every pass (the default). Order does not matter: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)).
+* **`[path]`** &mdash; the project or directory to modernize. Defaults to the current directory. Any positional that is not a transformation name is treated as the path.
 
-<br>
+### Options
 
-Run `dart_modernize --help` for the complete, always up to date reference. Every transformation can be toggled independently, paths can be excluded, and formatting is configurable.
+| Option | Description |
+|:--|:--|
+| `-h, --help` | Show usage and exit. |
+| `-v, --version` | Print the version and exit. |
+| `-n, --dry-run` | Preview changes as a unified diff; write nothing. |
+| `--verbose` | Print per-file progress and passes that made no change. |
+| `--[no-]color` | Force ANSI color on or off. Default: auto-detect the terminal (`NO_COLOR` is honored). |
+| `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |
+| `--no-<transformation>` | Turn a single pass off, e.g. `--no-primary-constructors`. One flag exists per transformation listed above; all are on by default. |
 
-</details>
+Run `dart_modernize --help` for the same reference, always current.
 
 <br>
 

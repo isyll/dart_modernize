@@ -136,27 +136,28 @@ Future<CliResult> invokeCli(
   );
 }
 
-/// CLI flags that enable **only** [feature], disabling every other pass.
+/// CLI arguments that run **only** [feature], skipping every other pass.
 ///
-/// Produces, e.g. for `dot_shorthands`:
-/// `['--no-private-named-parameters', '--no-primary-constructors', ...]`.
+/// Produces the transformation's positional name, e.g. `['dot-shorthands']`
+/// for `dot_shorthands`. Naming a pass positionally is the CLI's allow-list:
+/// only the named pass(es) run.
 List<String> onlyFeatureArgs(String feature) => onlyFeaturesArgs({feature});
 
-/// CLI flags that enable **only** the passes named in [features], disabling
+/// CLI arguments that run **only** the passes named in [features], skipping
 /// every other pass.
 ///
-/// The multi-feature generalisation of [onlyFeatureArgs]: a pass keeps its
-/// default-on state (no `--no-` flag is emitted) exactly when its fixture-folder
-/// name is in [features]; every other pass is turned off. Keys are the
-/// snake_case folder names used throughout the harness (see [featureFlags]).
+/// The multi-feature generalisation of [onlyFeatureArgs]: each feature's
+/// positional transformation name is emitted, e.g.
+/// `['dot-shorthands', 'super-parameters']`. Keys are the snake_case
+/// fixture-folder names used throughout the harness (see [featureFlags]).
 ///
 /// Use this for cross-feature interaction tests that need a specific subset of
-/// passes active at once. Names not present in [featureFlags] are ignored, so a
-/// typo silently widens the disabled set rather than throwing; callers pass
-/// literals drawn from [allFeatures].
+/// passes active at once. Names not present in [featureFlags] are dropped, so a
+/// typo silently narrows the selection rather than throwing; callers pass
+/// literals drawn from [allFeatures]. An empty [features] selects nothing and so
+/// leaves every pass on (the CLI's default), not off.
 List<String> onlyFeaturesArgs(Set<String> features) => [
-  for (final entry in featureFlags.entries)
-    if (!features.contains(entry.key)) '--no-${entry.value}',
+  for (final feature in features) ?featureFlags[feature],
 ];
 
 /// Creates a throwaway project containing [files] and runs the CLI against it.

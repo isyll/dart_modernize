@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+- Select transformations by naming them as positional arguments and drop the
+  `--only` flag. `dart_modernize cascades inline-return` now runs just those two
+  passes and skips the rest, replacing `--only cascades,inline-return`. Naming
+  any pass turns every unnamed one off and overrides the individual
+  `--<name>` flags, exactly as `--only` did; naming none still runs everything.
+  A positional that is not a transformation name is the target path, so
+  `dart_modernize lib/` and `dart_modernize lib/ cascades` both work, and an
+  unrecognized name is rejected with a usage error listing the valid
+  transformations. The individual `--no-<name>` toggles are unchanged.
+
 ## 0.4.1
 
 - Fix `sort-members` and `sort-constructors-first` disagreeing about where
