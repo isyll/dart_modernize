@@ -70,3 +70,17 @@ dart test                                     # run tests
 dart format .                                 # format
 dart analyze --fatal-infos                    # lint
 ```
+
+## Releasing
+
+Pushing a `vX.Y.Z` tag triggers `.github/workflows/release.yml`, which waits for
+CI on that commit to pass, then publishes to pub.dev. Before tagging, bump the
+version in **all three** places and keep them identical (there is no test that
+enforces this, so it is easy to miss):
+
+1. `pubspec.yaml` `version:`
+2. `lib/src/runner.dart` `_version` (what `--version` prints)
+3. `CHANGELOG.md` (add a `## X.Y.Z` section; the release notes are pulled from it)
+
+Then commit, tag `vX.Y.Z`, and push the branch before the tag so CI is already
+running when the release workflow starts polling.
