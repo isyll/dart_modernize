@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.3
+
+- Dot shorthands now collapse a static member or enum value reached through an
+  import prefix. A switch over an import-prefixed enum, such as
+  `permission_handler.PermissionStatus.granted => PermissionResult.granted`,
+  becomes `.granted => .granted`. Through a prefix a static access parses as a
+  three-part property access (`(prefix.Type).member`) rather than the two-part
+  form the pass already handled, so it was previously left qualified while the
+  unprefixed side collapsed. Import-prefixed constructors and static methods
+  (`prefix.Type(...)`, `prefix.Type.method(...)`) collapse the same way.
+
 ## 0.6.2
 
 - Dot shorthands now collapse a default parameter value against the parameter's

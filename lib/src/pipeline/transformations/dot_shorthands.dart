@@ -16,6 +16,10 @@ import '../transformation.dart';
 ///   * `Foo f = Foo();`                   → `Foo f = .new();`
 ///   * `Foo f = Foo.named();`             → `Foo f = .named();`
 ///
+/// A type reached through an import prefix (`p.TypeName.member`,
+/// `p.TypeName(...)`) collapses the same way: the whole `p.TypeName` qualifier
+/// is dropped, leaving `.member` / `.new(...)`.
+///
 /// A shorthand is emitted only when the context type at the position resolves
 /// to exactly the same type whose member/constructor is referenced, so that
 /// `.member` resolves to the identical element and the static type is
@@ -101,6 +105,16 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       if (edit != null) edits.add(edit);
     }
     super.visitPrefixedIdentifier(node);
+  }
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    final context = _contextType(node);
+    if (context != null) {
+      final edit = _prefixedStaticMemberEdit(node, context);
+      if (edit != null) edits.add(edit);
+    }
+    super.visitPropertyAccess(node);
   }
 
   /// When a list literal has no element type to fall back on (no explicit
@@ -707,6 +721,29 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     );
   }
 
+  /// `prefix.TypeName.staticField` / `prefix.EnumName.value` → `.staticField` /
+  /// `.value`, where `prefix` is an import prefix. Written through the prefix a
+  /// static access is a [PropertyAccess] (`(prefix.TypeName).member`) rather
+  /// than the [PrefixedIdentifier] that [_staticMemberEdit] handles, so it needs
+  /// its own edit. The whole `prefix.TypeName` target is dropped, leaving the
+  /// `.member` that follows.
+  SourceEdit? _prefixedStaticMemberEdit(PropertyAccess node, DartType context) {
+    final target = node.target;
+    if (target is! PrefixedIdentifier) return null;
+    if (target.prefix.element is! PrefixElement) return null;
+
+    final type = target.identifier.element;
+    if (type is! InterfaceElement || type.typeParameters.isNotEmpty)
+      return null;
+
+    final member = node.propertyName.element;
+    if (!_isStaticMember(member)) return null;
+
+    if (context is! InterfaceType || context.element != type) return null;
+
+    return .new(offset: target.offset, length: target.length, replacement: '');
+  }
+
   /// `TypeName.staticMethod(...)` → `.staticMethod(...)`.
   SourceEdit? _staticMethodEdit(MethodInvocation node, DartType context) {
     final target = node.target;
@@ -738,6 +775,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     InstanceCreationExpression() => _constructorEdit(node, context) != null,
     MethodInvocation() => _staticMethodEdit(node, context) != null,
     PrefixedIdentifier() => _staticMemberEdit(node, context) != null,
+    PropertyAccess() => _prefixedStaticMemberEdit(node, context) != null,
     RecordLiteral() =>
       context is RecordType && _anyRecordFieldCollapses(node, context),
     _ => false,
