@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2
+
+- Dot shorthands now collapse a default parameter value against the parameter's
+  type. `Stream<T> watch({LocationAccuracy accuracy = LocationAccuracy.high})`
+  becomes `Stream<T> watch({LocationAccuracy accuracy = .high})`. Named,
+  optional-positional, and field/super formals (`this.x = ...`) are all covered;
+  the parameter element's type is used, so a field formal whose type comes from
+  its field still resolves.
+
 ## 0.6.1
 
 - Dot shorthands now collapse a chain head on the **left** operand of `??`, not
