@@ -22,9 +22,10 @@ import '../transformation.dart';
 /// unchanged. The context type is derived position by position (typed variable
 /// or field, plain assignment target, return type, `yield` in a generator,
 /// argument slot, collection element, record field, equality right-hand side,
-/// `??` right-hand side, switch case, switch pattern). Wherever the context type
-/// cannot be derived precisely, with `var`, `dynamic`, `Object`, an inferred
-/// type variable, a supertype, or the left of `==`, the code is left untouched.
+/// either operand of `??`, switch case, switch pattern). Wherever the context
+/// type cannot be derived precisely, with `var`, `dynamic`, `Object`, an
+/// inferred type variable, a supertype, or the left of `==`, the code is left
+/// untouched.
 ///
 /// The head of a selector chain is collapsed too. In `DateTime.now().toUtc()`
 /// or `DateTime.tryParse(s)?.toUtc()` the dot-shorthand head resolves against
@@ -272,11 +273,15 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
               identical(parent.rightOperand, node):
         return parent.leftOperand.staticType;
 
-      // `a ?? node`: the right operand takes the whole `??` expression's own
-      // context type (that is where a `??` pushes its context).
+      // `node ?? b` / `a ?? node`: both operands of `??` take the whole `??`
+      // expression's own context type. Dart infers the left operand with the
+      // nullable form of that type, but the shorthand edits only use its
+      // element, so the same context is returned for either side. (Contrast
+      // `==`/`!=` above, where only the right operand has a context.)
       case BinaryExpression()
           when parent.operator.lexeme == '??' &&
-              identical(parent.rightOperand, node):
+              (identical(parent.leftOperand, node) ||
+                  identical(parent.rightOperand, node)):
         return _contextType(parent);
 
       // Positional argument.

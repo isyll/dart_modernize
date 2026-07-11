@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1
+
+- Dot shorthands now collapse a chain head on the **left** operand of `??`, not
+  only the right. `ThemeMode.values.asNameMap()[saved] ?? ThemeMode.system` now
+  becomes `.values.asNameMap()[saved] ?? .system`; previously only the right
+  operand was shortened while the left kept its type name. Both operands take the
+  `??` expression's context type (Dart infers the left in its nullable form, but
+  the shorthand only needs the element), so a qualified chain on either side
+  resolves against the same type.
+
 ## 0.6.0
 
 - Dot shorthands now collapse the head of a selector chain, not just a
