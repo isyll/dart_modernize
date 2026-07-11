@@ -733,8 +733,9 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     if (target.prefix.element is! PrefixElement) return null;
 
     final type = target.identifier.element;
-    if (type is! InterfaceElement || type.typeParameters.isNotEmpty)
+    if (type is! InterfaceElement || type.typeParameters.isNotEmpty) {
       return null;
+    }
 
     final member = node.propertyName.element;
     if (!_isStaticMember(member)) return null;
