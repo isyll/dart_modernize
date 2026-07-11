@@ -155,7 +155,7 @@ Eighteen focused passes, grouped into five families. Each one is independently t
 
 | | Feature | Description |
 |:--:|:--|:--|
-| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous: arguments, return positions, assignments, equality checks, and collection literals. |
+| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous: arguments, return positions, assignments, equality checks, and collection literals, including the head of a selector chain (`DateTime.now().toUtc()` becomes `.now().toUtc()`). |
 | 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
 | ➡️ | **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
 | 🧵 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into clean `'a $b c'` interpolation. |
@@ -186,7 +186,7 @@ Each pass is shown as a minimal before/after, paired with the safety rule that d
 
 Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions, assignments, equality checks, and collection elements.
+**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions, assignments, equality checks, collection elements, and the head of a selector chain.
 
 ```dart
 // before
@@ -203,6 +203,20 @@ if (mode == .fast) tick();
 ```
 
 > In a typed declaration whose type the initializer makes obvious, the type is dropped instead (see prefer inferred types); otherwise the annotation stays and supplies the context, so `final Color c = Color.blue` becomes `final Color c = .blue`.
+
+The head of a selector chain collapses too. The context type of the whole chain flows to the leading type name, so a named constructor, static method, or static getter that begins a `.method(...)`, `.getter`, `[index]`, or `!` chain loses its type name while the rest of the chain stays:
+
+```dart
+// before
+Duration remaining(DateTime expiry) => expiry.difference(DateTime.now().toUtc());
+DateTime? parse(String s) => DateTime.tryParse(s)?.toUtc();
+Color first() => Color.values.first;
+
+// after
+Duration remaining(DateTime expiry) => expiry.difference(.now().toUtc());
+DateTime? parse(String s) => .tryParse(s)?.toUtc();
+Color first() => .values.first;
+```
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 

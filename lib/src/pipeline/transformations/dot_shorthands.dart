@@ -26,6 +26,20 @@ import '../transformation.dart';
 /// cannot be derived precisely, with `var`, `dynamic`, `Object`, an inferred
 /// type variable, a supertype, or the left of `==`, the code is left untouched.
 ///
+/// The head of a selector chain is collapsed too. In `DateTime.now().toUtc()`
+/// or `DateTime.tryParse(s)?.toUtc()` the dot-shorthand head resolves against
+/// the context type of the *whole* chain, not the type the head alone produces,
+/// so the context flows up through the enclosing selectors (`.method(...)`,
+/// `.getter`, `[index]`, `!`) to wherever the chain sits:
+///
+///   * `expiry.difference(DateTime.now().toUtc())` → `.difference(.now()...)`
+///   * `return DateTime.tryParse(s)?.toUtc();`     → `return .tryParse(s)...`
+///   * `Color c = Color.values.first;`             → `Color c = .values.first;`
+///
+/// Only the leftmost target inherits the chain's context; the per-edit checks
+/// still require the head's own referenced type to equal that context, so an
+/// intermediate selector that changes the type blocks the collapse.
+///
 /// Record literals are supported too. A positional field takes its context from
 /// the matching positional field of the record's own context type, and a named
 /// field from the same-named field. When a list of records has no element type
@@ -277,6 +291,23 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       case ConditionalExpression()
           when identical(parent.thenExpression, node) ||
               identical(parent.elseExpression, node):
+        return _contextType(parent);
+
+      // Head of a selector chain: `node.method(...)`, `node.getter`,
+      // `node[index]`, `node!`. A dot-shorthand head resolves against the
+      // context type of the whole chain, so climb to the enclosing selector and
+      // take its context. Recursion carries it up an arbitrarily long chain to
+      // wherever it ends. The per-edit checks still require the head's own
+      // referenced type to equal that context, so a selector that changes the
+      // type (`int.parse(s).toDouble()` in a `num` context) blocks the collapse.
+      case MethodInvocation() when identical(parent.target, node):
+        return _contextType(parent);
+      case PropertyAccess() when identical(parent.target, node):
+        return _contextType(parent);
+      case IndexExpression() when identical(parent.target, node):
+        return _contextType(parent);
+      case PostfixExpression()
+          when parent.operator.lexeme == '!' && identical(parent.operand, node):
         return _contextType(parent);
 
       // `pattern => node` in a switch expression: takes the switch's context.

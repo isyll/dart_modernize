@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+- Dot shorthands now collapse the head of a selector chain, not just a
+  standalone expression. When the whole chain's context type names the head's
+  type, the leading `TypeName` is dropped and the trailing selectors are kept:
+  `expiry.difference(DateTime.now().toUtc())` becomes
+  `expiry.difference(.now().toUtc())`, `DateTime.tryParse(s)?.toUtc()` becomes
+  `.tryParse(s)?.toUtc()`, and `Color.values.first` becomes `.values.first`. The
+  context flows up through `.method(...)`, `.getter`, `[index]`, and `!`
+  selectors to wherever the chain sits (argument, return, `switch` case, and
+  every other position already supported). The head is left qualified when its
+  referenced type differs from the chain's context (`int.parse(s).toDouble()` in
+  a `num` context) or when the position has no context type (the left of `==`).
+
 ## 0.5.0
 
 - Select transformations by naming them as positional arguments and drop the
