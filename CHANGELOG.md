@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0
+
+- Dot shorthands now collapse two patterns common to service-locator and
+  dependency-injection code. An argument to a generic call fixed by an explicit
+  `<...>` gets a real context, so `sl.registerSingleton<CrashReporter>(reporter
+  ?? CrashReporter())` becomes `...(reporter ?? .new())`; and the body of a
+  factory closure takes its context from the function type the closure is
+  written against, so `sl.registerLazySingleton<ThemeCubit>(() =>
+  ThemeCubit(storage: sl()))` becomes `...(() => .new(storage: sl()))`. Both are
+  skipped when the type is still inferred from that very argument or closure (a
+  generic call with no explicit `<...>`, such as `xs.map((x) => Foo(x))`), since
+  collapsing would leave nothing to infer the type from.
+- `abstract-final-classes` now recognizes a dot-shorthand `.new(...)` /
+  `.named(...)` as instantiating its class, so a class the dot-shorthands pass
+  reduced to `.new()` is no longer mislabelled `abstract final` (which would
+  have made that `.new()` construct an abstract class).
+
 ## 0.6.3
 
 - Dot shorthands now collapse a static member or enum value reached through an

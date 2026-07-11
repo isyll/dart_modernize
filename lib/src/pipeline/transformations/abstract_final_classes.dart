@@ -205,6 +205,18 @@ class _UsageCollector extends RecursiveAstVisitor<void> {
   }
 
   @override
+  void visitDotShorthandConstructorInvocation(
+    DotShorthandConstructorInvocation node,
+  ) {
+    // `.new(...)` / `.named(...)` construct an instance just like a written
+    // `TypeName(...)`; the dot-shorthands pass may have produced them, so a
+    // class reached only this way must still count as instantiated.
+    final type = node.staticType;
+    if (type is InterfaceType) usedClasses.add(type.element);
+    super.visitDotShorthandConstructorInvocation(node);
+  }
+
+  @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
     final type = node.staticType;
     if (type is InterfaceType) usedClasses.add(type.element);

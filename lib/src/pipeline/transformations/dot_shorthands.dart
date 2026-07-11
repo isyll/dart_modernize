@@ -45,6 +45,16 @@ import '../transformation.dart';
 /// still require the head's own referenced type to equal that context, so an
 /// intermediate selector that changes the type blocks the collapse.
 ///
+/// A generic call fixes its type variables from an explicit `<...>` rather than
+/// its arguments, so an argument typed by such a variable then has a real
+/// context: `sl.registerSingleton<Foo>(Foo())` collapses to
+/// `sl.registerSingleton<Foo>(.new())`. The body of a factory closure likewise
+/// takes its context from the function type the closure is written against, so
+/// `sl.registerLazySingleton<Foo>(() => Foo(dep: sl()))` becomes
+/// `...(() => .new(dep: sl()))`. Both are skipped when the type variable is
+/// still inferred from that very argument or closure (no explicit `<...>`),
+/// since collapsing would erase the only thing the type could be inferred from.
+///
 /// Record literals are supported too. A positional field takes its context from
 /// the matching positional field of the record's own context type, and a named
 /// field from the same-named field. When a list of records has no element type
@@ -432,8 +442,11 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   /// The value type a `return e;` or `=> e` produces in the enclosing function.
   ///
   /// For a sync function it is the declared return type. For an `async` function
-  /// it is `T` from a `Future<T>` return type. Generators and closures (whose
-  /// return type is inferred) have no usable context, so they give null.
+  /// it is `T` from a `Future<T>` return type. A closure has no declared return
+  /// type, so its context comes from the function type it is written against
+  /// (e.g. the `T Function()` a factory argument expects), unless that return
+  /// type is a type variable the enclosing call still infers from this very
+  /// closure (see [_closureReturnInfersTypeArgument]). Generators give null.
   DartType? _enclosingReturnType(AstNode from) {
     AstNode? current = from;
     while (current != null && current is! FunctionBody) {
@@ -446,9 +459,16 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     final DartType? declared;
     if (owner is MethodDeclaration) {
       declared = owner.returnType?.type;
-    } else if (owner is FunctionExpression &&
-        owner.parent is FunctionDeclaration) {
-      declared = (owner.parent as FunctionDeclaration).returnType?.type;
+    } else if (owner is FunctionExpression) {
+      final grandparent = owner.parent;
+      if (grandparent is FunctionDeclaration) {
+        declared = grandparent.returnType?.type;
+      } else if (_closureReturnInfersTypeArgument(owner)) {
+        declared = null;
+      } else {
+        final contextType = _contextType(owner);
+        declared = contextType is FunctionType ? contextType.returnType : null;
+      }
     } else {
       declared = null;
     }
@@ -462,6 +482,76 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
           : null;
     }
     return declared;
+  }
+
+  /// Whether [closure]'s return type is still inferred *from* this closure by
+  /// the call it is an argument to: a generic call with no explicit `<...>`
+  /// whose factory parameter returns a type variable. In
+  /// `sl.registerLazySingleton<Foo>(() => Foo())` the `<Foo>` pins the return
+  /// type, so the body collapses safely; in `xs.map((x) => Foo(x))` the element
+  /// type is inferred from the closure, so collapsing `Foo(x)` to `.new(x)`
+  /// would leave nothing to infer it from.
+  ///
+  /// The check is deliberately identity-free (it does not match the specific
+  /// type variable against the invoked element, whose views differ for methods
+  /// that mix method and class type variables such as `Iterable.map`). Any type
+  /// variable in the factory's own return type, with no explicit `<...>`, is
+  /// treated as inferred-from-here; a receiver-fixed class variable is thus
+  /// skipped too, which is conservative but never unsafe.
+  bool _closureReturnInfersTypeArgument(FunctionExpression closure) {
+    final parent = closure.parent;
+    final Argument argument;
+    if (parent is ArgumentList) {
+      argument = closure;
+    } else if (parent is NamedArgument &&
+        identical(parent.argumentExpression, closure)) {
+      argument = parent;
+    } else {
+      return false;
+    }
+
+    final argumentList = argument.parent;
+    if (argumentList is! ArgumentList) return false;
+
+    // Explicit `<...>` pins the type variables, so the closure body is safe.
+    final invocation = argumentList.parent;
+    final explicitTypeArguments = switch (invocation) {
+      MethodInvocation() => invocation.typeArguments != null,
+      InstanceCreationExpression() =>
+        invocation.constructorName.type.typeArguments != null,
+      _ => false,
+    };
+    if (explicitTypeArguments) return false;
+
+    // No explicit `<...>`: if the factory parameter's own return type mentions
+    // a type variable, the call infers it from this closure, so leave the body.
+    final baseType = argument.correspondingParameter?.baseElement.type;
+    return baseType is FunctionType &&
+        _typeContainsTypeParameter(baseType.returnType);
+  }
+
+  /// Whether [type] is, or structurally contains, a type parameter. Descends
+  /// interface type arguments, function return/parameter types, and record
+  /// fields; a type parameter is a leaf (its bound is not followed), so this
+  /// always terminates.
+  bool _typeContainsTypeParameter(DartType type) {
+    if (type is TypeParameterType) return true;
+    if (type is InterfaceType) {
+      return type.typeArguments.any(_typeContainsTypeParameter);
+    }
+    if (type is FunctionType) {
+      if (_typeContainsTypeParameter(type.returnType)) return true;
+      return type.formalParameters.any(
+        (p) => _typeContainsTypeParameter(p.type),
+      );
+    }
+    if (type is RecordType) {
+      return type.positionalFields.any(
+            (f) => _typeContainsTypeParameter(f.type),
+          ) ||
+          type.namedFields.any((f) => _typeContainsTypeParameter(f.type));
+    }
+    return false;
   }
 
   /// The element type a `yield e;` produces: `T` from the enclosing generator's
@@ -495,20 +585,24 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return matches ? declared.typeArguments.first : null;
   }
 
-  /// Type parameters of the generic element being invoked at [argument]'s call.
+  /// Type parameters of the generic element being invoked at [argument]'s call
+  /// that are still solved *from* the arguments, i.e. only when the call has no
+  /// explicit `<...>`. With explicit type arguments the variables are already
+  /// fixed, so a parameter typed by one offers a real downward context and its
+  /// argument is safe to collapse.
   List<TypeParameterElement> _invokedTypeParameters(Argument argument) {
     final argumentList = argument.parent;
     if (argumentList is! ArgumentList) return const [];
     final invocation = argumentList.parent;
-    if (invocation is MethodInvocation) {
+    // A generic method with no explicit `<...>` infers its type arguments from
+    // its own arguments, so a parameter typed by one of those variables offers
+    // no downward context (collapsing it would erase the only thing the type
+    // could be inferred from). With explicit `<...>` the type is fixed.
+    if (invocation is MethodInvocation && invocation.typeArguments == null) {
       final element = invocation.methodName.element;
       if (element is ExecutableElement) return element.typeParameters;
     }
-    // A constructor with no explicit `<...>` infers the class's type arguments
-    // from its own arguments, so a parameter typed by one of those type
-    // variables offers no downward context (collapsing it would erase the only
-    // thing the type could be inferred from). With explicit `<...>` the type is
-    // fixed, so the arguments are safe to collapse.
+    // The same reasoning for a constructor invoked without explicit `<...>`.
     if (invocation is InstanceCreationExpression &&
         invocation.constructorName.type.typeArguments == null) {
       final cls = invocation.constructorName.element?.enclosingElement;

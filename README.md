@@ -186,7 +186,7 @@ Each pass is shown as a minimal before/after, paired with the safety rule that d
 
 Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions, assignments, equality checks, collection elements, and the head of a selector chain.
+**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions, assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, and factory closures.
 
 ```dart
 // before
@@ -217,6 +217,22 @@ Duration remaining(DateTime expiry) => expiry.difference(.now().toUtc());
 DateTime? parse(String s) => .tryParse(s)?.toUtc();
 Color first() => .values.first;
 ```
+
+A generic call pins its type from an explicit `<...>` rather than its arguments, so the argument then has a context, and a factory closure takes its context from the function type it is written against. Together these collapse the common service-locator / dependency-injection pattern:
+
+```dart
+// before
+sl
+  ..registerSingleton<CrashReporter>(crashReporter ?? CrashReporter())
+  ..registerLazySingleton<ThemeCubit>(() => ThemeCubit(storage: sl()));
+
+// after
+sl
+  ..registerSingleton<CrashReporter>(crashReporter ?? .new())
+  ..registerLazySingleton<ThemeCubit>(() => .new(storage: sl()));
+```
+
+Both are skipped when the type is still inferred from that very argument or closure (no explicit `<...>`), since collapsing would leave nothing to infer it from.
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 
