@@ -186,7 +186,7 @@ Each pass is shown as a minimal before/after, paired with the safety rule that d
 
 Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions, assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, and factory closures.
+**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions (including a factory constructor's), assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, and factory closures.
 
 ```dart
 // before
@@ -233,6 +233,20 @@ sl
 ```
 
 Both are skipped when the type is still inferred from that very argument or closure (no explicit `<...>`), since collapsing would leave nothing to infer it from.
+
+A factory constructor's body returns the class's own type, so a `return` (or `=>`) that builds it collapses too:
+
+```dart
+// before
+factory AuthTokens.fromJson(Map<String, dynamic> json) {
+  return AuthTokens(token: json['token'] as String);
+}
+
+// after
+factory AuthTokens.fromJson(Map<String, dynamic> json) {
+  return .new(token: json['token'] as String);
+}
+```
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1
+
+- Dot shorthands now collapse inside a factory constructor's body. A `return`
+  or `=>` that builds the class becomes a shorthand, so
+  `factory AuthTokens.fromJson(...) { return AuthTokens(...); }` becomes
+  `... { return .new(...); }`. The context is the constructor's own class type,
+  matching the handling of function, method, and getter returns; a factory that
+  returns a subtype is left qualified, since `.new()` would build the wrong type.
+
 ## 0.7.0
 
 - Dot shorthands now collapse two patterns common to service-locator and

@@ -24,10 +24,11 @@ import '../transformation.dart';
 /// to exactly the same type whose member/constructor is referenced, so that
 /// `.member` resolves to the identical element and the static type is
 /// unchanged. The context type is derived position by position (typed variable
-/// or field, default parameter value, plain assignment target, return type,
-/// `yield` in a generator, argument slot, collection element, record field,
-/// equality right-hand side, either operand of `??`, switch case, switch
-/// pattern). Wherever the context type cannot be derived precisely, with `var`,
+/// or field, default parameter value, plain assignment target, return type
+/// including a factory constructor's, `yield` in a generator, argument slot,
+/// collection element, record field, equality right-hand side, either operand
+/// of `??`, switch case, switch pattern). Wherever the context type cannot be
+/// derived precisely, with `var`,
 /// `dynamic`, `Object`, an inferred type variable, a supertype, or the left of
 /// `==`, the code is left untouched.
 ///
@@ -442,11 +443,12 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   /// The value type a `return e;` or `=> e` produces in the enclosing function.
   ///
   /// For a sync function it is the declared return type. For an `async` function
-  /// it is `T` from a `Future<T>` return type. A closure has no declared return
-  /// type, so its context comes from the function type it is written against
-  /// (e.g. the `T Function()` a factory argument expects), unless that return
-  /// type is a type variable the enclosing call still infers from this very
-  /// closure (see [_closureReturnInfersTypeArgument]). Generators give null.
+  /// it is `T` from a `Future<T>` return type. For a factory constructor it is
+  /// the class's own type. A closure has no declared return type, so its context
+  /// comes from the function type it is written against (e.g. the `T Function()`
+  /// a factory argument expects), unless that return type is a type variable the
+  /// enclosing call still infers from this very closure (see
+  /// [_closureReturnInfersTypeArgument]). Generators give null.
   DartType? _enclosingReturnType(AstNode from) {
     AstNode? current = from;
     while (current != null && current is! FunctionBody) {
@@ -469,6 +471,12 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
         final contextType = _contextType(owner);
         declared = contextType is FunctionType ? contextType.returnType : null;
       }
+    } else if (owner is ConstructorDeclaration &&
+        owner.factoryKeyword != null) {
+      // A factory constructor's `return e;` / `=> e` produces the class's own
+      // type (the constructor's return type). Generative constructors cannot
+      // return a value, so only factories reach here.
+      declared = owner.declaredFragment?.element.returnType;
     } else {
       declared = null;
     }
