@@ -822,11 +822,13 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// `TypeName.staticField` / `EnumName.value` → `.staticField` / `.value`.
+  ///
+  /// A generic owner (`Foo<T>.staticField`) is fine: a static member never uses
+  /// the class type arguments, and the collapse resolves against the context
+  /// type's element, which the check below pins to the same class.
   SourceEdit? _staticMemberEdit(PrefixedIdentifier node, DartType context) {
     final prefix = node.prefix.element;
-    if (prefix is! InterfaceElement || prefix.typeParameters.isNotEmpty) {
-      return null;
-    }
+    if (prefix is! InterfaceElement) return null;
 
     final member = node.identifier.element;
     if (!_isStaticMember(member)) return null;
@@ -853,9 +855,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     if (target.prefix.element is! PrefixElement) return null;
 
     final type = target.identifier.element;
-    if (type is! InterfaceElement || type.typeParameters.isNotEmpty) {
-      return null;
-    }
+    if (type is! InterfaceElement) return null;
 
     final member = node.propertyName.element;
     if (!_isStaticMember(member)) return null;
@@ -866,12 +866,18 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// `TypeName.staticMethod(...)` → `.staticMethod(...)`.
+  ///
+  /// A generic owner (`WidgetStateProperty.resolveWith(...)`) is fine: a static
+  /// method never uses the class type arguments, and the collapse resolves
+  /// against the context type's element, which the check below pins to the same
+  /// class. The method's own type variables are still inferred from the same
+  /// arguments and downward context as before.
   SourceEdit? _staticMethodEdit(MethodInvocation node, DartType context) {
     final target = node.target;
     if (target == null) return null;
 
     final targetType = _typeReference(target);
-    if (targetType == null || targetType.typeParameters.isNotEmpty) return null;
+    if (targetType == null) return null;
 
     final method = node.methodName.element;
     if (method is! MethodElement || !method.isStatic) return null;

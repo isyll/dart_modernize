@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.3
+
+- Dot shorthands now collapse a static member or method on a **generic** class.
+  `WidgetStateProperty.resolveWith(...)` in a `WidgetStateProperty<Color?>?`
+  context becomes `.resolveWith(...)`, and a static getter such as
+  `WidgetStateProperty.none` becomes `.none`. A static member never uses the
+  class's type arguments, so the collapse resolves against the same element the
+  context type already names; previously every generic-owner static was left
+  qualified.
+
 ## 0.7.2
 
 - Dot shorthands now collapse a constant inside an object or record pattern
