@@ -186,7 +186,7 @@ Each pass is shown as a minimal before/after, paired with the safety rule that d
 
 Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions (including a factory constructor's), assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, and factory closures.
+**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions (including a factory constructor's), assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, factory closures, and object/record pattern fields.
 
 ```dart
 // before
@@ -246,6 +246,22 @@ factory AuthTokens.fromJson(Map<String, dynamic> json) {
 factory AuthTokens.fromJson(Map<String, dynamic> json) {
   return .new(token: json['token'] as String);
 }
+```
+
+A constant inside an object or record pattern field matches that field, so it collapses against the field's type:
+
+```dart
+// before
+final label = switch (exception) {
+  NetworkException(kind: NetworkFailureKind.timeout) => 'timed out',
+  _ => 'unknown',
+};
+
+// after
+final label = switch (exception) {
+  NetworkException(kind: .timeout) => 'timed out',
+  _ => 'unknown',
+};
 ```
 
 In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:

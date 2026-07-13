@@ -27,10 +27,10 @@ import '../transformation.dart';
 /// or field, default parameter value, plain assignment target, return type
 /// including a factory constructor's, `yield` in a generator, argument slot,
 /// collection element, record field, equality right-hand side, either operand
-/// of `??`, switch case, switch pattern). Wherever the context type cannot be
-/// derived precisely, with `var`,
-/// `dynamic`, `Object`, an inferred type variable, a supertype, or the left of
-/// `==`, the code is left untouched.
+/// of `??`, switch case, switch pattern, object/record pattern field). Wherever
+/// the context type cannot be derived precisely, with `var`, `dynamic`,
+/// `Object`, an inferred type variable, a supertype, or the left of `==`, the
+/// code is left untouched.
 ///
 /// The head of a selector chain is collapsed too. In `DateTime.now().toUtc()`
 /// or `DateTime.tryParse(s)?.toUtc()` the dot-shorthand head resolves against
@@ -706,12 +706,15 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// The matched value's type for a constant pattern in a `switch`, whether the
-  /// pattern is a `case <pattern>:` in a switch statement or a `<pattern> =>`
-  /// arm in a switch expression. Either way the matched value is the scrutinee.
+  /// The matched value's type for a constant pattern in a `switch`. A constant
+  /// that is a *field* of an object or record pattern
+  /// (`NetworkException(kind: NetworkFailureKind.timeout)`) matches that field,
+  /// so its context is the field's type. Otherwise the constant matches the
+  /// scrutinee directly, whether in a `case <pattern>:` statement or a
+  /// `<pattern> =>` expression arm.
   ///
   /// Walks up through `||`/`&&` and parentheses so a constant inside a combined
-  /// pattern (`A || B`) is matched against the scrutinee too.
+  /// pattern (`A || B`) resolves against the same target as the whole pattern.
   DartType? _patternMatchedType(ConstantPattern pattern) {
     var node = pattern.parent;
     while (node is LogicalOrPattern ||
@@ -719,6 +722,8 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
         node is ParenthesizedPattern) {
       node = node!.parent;
     }
+
+    if (node is PatternField) return _patternFieldType(node);
     if (node is! GuardedPattern) return null;
 
     final caseNode = node.parent;
@@ -736,6 +741,13 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     }
     return null;
   }
+
+  /// The type a [field] of an object or record pattern matches against: the
+  /// static type of the value destructured into that field. This is the
+  /// getter's type for an object pattern and the field type for a record
+  /// pattern, computed uniformly from the field sub-pattern's matched value.
+  DartType? _patternFieldType(PatternField field) =>
+      field.pattern.matchedValueType;
 
   /// Context type for the field of [record] whose value expression is [node]:
   /// the matching field of the record's own (precise) context type. Positional
@@ -786,11 +798,17 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// Whether [context] and [written] denote the same type: the same interface
-  /// type (same element and type arguments, ignoring nullability), or the same
-  /// record type (see [_sameRecordType]).
+  /// type (same element and type arguments, ignoring nullability), the same
+  /// record type (see [_sameRecordType]), or the same type variable. The type
+  /// variable case matters inside a generic member, where both the context and
+  /// the written type refer to the enclosing `<T>` (e.g. `Result<T>` returned
+  /// from a `Future<Result<T>>` method); without it those never match.
   bool _sameType(DartType context, DartType written) {
     if (context is RecordType && written is RecordType) {
       return _sameRecordType(context, written);
+    }
+    if (context is TypeParameterType && written is TypeParameterType) {
+      return context.element == written.element;
     }
     if (context is! InterfaceType || written is! InterfaceType) return false;
     if (context.element != written.element) return false;

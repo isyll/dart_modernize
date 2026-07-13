@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.2
+
+- Dot shorthands now collapse a constant inside an object or record pattern
+  field, matching it against the field's type:
+  `NetworkException(kind: NetworkFailureKind.timeout)` becomes
+  `NetworkException(kind: .timeout)`. Previously only a constant matched against
+  the whole scrutinee collapsed.
+- Dot shorthands now collapse a return whose type is the enclosing generic
+  member's own type variable. Inside `Future<Result<T>> guarded<T>(...)`,
+  `return Result.success(...)` becomes `return .success(...)`. The type-equality
+  check treated `Result<T>` (context) and `Result<T>` (written) as different
+  because both mention the type variable `T`, so such returns never collapsed.
+
 ## 0.7.1
 
 - Dot shorthands now collapse inside a factory constructor's body. A `return`
