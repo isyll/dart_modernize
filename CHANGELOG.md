@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0
+
+- Generated files that use a plain name are no longer rewritten. Two signals are
+  now recognized beyond the known suffixes: `flutter gen-l10n` output declared in
+  `l10n.yaml` (`output-dir` / `output-localization-file`, or the default
+  `lib/l10n/app_localizations.dart` and its per-locale siblings), and a
+  generated-code marker (`GENERATED CODE - DO NOT MODIFY`, `DO NOT EDIT`,
+  `AUTO-GENERATED`) in a file's leading comment block. Previously these were
+  edited and the changes were thrown away on the next build.
+
 ## 0.7.4
 
 - Bump analyzer from 14.0.0 to 14.1.0.

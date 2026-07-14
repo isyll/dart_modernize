@@ -691,7 +691,7 @@ Run `dart_modernize --help` for the same reference, always current.
 
 ## 🚫 Excluding files
 
-The tool skips files in three ways, checked in order.
+The tool skips files in four ways, checked in order.
 
 **Built-in**: always excluded, no configuration required.
 
@@ -700,6 +700,9 @@ The tool skips files in three ways, checked in order.
 | `*.g.dart`, `*.freezed.dart`, `*.gen.dart` | Code-generation outputs |
 | `*.gr.dart`, `*.pb.dart`, `*.pbenum.dart` | Router and protobuf outputs |
 | `build/**` | Build directory |
+| leading `// GENERATED CODE - DO NOT MODIFY`, `// DO NOT EDIT`, `// AUTO-GENERATED` | Generated code that uses a plain file name (e.g. some `build_runner` outputs). The marker is only honored in the file's leading comment block. |
+
+**`l10n.yaml`**: honored automatically. When a project declares one, the `flutter gen-l10n` output it points at (`output-dir` and `output-localization-file`, defaulting to `lib/l10n/app_localizations.dart`) and every per-locale sibling (`app_localizations_fr.dart`, …) are skipped, since they are regenerated on the next build. Without an `l10n.yaml`, a hand-written `app_localizations.dart` is treated like any other source.
 
 **`analysis_options.yaml`**: honored automatically. Any pattern listed under `analyzer: exclude:` is picked up without any extra flags:
 
@@ -746,7 +749,7 @@ Re-running is safe: the first run does all the work and later runs change nothin
 ## 🛡️ Safety
 
 * 🔍 **Dry run first.** Produces a full diff before touching any file.
-* 🚫 **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs.
+* 🚫 **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs, `flutter gen-l10n` localization files, and any file carrying a `DO NOT EDIT` header.
 * ⚖️ **Refuses ambiguity.** Will not apply a shorthand when the context type is too imprecise to guarantee an identical result.
 * 🔁 **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
 * ✅ **Type-checked edits.** Every rewrite is computed from fully resolved types, so the targeted element and the static type stay identical.
