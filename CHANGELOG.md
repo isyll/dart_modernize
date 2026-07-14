@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.4
+
+- Bump analyzer from 14.0.0 to 14.1.0.
+
 ## 0.7.3
 
 - Dot shorthands now collapse a static member or method on a **generic** class.
