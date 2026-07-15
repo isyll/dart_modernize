@@ -2,7 +2,7 @@
 
 ## 0.8.0
 
-* [#18](https://github.com/isyll/dart_modernize/pull/18) Generated files that use a plain name are no longer rewritten: `flutter gen-l10n` output declared in `l10n.yaml` and files carrying a `GENERATED CODE - DO NOT MODIFY` / `DO NOT EDIT` / `AUTO-GENERATED` header are now skipped.
+* [#18](https://github.com/isyll/dart_modernize/pull/18) Skip generated files without a known suffix: `gen-l10n` output and files with a `DO NOT EDIT` header.
 
 ## 0.7.4
 
