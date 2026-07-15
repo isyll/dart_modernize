@@ -2,13 +2,7 @@
 
 ## 0.8.0
 
-- Generated files that use a plain name are no longer rewritten. Two signals are
-  now recognized beyond the known suffixes: `flutter gen-l10n` output declared in
-  `l10n.yaml` (`output-dir` / `output-localization-file`, or the default
-  `lib/l10n/app_localizations.dart` and its per-locale siblings), and a
-  generated-code marker (`GENERATED CODE - DO NOT MODIFY`, `DO NOT EDIT`,
-  `AUTO-GENERATED`) in a file's leading comment block. Previously these were
-  edited and the changes were thrown away on the next build.
+* [#18](https://github.com/isyll/dart_modernize/pull/18) Generated files that use a plain name are no longer rewritten: `flutter gen-l10n` output declared in `l10n.yaml` and files carrying a `GENERATED CODE - DO NOT MODIFY` / `DO NOT EDIT` / `AUTO-GENERATED` header are now skipped.
 
 ## 0.7.4
 
