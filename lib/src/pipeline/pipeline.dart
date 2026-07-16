@@ -137,6 +137,37 @@ final class ModernizePipeline {
     return result;
   }
 
+  /// Returns every `.dart` file under [projectPath] that `dart fix --apply`
+  /// can reach, regardless of `analyzer: exclude:` or `--exclude`.
+  ///
+  /// Only hidden directories and `build/` are pruned, for the same reason as
+  /// [_dartFiles]: `dart fix --apply` is given the project root, not a file
+  /// list, so it walks everything else itself. Filtering the result by
+  /// [FileFilter.shouldSkip] yields exactly the files that pass excludes but
+  /// `dart fix` would still see, which is what needs protecting from it.
+  List<String> _fixApplyScope(String projectPath) {
+    final result = <String>[];
+    final stack = <Directory>[.new(projectPath)];
+    while (stack.isNotEmpty) {
+      final List<FileSystemEntity> entries;
+      try {
+        entries = stack.removeLast().listSync(followLinks: false);
+      } on FileSystemException {
+        continue;
+      }
+      for (final entity in entries) {
+        if (entity is Directory) {
+          final name = p.basename(entity.path);
+          if (name.startsWith('.') || name == 'build') continue;
+          stack.add(entity);
+        } else if (entity is File && entity.path.endsWith('.dart')) {
+          result.add(entity.path);
+        }
+      }
+    }
+    return result;
+  }
+
   /// Runs `dart pub get` if the project has not yet been set up.
   ///
   /// `.dart_tool/package_config.json` is the marker that `pub get` has run;
@@ -176,12 +207,21 @@ final class ModernizePipeline {
     if (hasFixAll) {
       reporter.finalizingStep('dart fix --apply');
       await _ensurePubGet(projectPath);
+      // `dart fix --apply` takes the project root, not a file list, so it also
+      // sees files the rest of the pipeline excludes. Snapshot them first and
+      // restore any it touches, so an excluded file stays byte for byte
+      // identical.
+      final excluded = _fixApplyScope(
+        projectPath,
+      ).where(filter.shouldSkip).toList();
+      final excludedBefore = _snapshot(excluded);
       final before = _snapshot(files);
       await _runProcess(Platform.resolvedExecutable, [
         'fix',
         '--apply',
         projectPath,
       ]);
+      _restore(excludedBefore);
       final fixed = _changedSince(before);
       if (fixed.isNotEmpty) counts['fix-all'] = fixed.length;
       changedPaths.addAll(fixed);
@@ -568,6 +608,16 @@ final class ModernizePipeline {
   static Map<String, String> _snapshot(List<String> files) => {
     for (final f in files) f: File(f).readAsStringSync(),
   };
+
+  /// Rewrites any path in [snapshot] whose on-disk content no longer matches
+  /// back to its snapshotted content.
+  static void _restore(Map<String, String> snapshot) {
+    for (final entry in snapshot.entries) {
+      if (File(entry.key).readAsStringSync() != entry.value) {
+        File(entry.key).writeAsStringSync(entry.value);
+      }
+    }
+  }
 }
 
 /// Outcome of the finalize stage.
