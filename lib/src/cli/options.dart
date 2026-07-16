@@ -70,6 +70,13 @@ ArgParser buildArgParser() => .new()
     help: 'Additional glob patterns to exclude (can be repeated).',
     valueHelp: 'glob',
   )
+  ..addFlag(
+    'verify',
+    defaultsTo: true,
+    help:
+        'After editing, re-analyze the changed files and revert any that gain '
+        'a new error, then exit non-zero. --no-verify skips the extra analysis.',
+  )
   ..addSeparator(
     'Transformations (all run by default). Name one or more as positional '
     'arguments to run only those, e.g. `dart_modernize cascades '
@@ -215,6 +222,7 @@ final class CliOptions {
     required this.dryRun,
     required this.color,
     required this.verbose,
+    required this.verify,
     required this.excludes,
     required this.dotShorthands,
     required this.privateNamedParameters,
@@ -272,6 +280,7 @@ final class CliOptions {
       dryRun: results['dry-run'] as bool,
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,
+      verify: results['verify'] as bool,
       excludes: results['exclude'] as List<String>,
       dotShorthands: enabled('dot-shorthands'),
       privateNamedParameters: enabled('private-named-parameters'),
@@ -305,6 +314,10 @@ final class CliOptions {
 
   /// When true, emit per-file progress and passes that made no changes.
   final bool verbose;
+
+  /// When true, re-analyze changed files after editing and revert any that
+  /// gain a new error. Off with `--no-verify`.
+  final bool verify;
 
   /// Additional glob patterns supplied via `--exclude` flags.
   final List<String> excludes;

@@ -116,13 +116,23 @@ Directory createProject({
 ///
 /// [args] are CLI flags; the project path is appended automatically, so callers
 /// never pass it.
+///
+/// Verification (`--verify`, on by default in the tool) re-analyzes the whole
+/// project with `dart analyze` twice per run. That is orthogonal to what the
+/// behavioural suites assert (they pin transformation output and separately
+/// check analyze-cleanliness), and doubling the subprocess cost of every run
+/// would make the already subprocess-heavy suite far slower. So unless a caller
+/// opts in with `--verify`/`--no-verify`, this appends `--no-verify`. The
+/// verify feature has its own dedicated suite that opts back in.
 Future<CliResult> invokeCli(
   Directory project, {
   List<String> args = const [],
 }) async {
+  final hasVerifyFlag = args.any((a) => a == '--verify' || a == '--no-verify');
+  final effectiveArgs = hasVerifyFlag ? args : ['--no-verify', ...args];
   final result = await Process.run(
     Platform.resolvedExecutable, // the `dart` binary running these tests
-    ['run', _binPath, ...args, project.path],
+    ['run', _binPath, ...effectiveArgs, project.path],
     workingDirectory: _packageRoot,
     stdoutEncoding: systemEncoding,
     stderrEncoding: systemEncoding,

@@ -146,8 +146,30 @@ final class Reporter {
 
   void resolving() => _out(_dim('Resolving…'));
 
+  void verifying() => _out(_dim('Verifying…'));
+
   void unexpectedError(Object e) => _err(_errorText('Unexpected error: $e'));
   void validated() => _out(_bold('✓ Project validated.'));
+
+  /// Reports files that were reverted because re-analysis found a new error.
+  ///
+  /// [reverted] maps each project-relative path to the new error messages the
+  /// modernized file gained. Printed to stderr; the run then exits non-zero.
+  void verificationReverted(Map<String, List<String>> reverted) {
+    final noun = reverted.length == 1 ? 'file' : 'files';
+    _err(
+      _errorText(
+        'Reverted ${reverted.length} $noun that stopped compiling after '
+        'modernization:',
+      ),
+    );
+    for (final entry in reverted.entries) {
+      _err('  ${_bold(entry.key)}');
+      for (final message in entry.value) {
+        _err('    ${_red('-')} $message');
+      }
+    }
+  }
 
   void version(String v) => _out('${_bold('dart_modernize')} ${_dim(v)}');
 
