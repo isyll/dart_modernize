@@ -1,9 +1,5 @@
 # Changelog
 
-## 0.8.0
-
-* [#18](https://github.com/isyll/dart_modernize/pull/18) Skip generated files without a known suffix: `gen-l10n` output and files with a `DO NOT EDIT` header.
-
 ## 0.7.4
 
 - Bump analyzer from 14.0.0 to 14.1.0.
