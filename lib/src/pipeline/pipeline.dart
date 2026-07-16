@@ -13,6 +13,7 @@ import '../engine/file_filter.dart';
 import '../engine/import_organizer.dart';
 import '../engine/member_sorter.dart';
 import '../engine/source_edit.dart';
+import '../engine/text_shape.dart';
 import '../engine/unified_diff.dart';
 import '../modernize_exception.dart';
 import '../output/reporter.dart';
@@ -68,6 +69,14 @@ final class ModernizePipeline {
 
     final willChange = result.changedFiles.isNotEmpty || finalize.isNotEmpty;
 
+    // Record each scanned file's original line ending and BOM before anything
+    // is written, so the edits can be written back in the same shape. `dart
+    // format` (and older `dart fix`) would otherwise rewrite the whole file as
+    // LF with no BOM, turning a one-line edit into a whole-file diff.
+    final shapes = willChange
+        ? _captureShapes(filter)
+        : const <String, TextShape>{};
+
     // Capture the pre-edit error baseline before touching disk, so the verify
     // step can tell an error the run introduced from one that was already there.
     var baseline = const <String, List<String>>{};
@@ -89,16 +98,25 @@ final class ModernizePipeline {
 
     // 4. Verify: re-analyze and undo any changed file that gained an error, so
     //    a run can never leave a file on disk that no longer compiles.
+    var reverted = const <String, List<String>>{};
     if (options.verify && willChange) {
-      final reverted = await _verify(result, finalizeResult, baseline);
-      if (reverted.isNotEmpty) {
-        reporter.verificationReverted(reverted);
-        final noun = reverted.length == 1 ? 'file' : 'files';
-        throw ModernizeException(
-          'Reverted ${reverted.length} $noun that would no longer compile. '
-          'Re-run with --no-verify to keep the changes anyway.',
-        );
-      }
+      reverted = await _verify(result, finalizeResult, baseline);
+    }
+
+    // 5. Restore each scanned file's original line ending and BOM, undoing any
+    //    normalization the finalize step applied. Runs over every scanned file
+    //    (not just the reported changes) because `dart format` rewrites files
+    //    without the change tracker seeing a BOM-only difference, and after the
+    //    verify revert so a restored file matches its original byte for byte.
+    if (willChange) _restoreShapes(shapes);
+
+    if (reverted.isNotEmpty) {
+      reporter.verificationReverted(reverted);
+      final noun = reverted.length == 1 ? 'file' : 'files';
+      throw ModernizeException(
+        'Reverted ${reverted.length} $noun that would no longer compile. '
+        'Re-run with --no-verify to keep the changes anyway.',
+      );
     }
 
     _reportCompletion(result, finalizeResult);
@@ -367,6 +385,48 @@ final class ModernizePipeline {
     return result;
   }
 
+  /// Reads each non-excluded file's original line-ending and BOM shape from
+  /// disk, keyed by canonical path.
+  ///
+  /// Must run before anything is written. Covers every scanned file, not just
+  /// the ones about to change, because the finalize `dart format` step rewrites
+  /// them all and any of them can lose its shape.
+  Map<String, TextShape> _captureShapes(FileFilter filter) {
+    final shapes = <String, TextShape>{};
+    for (final path in _dartFiles(options.path, filter)) {
+      try {
+        shapes[p.canonicalize(path)] = TextShape.ofBytes(
+          File(path).readAsBytesSync(),
+        );
+      } on FileSystemException {
+        continue;
+      }
+    }
+    return shapes;
+  }
+
+  /// Rewrites each file in [shapes] back into its original line-ending and BOM
+  /// shape (or the forced [CliOptions.lineEndings] when not auto).
+  ///
+  /// In auto mode a plain-LF file needs no work, so it is skipped without a
+  /// read. Every other file is read, re-encoded, and written back only when the
+  /// bytes actually differ, so unchanged files keep their timestamp.
+  void _restoreShapes(Map<String, TextShape> shapes) {
+    final target = options.lineEndings;
+    for (final entry in shapes.entries) {
+      if (target == LineEndings.auto && entry.value.isPlainLf) continue;
+      final path = entry.key;
+      final String current;
+      try {
+        current = File(path).readAsStringSync();
+      } on FileSystemException {
+        continue;
+      }
+      final restored = entry.value.apply(current, target);
+      if (restored != current) File(path).writeAsStringSync(restored);
+    }
+  }
+
   /// Builds the per-pass, files-changed map in canonical display order, merging
   /// the structural passes with the finalize passes.
   Map<String, int> _passCounts(_TransformResult result, _FinalizeResult fin) {
@@ -551,7 +611,9 @@ final class ModernizePipeline {
       );
       if (newErrors.isEmpty) continue;
 
-      // Restore exactly what was on disk before the run.
+      // Restore the pre-run content. This is the analyzer's view (a leading
+      // BOM is stripped on read); the later _restoreShapes pass puts the
+      // original line ending and BOM back, so the file ends up byte identical.
       File(path).writeAsStringSync(result.originalContent[path]!);
       final rel = p.relative(path, from: options.path).replaceAll(r'\', '/');
       reverted[rel] = newErrors;

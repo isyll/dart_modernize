@@ -131,6 +131,7 @@ CliOptions _options({
   color: null,
   verbose: false,
   verify: verify,
+  lineEndings: LineEndings.auto,
   excludes: const [],
   dotShorthands: dotShorthands,
   privateNamedParameters: privateNamedParameters,

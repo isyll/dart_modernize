@@ -225,6 +225,14 @@ final class CliResult {
       File(p.join(project.path, relativePath)).existsSync();
 
   /// Reads back a file by its path relative to the project root.
+  ///
+  /// Decodes as UTF-8, which drops a leading BOM. Use [readBytes] when a test
+  /// needs to see the BOM or the exact line-ending bytes.
   String read(String relativePath) =>
       File(p.join(project.path, relativePath)).readAsStringSync();
+
+  /// Reads back a file's raw bytes, preserving any BOM and the exact line
+  /// endings, so byte-level details survive the round trip.
+  List<int> readBytes(String relativePath) =>
+      File(p.join(project.path, relativePath)).readAsBytesSync();
 }

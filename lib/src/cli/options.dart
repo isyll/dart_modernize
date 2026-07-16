@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
+import '../engine/text_shape.dart';
+
 /// The name of every transformation, in the order the parser lists them.
 ///
 /// This is the allow-list for positional transformation selection: naming one
@@ -76,6 +78,16 @@ ArgParser buildArgParser() => .new()
     help:
         'After editing, re-analyze the changed files and revert any that gain '
         'a new error, then exit non-zero. --no-verify skips the extra analysis.',
+  )
+  ..addOption(
+    'line-endings',
+    allowed: ['auto', 'lf', 'crlf'],
+    defaultsTo: 'auto',
+    valueHelp: 'auto|lf|crlf',
+    help:
+        "Line endings for files the tool rewrites. auto keeps each file's "
+        'existing endings (the default); lf or crlf forces one. A UTF-8 BOM is '
+        'always preserved.',
   )
   ..addSeparator(
     'Transformations (all run by default). Name one or more as positional '
@@ -223,6 +235,7 @@ final class CliOptions {
     required this.color,
     required this.verbose,
     required this.verify,
+    required this.lineEndings,
     required this.excludes,
     required this.dotShorthands,
     required this.privateNamedParameters,
@@ -281,6 +294,11 @@ final class CliOptions {
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,
       verify: results['verify'] as bool,
+      lineEndings: switch (results['line-endings'] as String) {
+        'lf' => LineEndings.lf,
+        'crlf' => LineEndings.crlf,
+        _ => LineEndings.auto,
+      },
       excludes: results['exclude'] as List<String>,
       dotShorthands: enabled('dot-shorthands'),
       privateNamedParameters: enabled('private-named-parameters'),
@@ -318,6 +336,10 @@ final class CliOptions {
   /// When true, re-analyze changed files after editing and revert any that
   /// gain a new error. Off with `--no-verify`.
   final bool verify;
+
+  /// How to write line endings back to edited files. Defaults to
+  /// [LineEndings.auto], which keeps each file's original ending and BOM.
+  final LineEndings lineEndings;
 
   /// Additional glob patterns supplied via `--exclude` flags.
   final List<String> excludes;

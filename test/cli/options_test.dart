@@ -132,6 +132,33 @@ void main() {
       expect(options.organizeImports, isTrue);
     });
 
+    test('line endings default to auto', () {
+      final options = CliOptions.fromResults(buildArgParser().parse([]));
+      expect(options.lineEndings, LineEndings.auto);
+    });
+
+    test('--line-endings=lf and =crlf are parsed', () {
+      expect(
+        CliOptions.fromResults(
+          buildArgParser().parse(['--line-endings=lf']),
+        ).lineEndings,
+        LineEndings.lf,
+      );
+      expect(
+        CliOptions.fromResults(
+          buildArgParser().parse(['--line-endings=crlf']),
+        ).lineEndings,
+        LineEndings.crlf,
+      );
+    });
+
+    test('an invalid --line-endings value throws FormatException', () {
+      expect(
+        () => buildArgParser().parse(['--line-endings=mac']),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('unknown flag throws FormatException', () {
       expect(
         () => buildArgParser().parse(['--not-a-flag']),
