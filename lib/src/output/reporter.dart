@@ -146,9 +146,8 @@ final class Reporter {
 
   void resolving() => _out(_dim('Resolving…'));
 
-  void verifying() => _out(_dim('Verifying…'));
-
   void unexpectedError(Object e) => _err(_errorText('Unexpected error: $e'));
+
   void validated() => _out(_bold('✓ Project validated.'));
 
   /// Reports files that were reverted because re-analysis found a new error.
@@ -170,6 +169,8 @@ final class Reporter {
       }
     }
   }
+
+  void verifying() => _out(_dim('Verifying…'));
 
   void version(String v) => _out('${_bold('dart_modernize')} ${_dim(v)}');
 

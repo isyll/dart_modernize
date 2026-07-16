@@ -43,7 +43,7 @@ Future<void> run(List<String> arguments) async {
 
   final CliOptions options;
   try {
-    options = CliOptions.fromResults(results);
+    options = .fromResults(results);
   } on FormatException catch (e) {
     earlyReporter
       ..error(e.message)
