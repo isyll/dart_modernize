@@ -45,6 +45,18 @@ void main() {
       expect(options.dryRun, isTrue);
     });
 
+    test('verify is enabled by default', () {
+      final options = CliOptions.fromResults(buildArgParser().parse([]));
+      expect(options.verify, isTrue);
+    });
+
+    test('--no-verify disables verification', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--no-verify']),
+      );
+      expect(options.verify, isFalse);
+    });
+
     test('--no-primary-constructors disables only that transformation', () {
       final options = CliOptions.fromResults(
         buildArgParser().parse(['--no-primary-constructors']),

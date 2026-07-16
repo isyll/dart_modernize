@@ -124,11 +124,13 @@ CliOptions _options({
   bool fixAll = true,
   bool abstractFinalClasses = true,
   bool preferInferredTypes = true,
+  bool verify = true,
 }) => .new(
   path: '.',
   dryRun: false,
   color: null,
   verbose: false,
+  verify: verify,
   excludes: const [],
   dotShorthands: dotShorthands,
   privateNamedParameters: privateNamedParameters,

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:analyzer/dart/analysis/utilities.dart';
@@ -65,6 +66,16 @@ final class ModernizePipeline {
       return;
     }
 
+    final willChange = result.changedFiles.isNotEmpty || finalize.isNotEmpty;
+
+    // Capture the pre-edit error baseline before touching disk, so the verify
+    // step can tell an error the run introduced from one that was already there.
+    var baseline = const <String, List<String>>{};
+    if (options.verify && willChange) {
+      await _ensurePubGet(options.path);
+      baseline = await _analyzeErrors();
+    }
+
     for (final path in result.changedFiles) {
       File(path).writeAsStringSync(result.finalContent[path]!);
     }
@@ -72,8 +83,22 @@ final class ModernizePipeline {
     // 3. Finalize: run when structural changes happened OR finalize passes are
     //    enabled (they can fire even if no structural edits were made).
     var finalizeResult = const _FinalizeResult(counts: {}, changedPaths: {});
-    if (result.changedFiles.isNotEmpty || finalize.isNotEmpty) {
+    if (willChange) {
       finalizeResult = await _finalize(finalize, filter);
+    }
+
+    // 4. Verify: re-analyze and undo any changed file that gained an error, so
+    //    a run can never leave a file on disk that no longer compiles.
+    if (options.verify && willChange) {
+      final reverted = await _verify(result, finalizeResult, baseline);
+      if (reverted.isNotEmpty) {
+        reporter.verificationReverted(reverted);
+        final noun = reverted.length == 1 ? 'file' : 'files';
+        throw ModernizeException(
+          'Reverted ${reverted.length} $noun that would no longer compile. '
+          'Re-run with --no-verify to keep the changes anyway.',
+        );
+      }
     }
 
     _reportCompletion(result, finalizeResult);
@@ -429,6 +454,69 @@ final class ModernizePipeline {
     );
   }
 
+  /// Re-analyzes the project and reverts any changed file that gained an error.
+  ///
+  /// Returns the reverted files as project-relative path -> the new error
+  /// signatures; empty when everything still compiles. Files that still compile
+  /// are left as edited. `dart analyze` is used (not the in-process analyzer) so
+  /// the verdict matches exactly what the user's SDK reports, including
+  /// experiment-gated syntax the in-process analyzer would accept.
+  Future<Map<String, List<String>>> _verify(
+    _TransformResult result,
+    _FinalizeResult finalize,
+    Map<String, List<String>> baseline,
+  ) async {
+    final changed = {...result.changedFiles, ...finalize.changedPaths};
+    if (changed.isEmpty) return const {};
+
+    reporter.verifying();
+    final current = await _analyzeErrors();
+    final reverted = <String, List<String>>{};
+
+    for (final path in changed) {
+      final key = p.canonicalize(path);
+      final newErrors = _newErrors(
+        baseline[key] ?? const [],
+        current[key] ?? const [],
+      );
+      if (newErrors.isEmpty) continue;
+
+      // Restore exactly what was on disk before the run.
+      File(path).writeAsStringSync(result.originalContent[path]!);
+      final rel = p.relative(path, from: options.path).replaceAll(r'\', '/');
+      reverted[rel] = newErrors;
+    }
+
+    return reverted;
+  }
+
+  /// Runs `dart analyze --format=machine` and returns the error-level
+  /// diagnostics keyed by canonicalized file path.
+  ///
+  /// Each value is a list of `code: message` signatures; line and column are
+  /// left out so an edit that only shifts an unrelated error's position is not
+  /// mistaken for a new error. `dart analyze` exits non-zero whenever it finds
+  /// issues, so its exit code is ignored and stdout is parsed instead.
+  Future<Map<String, List<String>>> _analyzeErrors() async {
+    final result = await Process.run(Platform.resolvedExecutable, [
+      'analyze',
+      '--format=machine',
+      options.path,
+    ], workingDirectory: options.path);
+
+    final errors = <String, List<String>>{};
+    for (final line in const LineSplitter().convert('${result.stdout}')) {
+      // SEVERITY|TYPE|CODE|FILE|LINE|COLUMN|LENGTH|MESSAGE, with \ | and
+      // newlines backslash-escaped inside fields.
+      final parts = line.split('|');
+      if (parts.length < 8 || parts[0] != 'ERROR') continue;
+      final file = p.canonicalize(_unescapeMachine(parts[3]));
+      final message = _unescapeMachine(parts.sublist(7).join('|'));
+      (errors[file] ??= <String>[]).add('${parts[2]}: $message');
+    }
+    return errors;
+  }
+
   /// Splits [items] into consecutive chunks of at most [size].
   static Iterable<List<T>> _batches<T>(List<T> items, int size) sync* {
     for (var i = 0; i < items.length; i += size) {
@@ -441,6 +529,40 @@ final class ModernizePipeline {
     for (final entry in before.entries)
       if (File(entry.key).readAsStringSync() != entry.value) entry.key,
   ];
+
+  /// The error signatures in [after] not present in [before].
+  ///
+  /// Matched as a multiset, so a pre-existing error is consumed once and only
+  /// genuinely new errors are returned.
+  static List<String> _newErrors(List<String> before, List<String> after) {
+    final remaining = [...before];
+    final added = <String>[];
+    for (final signature in after) {
+      final index = remaining.indexOf(signature);
+      if (index >= 0) {
+        remaining.removeAt(index);
+      } else {
+        added.add(signature);
+      }
+    }
+    return added;
+  }
+
+  /// Reverses `dart analyze --format=machine` field escaping, where a
+  /// backslash escapes the next character and an escaped `n` is a newline.
+  /// Recovers the original file paths and messages in one pass.
+  static String _unescapeMachine(String field) {
+    final buffer = StringBuffer();
+    for (var i = 0; i < field.length; i++) {
+      if (field[i] == '\\' && i + 1 < field.length) {
+        final next = field[++i];
+        buffer.write(next == 'n' ? '\n' : next);
+      } else {
+        buffer.write(field[i]);
+      }
+    }
+    return buffer.toString();
+  }
 
   /// Reads the current on-disk content of each path in [files].
   static Map<String, String> _snapshot(List<String> files) => {
