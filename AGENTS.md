@@ -92,6 +92,14 @@ milestone, bumps the version in all three places, commits to main, and pushes
 the `vX.Y.Z` tag, which hands off to `release.yml` for the pub.dev publish. It
 never publishes itself, so the manual tag path above still works unchanged.
 
+It refuses to release out of order or a version that is already done. The
+version must be strictly newer than the current one (the newest of the latest
+`vX.Y.Z` tag, the top `CHANGELOG` heading, and the pubspec version) and must be
+the lowest milestone still ahead of that baseline, so `0.9.0` ships before
+`0.10.0`. A later milestone stays blocked until the earlier one ships; once it
+does, release the next one with the workflow's manual `workflow_dispatch` (its
+issues are already closed, so no new close event fires on its own).
+
 This automation needs a `RELEASE_PAT` repository secret that can push to main
 and create tags. The default `GITHUB_TOKEN` cannot be used, because a push made
 with it does not start `ci.yml` or `release.yml`, so the release would stall.

@@ -8,6 +8,16 @@ name: Milestone release
 # overlap with release.yml, and pushing a tag by hand still works exactly as
 # before.
 #
+# Safety rules enforced before anything is written or pushed:
+#   1. The milestone must have zero open issues.
+#   2. The milestone title must be a X.Y.Z version.
+#   3. The version must be strictly newer than the current version, taken as the
+#      newest of: the latest vX.Y.Z tag, the top CHANGELOG heading, and the
+#      pubspec version. This blocks re-releasing a version that is already
+#      released, reached, or exceeded, and blocks going backwards.
+#   4. The version must be the lowest milestone that is still ahead of that
+#      baseline, so milestones release in order (0.9.0 before 0.10.0).
+#
 # The commit and the tag are pushed with the RELEASE_PAT secret, not the default
 # GITHUB_TOKEN. A push made with GITHUB_TOKEN does not start other workflows, so
 # without a PAT neither ci.yml (on the main commit) nor release.yml (on the tag)
@@ -18,16 +28,26 @@ name: Milestone release
 on:
   issues:
     types: [closed]
+  # Manual escape hatch: after an earlier milestone ships, use this to release
+  # the next one whose issues are already closed (an issue-close event will not
+  # fire again on its own). The same safety rules still apply.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Milestone version to release, e.g. 0.9.0 (all its issues must be closed)"
+        required: true
+        type: string
 
-# One release attempt per milestone at a time.
+# Serialize every release attempt so two milestones can never race. A queued
+# attempt re-checks the rules with fresh state when it runs.
 concurrency:
-  group: milestone-release-${{ github.event.issue.milestone.number }}
+  group: milestone-release
   cancel-in-progress: false
 
 jobs:
   release:
-    # Nothing to do for an issue that has no milestone.
-    if: github.event.issue.milestone != null
+    # Act only on a manual run or a closed issue that has a milestone.
+    if: github.event_name == 'workflow_dispatch' || github.event.issue.milestone != null
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -37,27 +57,86 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          ISSUE_MS_TITLE: ${{ github.event.issue.milestone.title }}
         run: |
           set -euo pipefail
-          number='${{ github.event.issue.milestone.number }}'
           repo='${{ github.repository }}'
-          ms=$(gh api "repos/$repo/milestones/$number")
-          title=$(jq -r '.title' <<<"$ms")
-          open=$(jq -r '.open_issues' <<<"$ms")
-          echo "Milestone '$title': $open open issue(s) left."
+
+          # gt A B: succeeds when semver A is strictly greater than semver B.
+          gt() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }
+          # vmax: highest semver among the arguments.
+          vmax() { printf '%s\n' "$@" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1; }
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            title="${INPUT_VERSION:-}"
+          else
+            title="${ISSUE_MS_TITLE:-}"
+          fi
+          echo "Target milestone: '${title:-<none>}'"
 
           go=true
-          if [ "$open" != "0" ]; then
-            echo "Some issues are still open; nothing to release yet."
+
+          if [ -z "$title" ]; then
+            echo "No milestone to act on."
             go=false
           fi
+
           if $go && ! grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' <<<"$title"; then
             echo "Milestone title '$title' is not a X.Y.Z version; skipping."
             go=false
           fi
-          if $go && gh api "repos/$repo/git/ref/tags/v$title" >/dev/null 2>&1; then
-            echo "Tag v$title already exists; this milestone was already released."
+
+          milestones='[]'
+          if $go; then
+            milestones=$(gh api "repos/$repo/milestones?state=all&per_page=100")
+          fi
+
+          # Rule 1: the milestone must exist and have no open issues left.
+          if $go; then
+            open=$(jq -r --arg t "$title" '[.[] | select(.title==$t)][0] | .open_issues // "missing"' <<<"$milestones")
+            if [ "$open" = "missing" ]; then
+              echo "No milestone titled '$title'; skipping."
+              go=false
+            elif [ "$open" != "0" ]; then
+              echo "Milestone '$title' still has $open open issue(s); nothing to release yet."
+              go=false
+            fi
+          fi
+
+          # Baseline: the newest version already released (a vX.Y.Z tag), written
+          # to the changelog, or set in pubspec. We never touch a version at or
+          # below it.
+          baseline="0.0.0"
+          if $go; then
+            maxTag=$(gh api "repos/$repo/tags?per_page=100" --jq '.[].name' \
+              | sed -n 's/^v//p' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+            changelog=$(gh api "repos/$repo/contents/CHANGELOG.md" -H "Accept: application/vnd.github.raw" 2>/dev/null || true)
+            maxHeader=$(printf '%s\n' "$changelog" | grep -Eo '^## [0-9]+\.[0-9]+\.[0-9]+' | sed 's/^## //' | sort -V | tail -1 || true)
+            pubspec=$(gh api "repos/$repo/contents/pubspec.yaml" -H "Accept: application/vnd.github.raw" 2>/dev/null || true)
+            pubspecVer=$(printf '%s\n' "$pubspec" | sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' | head -1 || true)
+            baseline=$(vmax "0.0.0" "${maxTag:-}" "${maxHeader:-}" "${pubspecVer:-}")
+            echo "latest tag='${maxTag:-none}', changelog top='${maxHeader:-none}', pubspec='${pubspecVer:-none}' -> baseline $baseline"
+          fi
+
+          # Rule 3: never release a version already released, reached, or exceeded.
+          if $go && ! gt "$title" "$baseline"; then
+            echo "Version $title is not newer than the current version $baseline; skipping (already released, reached, or exceeded)."
             go=false
+          fi
+
+          # Rule 4: release milestones in order. The target must be the lowest
+          # milestone version still ahead of the baseline.
+          if $go; then
+            next=$(jq -r '.[].title' <<<"$milestones" \
+              | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+              | while read -r v; do if gt "$v" "$baseline"; then echo "$v"; fi; done \
+              | sort -V | head -1 || true)
+            if [ "$title" != "$next" ]; then
+              echo "Milestone $next is older than $title and not released yet; release $next first. Skipping."
+              go=false
+            fi
           fi
 
           echo "go=$go" >> "$GITHUB_OUTPUT"
@@ -85,11 +164,12 @@ jobs:
         if: steps.gate.outputs.go == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.gate.outputs.version }}
         run: |
           set -euo pipefail
-          version='${{ steps.gate.outputs.version }}'
+          version="$VERSION"
 
-          # Idempotence: never add a section that is already there.
+          # Last-mile idempotence: never add a section that is already there.
           if grep -q "^## ${version}\$" CHANGELOG.md; then
             echo "CHANGELOG already has a ${version} section; nothing to do."
             exit 0
