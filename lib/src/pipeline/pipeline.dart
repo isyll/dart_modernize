@@ -333,14 +333,17 @@ final class ModernizePipeline {
     return .new(counts: counts, changedPaths: changedPaths);
   }
 
-  /// Returns every `.dart` file under [projectPath] that `dart fix --apply`
-  /// can reach, regardless of `analyzer: exclude:` or `--exclude`.
+  /// Every `.dart` file under [projectPath], excluded ones included, so the
+  /// caller can snapshot and later restore them.
   ///
-  /// Only hidden directories and `build/` are pruned, for the same reason as
-  /// [_dartFiles]: `dart fix --apply` is given the project root, not a file
-  /// list, so it walks everything else itself. Filtering the result by
-  /// [FileFilter.shouldSkip] yields exactly the files that pass excludes but
-  /// `dart fix` would still see, which is what needs protecting from it.
+  /// Unlike the other finalize steps, `dart fix --apply` is handed the project
+  /// root rather than a file list, so it reaches files the pipeline means to
+  /// skip. This walk therefore keeps the excluded files (the caller narrows the
+  /// result with [FileFilter.shouldSkip]) instead of dropping them the way
+  /// [_dartFiles] does. Hidden directories and `build/` are still pruned: they
+  /// hold tool state and regenerated output the tool never promises to
+  /// preserve, and a deep `build/` tree can exceed the Windows path limit
+  /// mid-walk.
   List<String> _fixApplyScope(String projectPath) {
     final result = <String>[];
     final stack = <Directory>[.new(projectPath)];
