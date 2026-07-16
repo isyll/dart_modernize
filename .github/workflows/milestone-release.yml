@@ -1,0 +1,148 @@
+name: Milestone release
+
+# When the last open issue of a milestone is closed, this workflow writes a
+# CHANGELOG section listing every issue in that milestone, bumps the version in
+# all three places, commits to main, and pushes a vX.Y.Z tag. The tag push is
+# what triggers release.yml, which does the actual pub.dev publish. This
+# workflow never publishes or creates a GitHub Release itself, so it does not
+# overlap with release.yml, and pushing a tag by hand still works exactly as
+# before.
+#
+# The commit and the tag are pushed with the RELEASE_PAT secret, not the default
+# GITHUB_TOKEN. A push made with GITHUB_TOKEN does not start other workflows, so
+# without a PAT neither ci.yml (on the main commit) nor release.yml (on the tag)
+# would run and the release would stall. RELEASE_PAT must be a token that can
+# push to main and create tags (a classic PAT with `repo`, or a fine-grained
+# token with contents:write).
+
+on:
+  issues:
+    types: [closed]
+
+# One release attempt per milestone at a time.
+concurrency:
+  group: milestone-release-${{ github.event.issue.milestone.number }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Nothing to do for an issue that has no milestone.
+    if: github.event.issue.milestone != null
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+    steps:
+      - name: Decide whether to release
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          number='${{ github.event.issue.milestone.number }}'
+          repo='${{ github.repository }}'
+          ms=$(gh api "repos/$repo/milestones/$number")
+          title=$(jq -r '.title' <<<"$ms")
+          open=$(jq -r '.open_issues' <<<"$ms")
+          echo "Milestone '$title': $open open issue(s) left."
+
+          go=true
+          if [ "$open" != "0" ]; then
+            echo "Some issues are still open; nothing to release yet."
+            go=false
+          fi
+          if $go && ! grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' <<<"$title"; then
+            echo "Milestone title '$title' is not a X.Y.Z version; skipping."
+            go=false
+          fi
+          if $go && gh api "repos/$repo/git/ref/tags/v$title" >/dev/null 2>&1; then
+            echo "Tag v$title already exists; this milestone was already released."
+            go=false
+          fi
+
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+          echo "version=$title" >> "$GITHUB_OUTPUT"
+
+      - name: Require release token
+        if: steps.gate.outputs.go == 'true'
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if [ -z "${RELEASE_PAT:-}" ]; then
+            echo "::error::RELEASE_PAT secret is not set. It is required so the pushed commit and tag trigger ci.yml and release.yml."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.go == 'true'
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - name: Write changelog, bump versions, commit and tag
+        if: steps.gate.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version='${{ steps.gate.outputs.version }}'
+
+          # Idempotence: never add a section that is already there.
+          if grep -q "^## ${version}\$" CHANGELOG.md; then
+            echo "CHANGELOG already has a ${version} section; nothing to do."
+            exit 0
+          fi
+
+          # gh issue list returns issues only (no pull requests). Keep the ones
+          # that were actually completed, oldest number first, and strip a
+          # leading "[Type]: " so the entries read cleanly.
+          gh issue list --milestone "$version" --state closed --limit 500 \
+            --json number,title,url,stateReason \
+            --jq 'sort_by(.number)
+                  | map(select(.stateReason != "NOT_PLANNED"))
+                  | .[]
+                  | "* [#\(.number)](\(.url)) " + (.title | sub("^\\[.*?\\]:\\s*"; ""))' \
+            > section_body.txt
+
+          if [ ! -s section_body.txt ]; then
+            echo "No completed issues found for milestone ${version}; nothing to release."
+            exit 0
+          fi
+
+          {
+            echo "## ${version}"
+            echo
+            cat section_body.txt
+          } > section.md
+
+          echo "----- new CHANGELOG section -----"
+          cat section.md
+          echo "---------------------------------"
+
+          # Insert the new section right after the "# Changelog" title so the
+          # newest version stays on top, matching the existing file.
+          awk '
+            NR==FNR { sec = sec $0 ORS; next }
+            { print }
+            /^# Changelog$/ && !done { printf "%s", ORS sec; done=1 }
+          ' section.md CHANGELOG.md > CHANGELOG.new
+          mv CHANGELOG.new CHANGELOG.md
+
+          # Keep the version identical in all three places.
+          sed -i -E "s/^version: .*/version: ${version}/" pubspec.yaml
+          sed -i -E "s/^const _version = '.*';/const _version = '${version}';/" lib/src/runner.dart
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md pubspec.yaml lib/src/runner.dart
+          git commit -m "release ${version}"
+
+          # Land on top of whatever else reached main since checkout, then push
+          # the commit and the tag. Both pushes use RELEASE_PAT (persisted by
+          # checkout), so ci.yml and release.yml both start.
+          git pull --rebase origin main
+          git push origin HEAD:main
+          git tag "v${version}"
+          git push origin "v${version}"

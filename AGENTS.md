@@ -84,3 +84,14 @@ enforces this, so it is easy to miss):
 
 Then commit, tag `vX.Y.Z`, and push the branch before the tag so CI is already
 running when the release workflow starts polling.
+
+There is also an automated path. `.github/workflows/milestone-release.yml` runs
+when the last open issue of a milestone is closed. It writes a `## X.Y.Z`
+section (the milestone title is the version) listing every issue in that
+milestone, bumps the version in all three places, commits to main, and pushes
+the `vX.Y.Z` tag, which hands off to `release.yml` for the pub.dev publish. It
+never publishes itself, so the manual tag path above still works unchanged.
+
+This automation needs a `RELEASE_PAT` repository secret that can push to main
+and create tags. The default `GITHUB_TOKEN` cannot be used, because a push made
+with it does not start `ci.yml` or `release.yml`, so the release would stall.
