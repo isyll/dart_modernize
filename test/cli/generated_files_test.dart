@@ -226,15 +226,6 @@ void main() {
   });
 }
 
-/// A dot-shorthands trigger behind a line-comment generated marker.
-const _lineHeader = '''
-// GENERATED CODE - DO NOT MODIFY BY HAND
-
-E pick() => E.a;
-
-enum E { a, b }
-''';
-
 /// A dot-shorthands trigger behind a block-comment `DO NOT EDIT` marker.
 const _blockHeader = '''
 /*
@@ -249,6 +240,15 @@ enum E { a, b }
 /// A dot-shorthands trigger behind an ordinary hand-written comment.
 const _innocuousHeader = '''
 // A small helper library for picking a value.
+
+E pick() => E.a;
+
+enum E { a, b }
+''';
+
+/// A dot-shorthands trigger behind a line-comment generated marker.
+const _lineHeader = '''
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 E pick() => E.a;
 

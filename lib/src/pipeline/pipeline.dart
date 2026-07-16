@@ -104,6 +104,33 @@ final class ModernizePipeline {
     _reportCompletion(result, finalizeResult);
   }
 
+  /// Runs `dart analyze --format=machine` and returns the error-level
+  /// diagnostics keyed by canonicalized file path.
+  ///
+  /// Each value is a list of `code: message` signatures; line and column are
+  /// left out so an edit that only shifts an unrelated error's position is not
+  /// mistaken for a new error. `dart analyze` exits non-zero whenever it finds
+  /// issues, so its exit code is ignored and stdout is parsed instead.
+  Future<Map<String, List<String>>> _analyzeErrors() async {
+    final result = await Process.run(Platform.resolvedExecutable, [
+      'analyze',
+      '--format=machine',
+      options.path,
+    ], workingDirectory: options.path);
+
+    final errors = <String, List<String>>{};
+    for (final line in const LineSplitter().convert('${result.stdout}')) {
+      // SEVERITY|TYPE|CODE|FILE|LINE|COLUMN|LENGTH|MESSAGE, with \ | and
+      // newlines backslash-escaped inside fields.
+      final parts = line.split('|');
+      if (parts.length < 8 || parts[0] != 'ERROR') continue;
+      final file = p.canonicalize(_unescapeMachine(parts[3]));
+      final message = _unescapeMachine(parts.sublist(7).join('|'));
+      (errors[file] ??= <String>[]).add('${parts[2]}: $message');
+    }
+    return errors;
+  }
+
   /// Returns every non-excluded `.dart` file under [projectPath].
   ///
   /// Walks the tree by hand instead of `listSync(recursive: true)` so it can
@@ -176,12 +203,21 @@ final class ModernizePipeline {
     if (hasFixAll) {
       reporter.finalizingStep('dart fix --apply');
       await _ensurePubGet(projectPath);
+      // `dart fix --apply` takes the project root, not a file list, so it also
+      // sees files the rest of the pipeline excludes. Snapshot them first and
+      // restore any it touches, so an excluded file stays byte for byte
+      // identical.
+      final excluded = _fixApplyScope(
+        projectPath,
+      ).where(filter.shouldSkip).toList();
+      final excludedBefore = _snapshot(excluded);
       final before = _snapshot(files);
       await _runProcess(Platform.resolvedExecutable, [
         'fix',
         '--apply',
         projectPath,
       ]);
+      _restore(excludedBefore);
       final fixed = _changedSince(before);
       if (fixed.isNotEmpty) counts['fix-all'] = fixed.length;
       changedPaths.addAll(fixed);
@@ -295,6 +331,40 @@ final class ModernizePipeline {
     }
 
     return .new(counts: counts, changedPaths: changedPaths);
+  }
+
+  /// Every `.dart` file under [projectPath], excluded ones included, so the
+  /// caller can snapshot and later restore them.
+  ///
+  /// Unlike the other finalize steps, `dart fix --apply` is handed the project
+  /// root rather than a file list, so it reaches files the pipeline means to
+  /// skip. This walk therefore keeps the excluded files (the caller narrows the
+  /// result with [FileFilter.shouldSkip]) instead of dropping them the way
+  /// [_dartFiles] does. Hidden directories and `build/` are still pruned: they
+  /// hold tool state and regenerated output the tool never promises to
+  /// preserve, and a deep `build/` tree can exceed the Windows path limit
+  /// mid-walk.
+  List<String> _fixApplyScope(String projectPath) {
+    final result = <String>[];
+    final stack = <Directory>[.new(projectPath)];
+    while (stack.isNotEmpty) {
+      final List<FileSystemEntity> entries;
+      try {
+        entries = stack.removeLast().listSync(followLinks: false);
+      } on FileSystemException {
+        continue;
+      }
+      for (final entity in entries) {
+        if (entity is Directory) {
+          final name = p.basename(entity.path);
+          if (name.startsWith('.') || name == 'build') continue;
+          stack.add(entity);
+        } else if (entity is File && entity.path.endsWith('.dart')) {
+          result.add(entity.path);
+        }
+      }
+    }
+    return result;
   }
 
   /// Builds the per-pass, files-changed map in canonical display order, merging
@@ -490,33 +560,6 @@ final class ModernizePipeline {
     return reverted;
   }
 
-  /// Runs `dart analyze --format=machine` and returns the error-level
-  /// diagnostics keyed by canonicalized file path.
-  ///
-  /// Each value is a list of `code: message` signatures; line and column are
-  /// left out so an edit that only shifts an unrelated error's position is not
-  /// mistaken for a new error. `dart analyze` exits non-zero whenever it finds
-  /// issues, so its exit code is ignored and stdout is parsed instead.
-  Future<Map<String, List<String>>> _analyzeErrors() async {
-    final result = await Process.run(Platform.resolvedExecutable, [
-      'analyze',
-      '--format=machine',
-      options.path,
-    ], workingDirectory: options.path);
-
-    final errors = <String, List<String>>{};
-    for (final line in const LineSplitter().convert('${result.stdout}')) {
-      // SEVERITY|TYPE|CODE|FILE|LINE|COLUMN|LENGTH|MESSAGE, with \ | and
-      // newlines backslash-escaped inside fields.
-      final parts = line.split('|');
-      if (parts.length < 8 || parts[0] != 'ERROR') continue;
-      final file = p.canonicalize(_unescapeMachine(parts[3]));
-      final message = _unescapeMachine(parts.sublist(7).join('|'));
-      (errors[file] ??= <String>[]).add('${parts[2]}: $message');
-    }
-    return errors;
-  }
-
   /// Splits [items] into consecutive chunks of at most [size].
   static Iterable<List<T>> _batches<T>(List<T> items, int size) sync* {
     for (var i = 0; i < items.length; i += size) {
@@ -548,6 +591,21 @@ final class ModernizePipeline {
     return added;
   }
 
+  /// Rewrites any path in [snapshot] whose on-disk content no longer matches
+  /// back to its snapshotted content.
+  static void _restore(Map<String, String> snapshot) {
+    for (final entry in snapshot.entries) {
+      if (File(entry.key).readAsStringSync() != entry.value) {
+        File(entry.key).writeAsStringSync(entry.value);
+      }
+    }
+  }
+
+  /// Reads the current on-disk content of each path in [files].
+  static Map<String, String> _snapshot(List<String> files) => {
+    for (final f in files) f: File(f).readAsStringSync(),
+  };
+
   /// Reverses `dart analyze --format=machine` field escaping, where a
   /// backslash escapes the next character and an escaped `n` is a newline.
   /// Recovers the original file paths and messages in one pass.
@@ -563,11 +621,6 @@ final class ModernizePipeline {
     }
     return buffer.toString();
   }
-
-  /// Reads the current on-disk content of each path in [files].
-  static Map<String, String> _snapshot(List<String> files) => {
-    for (final f in files) f: File(f).readAsStringSync(),
-  };
 }
 
 /// Outcome of the finalize stage.

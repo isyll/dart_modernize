@@ -228,6 +228,52 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return parameter.type;
   }
 
+  /// Whether [closure]'s return type is still inferred *from* this closure by
+  /// the call it is an argument to: a generic call with no explicit `<...>`
+  /// whose factory parameter returns a type variable. In
+  /// `sl.registerLazySingleton<Foo>(() => Foo())` the `<Foo>` pins the return
+  /// type, so the body collapses safely; in `xs.map((x) => Foo(x))` the element
+  /// type is inferred from the closure, so collapsing `Foo(x)` to `.new(x)`
+  /// would leave nothing to infer it from.
+  ///
+  /// The check is deliberately identity-free (it does not match the specific
+  /// type variable against the invoked element, whose views differ for methods
+  /// that mix method and class type variables such as `Iterable.map`). Any type
+  /// variable in the factory's own return type, with no explicit `<...>`, is
+  /// treated as inferred-from-here; a receiver-fixed class variable is thus
+  /// skipped too, which is conservative but never unsafe.
+  bool _closureReturnInfersTypeArgument(FunctionExpression closure) {
+    final parent = closure.parent;
+    final Argument argument;
+    if (parent is ArgumentList) {
+      argument = closure;
+    } else if (parent is NamedArgument &&
+        identical(parent.argumentExpression, closure)) {
+      argument = parent;
+    } else {
+      return false;
+    }
+
+    final argumentList = argument.parent;
+    if (argumentList is! ArgumentList) return false;
+
+    // Explicit `<...>` pins the type variables, so the closure body is safe.
+    final invocation = argumentList.parent;
+    final explicitTypeArguments = switch (invocation) {
+      MethodInvocation() => invocation.typeArguments != null,
+      InstanceCreationExpression() =>
+        invocation.constructorName.type.typeArguments != null,
+      _ => false,
+    };
+    if (explicitTypeArguments) return false;
+
+    // No explicit `<...>`: if the factory parameter's own return type mentions
+    // a type variable, the call infers it from this closure, so leave the body.
+    final baseType = argument.correspondingParameter?.baseElement.type;
+    return baseType is FunctionType &&
+        _typeContainsTypeParameter(baseType.returnType);
+  }
+
   /// `TypeName(...)` / `TypeName.named(...)` → `.new(...)` / `.named(...)`.
   SourceEdit? _constructorEdit(
     InstanceCreationExpression node,
@@ -492,76 +538,6 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return declared;
   }
 
-  /// Whether [closure]'s return type is still inferred *from* this closure by
-  /// the call it is an argument to: a generic call with no explicit `<...>`
-  /// whose factory parameter returns a type variable. In
-  /// `sl.registerLazySingleton<Foo>(() => Foo())` the `<Foo>` pins the return
-  /// type, so the body collapses safely; in `xs.map((x) => Foo(x))` the element
-  /// type is inferred from the closure, so collapsing `Foo(x)` to `.new(x)`
-  /// would leave nothing to infer it from.
-  ///
-  /// The check is deliberately identity-free (it does not match the specific
-  /// type variable against the invoked element, whose views differ for methods
-  /// that mix method and class type variables such as `Iterable.map`). Any type
-  /// variable in the factory's own return type, with no explicit `<...>`, is
-  /// treated as inferred-from-here; a receiver-fixed class variable is thus
-  /// skipped too, which is conservative but never unsafe.
-  bool _closureReturnInfersTypeArgument(FunctionExpression closure) {
-    final parent = closure.parent;
-    final Argument argument;
-    if (parent is ArgumentList) {
-      argument = closure;
-    } else if (parent is NamedArgument &&
-        identical(parent.argumentExpression, closure)) {
-      argument = parent;
-    } else {
-      return false;
-    }
-
-    final argumentList = argument.parent;
-    if (argumentList is! ArgumentList) return false;
-
-    // Explicit `<...>` pins the type variables, so the closure body is safe.
-    final invocation = argumentList.parent;
-    final explicitTypeArguments = switch (invocation) {
-      MethodInvocation() => invocation.typeArguments != null,
-      InstanceCreationExpression() =>
-        invocation.constructorName.type.typeArguments != null,
-      _ => false,
-    };
-    if (explicitTypeArguments) return false;
-
-    // No explicit `<...>`: if the factory parameter's own return type mentions
-    // a type variable, the call infers it from this closure, so leave the body.
-    final baseType = argument.correspondingParameter?.baseElement.type;
-    return baseType is FunctionType &&
-        _typeContainsTypeParameter(baseType.returnType);
-  }
-
-  /// Whether [type] is, or structurally contains, a type parameter. Descends
-  /// interface type arguments, function return/parameter types, and record
-  /// fields; a type parameter is a leaf (its bound is not followed), so this
-  /// always terminates.
-  bool _typeContainsTypeParameter(DartType type) {
-    if (type is TypeParameterType) return true;
-    if (type is InterfaceType) {
-      return type.typeArguments.any(_typeContainsTypeParameter);
-    }
-    if (type is FunctionType) {
-      if (_typeContainsTypeParameter(type.returnType)) return true;
-      return type.formalParameters.any(
-        (p) => _typeContainsTypeParameter(p.type),
-      );
-    }
-    if (type is RecordType) {
-      return type.positionalFields.any(
-            (f) => _typeContainsTypeParameter(f.type),
-          ) ||
-          type.namedFields.any((f) => _typeContainsTypeParameter(f.type));
-    }
-    return false;
-  }
-
   /// The element type a `yield e;` produces: `T` from the enclosing generator's
   /// `Iterable<T>` (`sync*`) or `Stream<T>` (`async*`) return type. Null when the
   /// return type is not a single-argument sequence of the expected kind, or the
@@ -706,6 +682,13 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
+  /// The type a [field] of an object or record pattern matches against: the
+  /// static type of the value destructured into that field. This is the
+  /// getter's type for an object pattern and the field type for a record
+  /// pattern, computed uniformly from the field sub-pattern's matched value.
+  DartType? _patternFieldType(PatternField field) =>
+      field.pattern.matchedValueType;
+
   /// The matched value's type for a constant pattern in a `switch`. A constant
   /// that is a *field* of an object or record pattern
   /// (`NetworkException(kind: NetworkFailureKind.timeout)`) matches that field,
@@ -742,12 +725,27 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// The type a [field] of an object or record pattern matches against: the
-  /// static type of the value destructured into that field. This is the
-  /// getter's type for an object pattern and the field type for a record
-  /// pattern, computed uniformly from the field sub-pattern's matched value.
-  DartType? _patternFieldType(PatternField field) =>
-      field.pattern.matchedValueType;
+  /// `prefix.TypeName.staticField` / `prefix.EnumName.value` → `.staticField` /
+  /// `.value`, where `prefix` is an import prefix. Written through the prefix a
+  /// static access is a [PropertyAccess] (`(prefix.TypeName).member`) rather
+  /// than the [PrefixedIdentifier] that [_staticMemberEdit] handles, so it needs
+  /// its own edit. The whole `prefix.TypeName` target is dropped, leaving the
+  /// `.member` that follows.
+  SourceEdit? _prefixedStaticMemberEdit(PropertyAccess node, DartType context) {
+    final target = node.target;
+    if (target is! PrefixedIdentifier) return null;
+    if (target.prefix.element is! PrefixElement) return null;
+
+    final type = target.identifier.element;
+    if (type is! InterfaceElement) return null;
+
+    final member = node.propertyName.element;
+    if (!_isStaticMember(member)) return null;
+
+    if (context is! InterfaceType || context.element != type) return null;
+
+    return .new(offset: target.offset, length: target.length, replacement: '');
+  }
 
   /// Context type for the field of [record] whose value expression is [node]:
   /// the matching field of the record's own (precise) context type. Positional
@@ -843,28 +841,6 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     );
   }
 
-  /// `prefix.TypeName.staticField` / `prefix.EnumName.value` → `.staticField` /
-  /// `.value`, where `prefix` is an import prefix. Written through the prefix a
-  /// static access is a [PropertyAccess] (`(prefix.TypeName).member`) rather
-  /// than the [PrefixedIdentifier] that [_staticMemberEdit] handles, so it needs
-  /// its own edit. The whole `prefix.TypeName` target is dropped, leaving the
-  /// `.member` that follows.
-  SourceEdit? _prefixedStaticMemberEdit(PropertyAccess node, DartType context) {
-    final target = node.target;
-    if (target is! PrefixedIdentifier) return null;
-    if (target.prefix.element is! PrefixElement) return null;
-
-    final type = target.identifier.element;
-    if (type is! InterfaceElement) return null;
-
-    final member = node.propertyName.element;
-    if (!_isStaticMember(member)) return null;
-
-    if (context is! InterfaceType || context.element != type) return null;
-
-    return .new(offset: target.offset, length: target.length, replacement: '');
-  }
-
   /// `TypeName.staticMethod(...)` → `.staticMethod(...)`.
   ///
   /// A generic owner (`WidgetStateProperty.resolveWith(...)`) is fine: a static
@@ -886,6 +862,30 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
 
     // Drop the leading `TypeName`, keeping the `.method(...)` that follows.
     return .new(offset: target.offset, length: target.length, replacement: '');
+  }
+
+  /// Whether [type] is, or structurally contains, a type parameter. Descends
+  /// interface type arguments, function return/parameter types, and record
+  /// fields; a type parameter is a leaf (its bound is not followed), so this
+  /// always terminates.
+  bool _typeContainsTypeParameter(DartType type) {
+    if (type is TypeParameterType) return true;
+    if (type is InterfaceType) {
+      return type.typeArguments.any(_typeContainsTypeParameter);
+    }
+    if (type is FunctionType) {
+      if (_typeContainsTypeParameter(type.returnType)) return true;
+      return type.formalParameters.any(
+        (p) => _typeContainsTypeParameter(p.type),
+      );
+    }
+    if (type is RecordType) {
+      return type.positionalFields.any(
+            (f) => _typeContainsTypeParameter(f.type),
+          ) ||
+          type.namedFields.any((f) => _typeContainsTypeParameter(f.type));
+    }
+    return false;
   }
 
   /// The interface element [expression] names as a type (not a value), or null.

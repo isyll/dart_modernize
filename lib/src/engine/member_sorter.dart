@@ -265,7 +265,7 @@ class _MemberSorter {
 class _PriorityItem {
   _PriorityItem(this.isStatic, this.kind, this.isPrivate);
   factory _PriorityItem.forName(bool isStatic, String name, _MemberKind kind) =>
-      _PriorityItem(isStatic, kind, name.startsWith('_'));
+      .new(isStatic, kind, name.startsWith('_'));
   final _MemberKind kind;
 
   final bool isPrivate;
