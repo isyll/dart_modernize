@@ -55,6 +55,15 @@ ArgParser buildArgParser() => .new()
     negatable: false,
   )
   ..addFlag(
+    'check',
+    negatable: false,
+    defaultsTo: false,
+    help:
+        'Exit non-zero if any file would change and write nothing, for gating '
+        'CI. On its own it prints just a summary line; combine it with '
+        '--dry-run to also print the diff.',
+  )
+  ..addFlag(
     'color',
     help:
         'Use ANSI colors in output. Default: auto-detect terminal. '
@@ -232,6 +241,7 @@ final class CliOptions {
   const CliOptions({
     required this.path,
     required this.dryRun,
+    required this.check,
     required this.color,
     required this.verbose,
     required this.verify,
@@ -291,6 +301,7 @@ final class CliOptions {
       // platform's separator (e.g. `dart_modernize C:/proj` on Windows).
       path: p.normalize(p.absolute(paths.isEmpty ? p.current : paths.first)),
       dryRun: results['dry-run'] as bool,
+      check: results['check'] as bool,
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,
       verify: results['verify'] as bool,
@@ -326,6 +337,10 @@ final class CliOptions {
 
   /// When true, only prints a diff; no files are written.
   final bool dryRun;
+
+  /// When true, write nothing and exit non-zero if any file would change, so
+  /// the tool can gate CI. Composes with [dryRun] to also print the diff.
+  final bool check;
 
   /// null = auto-detect terminal; true = force on; false = force off.
   final bool? color;

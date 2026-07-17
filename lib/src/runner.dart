@@ -59,6 +59,10 @@ Future<void> run(List<String> arguments) async {
 
   try {
     await pipeline.run();
+  } on CheckModifiedException {
+    // --check found files that would change. The summary is already printed;
+    // exit non-zero so CI fails, with no error output.
+    exit(1);
   } on ModernizeException catch (e) {
     reporter.error(e.message);
     exit(1);

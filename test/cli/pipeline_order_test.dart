@@ -128,6 +128,7 @@ CliOptions _options({
 }) => .new(
   path: '.',
   dryRun: false,
+  check: false,
   color: null,
   verbose: false,
   verify: verify,

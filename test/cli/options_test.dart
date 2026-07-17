@@ -45,6 +45,18 @@ void main() {
       expect(options.dryRun, isTrue);
     });
 
+    test('check is off by default', () {
+      final options = CliOptions.fromResults(buildArgParser().parse([]));
+      expect(options.check, isFalse);
+    });
+
+    test('--check enables check mode', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--check']),
+      );
+      expect(options.check, isTrue);
+    });
+
     test('verify is enabled by default', () {
       final options = CliOptions.fromResults(buildArgParser().parse([]));
       expect(options.verify, isTrue);

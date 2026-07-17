@@ -666,6 +666,9 @@ dart_modernize cascades inline-return
 
 # Combine a selection with a path
 dart_modernize lib/ cascades
+
+# Gate CI: exit non-zero if anything would change, write nothing
+dart_modernize --check
 ```
 
 Two positional arguments, in any order:
@@ -680,6 +683,7 @@ Two positional arguments, in any order:
 | `-h, --help` | Show usage and exit. |
 | `-v, --version` | Print the version and exit. |
 | `-n, --dry-run` | Preview changes as a unified diff; write nothing. |
+| `--check` | Write nothing and exit non-zero if any file would change, for gating CI (like `dart format --set-exit-if-changed`). Prints only a summary on its own; combine with `--dry-run` to also print the diff. |
 | `--verbose` | Print per-file progress and passes that made no change. |
 | `--[no-]color` | Force ANSI color on or off. Default: auto-detect the terminal (`NO_COLOR` is honored). |
 | `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |

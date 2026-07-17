@@ -75,6 +75,23 @@ void main() {
       expect(text, contains('expression-bodies'));
     });
 
+    test('checkSummary: reports how many files would change, no ANSI', () {
+      final out = StringBuffer();
+      makeNoColor(out: out).checkSummary(scanned: 10, changed: 3);
+      final text = out.toString();
+      expect(text, isNot(contains('\x1b[')));
+      expect(text, contains('3 of 10'));
+      expect(text, contains('would change'));
+    });
+
+    test('checkSummary: already-modern line when nothing would change', () {
+      final out = StringBuffer();
+      makeNoColor(out: out).checkSummary(scanned: 7, changed: 0);
+      final text = out.toString();
+      expect(text, contains('Already modern'));
+      expect(text, contains('7 file(s) scanned'));
+    });
+
     test('completionSummary: shows totals and per-pass file counts', () {
       final out = StringBuffer();
       makeNoColor(out: out).completionSummary(
