@@ -3,10 +3,13 @@ name: Milestone release
 # When the last open issue of a milestone is closed, this workflow writes a
 # CHANGELOG section listing every issue in that milestone, bumps the version in
 # all three places, commits to main, and pushes a vX.Y.Z tag. The tag push is
-# what triggers release.yml, which does the actual pub.dev publish. This
-# workflow never publishes or creates a GitHub Release itself, so it does not
-# overlap with release.yml, and pushing a tag by hand still works exactly as
-# before.
+# what triggers release.yml, which runs the tests on the tagged commit and does
+# the actual pub.dev publish. This workflow never publishes or creates a GitHub
+# Release itself, so it does not overlap with release.yml, and pushing a tag by
+# hand still works exactly as before.
+#
+# The commit to main triggers no workflow of its own (CI does not run on pushes
+# to main); the tagged commit is tested by release.yml before it ships.
 #
 # Safety rules enforced before anything is written or pushed:
 #   1. The milestone must have zero open issues.
@@ -18,12 +21,11 @@ name: Milestone release
 #   4. The version must be the lowest milestone that is still ahead of that
 #      baseline, so milestones release in order (0.9.0 before 0.10.0).
 #
-# The commit and the tag are pushed with the RELEASE_PAT secret, not the default
-# GITHUB_TOKEN. A push made with GITHUB_TOKEN does not start other workflows, so
-# without a PAT neither ci.yml (on the main commit) nor release.yml (on the tag)
-# would run and the release would stall. RELEASE_PAT must be a token that can
-# push to main and create tags (a classic PAT with `repo`, or a fine-grained
-# token with contents:write).
+# The tag is pushed with the RELEASE_PAT secret, not the default GITHUB_TOKEN. A
+# push made with GITHUB_TOKEN does not start other workflows, so without a PAT
+# the tag push would not start release.yml and the release would stall.
+# RELEASE_PAT must be a token that can push to main and create tags (a classic
+# PAT with `repo`, or a fine-grained token with contents:write).
 
 on:
   issues:
@@ -148,7 +150,7 @@ jobs:
           RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
         run: |
           if [ -z "${RELEASE_PAT:-}" ]; then
-            echo "::error::RELEASE_PAT secret is not set. It is required so the pushed commit and tag trigger ci.yml and release.yml."
+            echo "::error::RELEASE_PAT secret is not set. It is required so the pushed tag triggers release.yml."
             exit 1
           fi
 
@@ -220,8 +222,9 @@ jobs:
           git commit -m "release ${version}"
 
           # Land on top of whatever else reached main since checkout, then push
-          # the commit and the tag. Both pushes use RELEASE_PAT (persisted by
-          # checkout), so ci.yml and release.yml both start.
+          # the commit and the tag. The tag push uses RELEASE_PAT (persisted by
+          # checkout), so release.yml starts; the commit push triggers nothing on
+          # its own (CI does not run on pushes to main).
           git pull --rebase origin main
           git push origin HEAD:main
           git tag "v${version}"

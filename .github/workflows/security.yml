@@ -1,0 +1,25 @@
+name: Secret scan
+
+# Scans pull requests for committed secrets before they can be merged. Kept
+# separate from ci.yml so the test suite stays a clean, reusable unit and this
+# scan runs only where untrusted changes enter the project: pull requests.
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: secret-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

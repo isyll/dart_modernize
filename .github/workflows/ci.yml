@@ -1,25 +1,28 @@
 name: CI
 
+# The test suite, and the single source of truth for it.
+#
+# It runs in exactly two situations, and never redundantly:
+#   * on every pull request, as the gate that must pass before merge; and
+#   * when release.yml reuses it (workflow_call) to test the exact tagged commit
+#     right before publishing.
+#
+# It deliberately does NOT run on pushes to main. A merged pull request was
+# already tested here, and the release path tests the tagged commit again before
+# it ships, so a push-to-main trigger would only duplicate work that already ran.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+
+# A new push to a pull request cancels any run still going for the same ref, so
+# rapid iteration does not pile up runners.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      - uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  ci:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
