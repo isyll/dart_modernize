@@ -17,6 +17,7 @@ import '../engine/text_shape.dart';
 import '../engine/unified_diff.dart';
 import '../modernize_exception.dart';
 import '../output/reporter.dart';
+import '../vcs/git_worktree.dart';
 import 'transformation.dart';
 import 'transformations.dart';
 
@@ -50,6 +51,14 @@ final class ModernizePipeline {
       reporter.nothingToDo();
       return;
     }
+
+    // Refuse to run on a dirty Git tree unless the user opts out, so the tool's
+    // edits land in their own reviewable diff. Skipped in the preview modes
+    // (--dry-run/--check write nothing) and when the target is not in a repo.
+    if (!options.dryRun && !options.check && !options.allowDirty) {
+      _ensureCleanWorktree();
+    }
+
     final finalize = buildFinalizeTransformations(
       options,
     ).where((t) => t.enabled).toList();
@@ -212,6 +221,22 @@ final class ModernizePipeline {
       }
     }
     return result;
+  }
+
+  /// Throws when the target sits in a Git work tree with uncommitted changes to
+  /// tracked files, so the tool's edits do not tangle with the user's own.
+  ///
+  /// A no-op when git is missing or the target is not in a repository (nothing
+  /// to protect), and when `--allow-dirty` was passed (checked by the caller).
+  void _ensureCleanWorktree() {
+    final dirty = uncommittedTrackedChanges(options.path);
+    if (dirty.isEmpty) return;
+    final noun = dirty.length == 1 ? 'change' : 'changes';
+    throw ModernizeException(
+      'The Git working tree has ${dirty.length} uncommitted $noun to tracked '
+      'files. Commit or stash them so the modernization lands in its own diff, '
+      'or re-run with --allow-dirty.',
+    );
   }
 
   /// Runs `dart pub get` if the project has not yet been set up.

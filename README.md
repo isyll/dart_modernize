@@ -688,6 +688,7 @@ Two positional arguments, in any order:
 | `--[no-]color` | Force ANSI color on or off. Default: auto-detect the terminal (`NO_COLOR` is honored). |
 | `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |
 | `--[no-]verify` | Re-analyze changed files after editing and revert any that gain a new error, then exit non-zero. On by default; `--no-verify` skips the extra analysis. |
+| `--allow-dirty` | Run even when the Git working tree has uncommitted changes. By default the tool refuses on a dirty tree, so its edits land in their own reviewable diff. Skipped when the target is not in a Git repository or under `--dry-run`/`--check`. |
 | `--line-endings <auto\|lf\|crlf>` | Line endings for files the tool rewrites. `auto` (default) keeps each file's existing endings; `lf` or `crlf` forces one. A UTF-8 BOM is always preserved. |
 | `--no-<transformation>` | Turn a single pass off, e.g. `--no-primary-constructors`. One flag exists per transformation listed above; all are on by default. |
 
@@ -760,6 +761,7 @@ Re-running is safe: the first run does all the work and later runs change nothin
 * 🔁 **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
 * ✅ **Type-checked edits.** Every rewrite is computed from fully resolved types, so the targeted element and the static type stay identical.
 * ↩️ **Verifies and rolls back.** After editing, re-analyzes the changed files and restores any that gained a new error, so a run never leaves a file that no longer compiles (`--no-verify` opts out).
+* 🌳 **Refuses a dirty tree.** Stops before writing if the Git working tree has uncommitted changes, so the modernization stays in its own reviewable diff (`--allow-dirty` opts out; skipped outside a repo and under `--dry-run`/`--check`).
 * 📏 **Preserves line endings and BOM.** Each file's original CRLF/LF endings and any UTF-8 BOM are restored after formatting, so an edit shows only the lines that changed instead of a whole-file whitespace diff (`--line-endings` overrides).
 
 Run on a clean working tree, review the diff, then commit with confidence.
