@@ -1,10 +1,8 @@
 <div align="center">
 
-# ⚡ dart_modernize
+# dart_modernize
 
-### Drag your codebase into the future, one command at a time.
-
-A type aware codemod that rewrites Dart and Flutter projects to use modern syntax everywhere it is safe.
+A type-aware codemod that rewrites Dart and Flutter projects to use modern syntax wherever it is safe.
 
 [![pub package](https://img.shields.io/pub/v/dart_modernize.svg)](https://pub.dev/packages/dart_modernize)
 [![sdk](https://img.shields.io/badge/dart-%3E%3D3.12-0175C2.svg)](https://dart.dev)
@@ -19,11 +17,11 @@ A type aware codemod that rewrites Dart and Flutter projects to use modern synta
 dart_modernize
 ```
 
-One command. Full type resolution. Zero behavior changes. Your code comes out cleaner, shorter, and unmistakably modern.
+It resolves the project with full type information and applies each rewrite only where it provably keeps the same behavior, leaving the code shorter and more idiomatic.
 
 <br>
 
-## ✨ See it in action
+## Before and after
 
 <table>
 <tr>
@@ -145,48 +143,46 @@ final tags = ['base', ?extra];
 </tr>
 </table>
 
-<div align="center"><sub>Same types. Same elements. Same behavior. Just modern.</sub></div>
+<br>
+
+## What it does
+
+Eighteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe.
+
+| Feature | Description |
+|:--|:--|
+| **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous: arguments, return positions, assignments, equality checks, and collection literals, including the head of a selector chain (`DateTime.now().toUtc()` becomes `.now().toUtc()`). |
+| **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
+| **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
+| **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into `'a $b c'` interpolation. |
+| **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
+| **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
+| **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
+| **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type and that type is obvious from the initializer (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
+| **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
+| **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
+| **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
+| **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
+| **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
+| **Organize imports** | Sorts, groups, and prunes unused directives. |
+| **Sort members** | Reorders members into the canonical order. |
+| **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
+| **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
+| **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
+
+> Every edit is type checked before it lands. The tool does not change the resolved type, the targeted element, the evaluation count, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves the code as is.
 
 <br>
 
-## 🚀 What it does
+## Transformations
 
-Eighteen focused passes, grouped into five families. Each one is independently toggleable, and each leaves your code alone the moment a rewrite cannot be proven safe.
+Each pass below has a minimal before/after and the rule that decides when it is skipped.
 
-| | Feature | Description |
-|:--:|:--|:--|
-| 🎯 | **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous: arguments, return positions, assignments, equality checks, and collection literals, including the head of a selector chain (`DateTime.now().toUtc()` becomes `.now().toUtc()`). |
-| 🔀 | **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
-| ➡️ | **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
-| 🧵 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into clean `'a $b c'` interpolation. |
-| 🌊 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
-| ↩️ | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
-| 📌 | **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
-| 🏷️ | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type and that type is obvious from the initializer (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
-| ❓ | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
-| ❔ | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
-| 🔒 | **Private named parameters** | Folds verbose constructor boilerplate into the modern private named parameter form (`this._field`). |
-| 🏗️ | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
-| ⬆️ | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
-| 📦 | **Organize imports** | Sorts, groups, and prunes unused directives. |
-| 🔤 | **Sort members** | Reorders members into the canonical order. |
-| 🔝 | **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
-| 🩹 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
-| 🏛️ | **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
+### Type-aware syntax
 
-> Every edit is type checked before it lands. The tool **never** changes the resolved type, the targeted element, the evaluation count, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves your code alone.
+Passes that rely on full type resolution to guarantee the rewrite resolves to the exact same element.
 
-<br>
-
-## 🔬 Every transformation, before & after
-
-Each pass is shown as a minimal before/after, paired with the safety rule that decides when it stays its hand.
-
-### 🧠 Type-aware syntax
-
-Passes that lean on full type resolution to guarantee the rewrite resolves to the exact same element.
-
-**🎯 Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions (including a factory constructor's), assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, factory closures, and object/record pattern fields.
+**Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions (including a factory constructor's), assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, factory closures, and object/record pattern fields.
 
 ```dart
 // before
@@ -296,7 +292,7 @@ final options = <(StockReadingType, String, IconData)>[
 
 > The record element type is hoisted only when every field is precise; a field typed `dynamic`, `Object`, `Null`, or an unresolved type variable leaves the record untouched.
 
-**🔀 Switch expressions**: rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
+**Switch expressions**: rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
 
 ```dart
 // before
@@ -323,11 +319,11 @@ final token = switch (charCode) {
 
 > Also handles the `return`-per-case form, producing `return switch (…) { … };`. Left untouched when an arm runs more than one statement, branches assign different targets, breaks or continues to a label, has side effects, or is not exhaustive: anything where the expression form would change behavior.
 
-### ✂️ Concise expressions
+### Concise expressions
 
-Trimming ceremony from bodies, strings, builder sequences, and type annotations without moving a single value.
+Shorter bodies, strings, builder sequences, and type annotations, without changing any value.
 
-**➡️ Expression bodies**: turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
+**Expression bodies**: turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
 
 ```dart
 // before
@@ -341,7 +337,7 @@ int square(int x) => x * x;
 
 > Kept as a block when it holds more than one statement, or a comment the arrow form would silently drop.
 
-**🧵 String interpolation**: rewrites `+` concatenation chains into interpolation.
+**String interpolation**: rewrites `+` concatenation chains into interpolation.
 
 ```dart
 // before
@@ -355,7 +351,7 @@ String row(String a, String b) => '| $a | $b |';
 
 > Only when every piece is a side-effect-free `String`. Arithmetic `+` and method-call operands are left exactly as written.
 
-**🌊 Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely.
+**Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely.
 
 ```dart
 // before: local kept
@@ -383,7 +379,7 @@ Reporter(source)
 
 > Applies only when the target is not reassigned, read between writes, or passed as an argument within the run, and no right-hand side reads the target.
 
-**↩️ Inline return**: inlines a local whose only remaining use is an immediate bare `return`.
+**Inline return**: inlines a local whose only remaining use is an immediate bare `return`.
 
 ```dart
 // before
@@ -411,7 +407,7 @@ return Connection(host)
 
 > Skipped when the local has more than one use, carries a comment, is declared alongside other variables in one statement, or the return is not an immediate bare reference to the local.
 
-**📌 Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body.
+**Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body.
 
 ```dart
 // before
@@ -429,7 +425,7 @@ return multiplier * rate;
 
 > Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures.
 
-**🏷️ Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
+**Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
 
 ```dart
 // before
@@ -447,11 +443,11 @@ final _log = Logger();
 
 > Applies only when the initializer's inferred type is exactly the declared type **and** that type is obvious from the initializer, matching the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. A literal, an explicitly-typed collection literal, a spelled-out constructor call, a cast, or a cascade/prefix over one of these is obvious; a method call, property access, bare identifier, or generic constructor with inferred type arguments is not, and keeps its annotation (dropping it would trip `specify_nonobvious_*`, which `dart fix` then reverts). Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`. Mutable fields and non-const top-level variables are left alone.
 
-### ❓ Null-aware collections
+### Null-aware collections
 
 The Dart 3.8 null-aware collection syntax, applied only when the rewrite preserves single evaluation.
 
-**❓ Null-aware elements**: folds a null guard inside a collection into `?x`.
+**Null-aware elements**: folds a null guard inside a collection into `?x`.
 
 ```dart
 // before
@@ -461,7 +457,7 @@ List<int> build(int? a) => [if (a != null) a];
 List<int> build(int? a) => [?a];
 ```
 
-**❔ Null-aware spread**: folds a guarded spread into `...?l`.
+**Null-aware spread**: folds a guarded spread into `...?l`.
 
 ```dart
 // before
@@ -473,11 +469,11 @@ List<int> build(List<int>? extra) => [0, ...?extra];
 
 > `?expr` evaluates the operand **once**, where the old `if`/value form evaluated it twice. So these apply only to a stable, side-effect-free reference (a local or const). Getters, method calls, and index lookups are left alone.
 
-### 🧱 Constructor sugar
+### Constructor shorthands
 
-Folding constructor boilerplate into the shorthands the language now provides.
+Folds constructor boilerplate into the shorthands the language now provides.
 
-**🔒 Private named parameters**: folds the old "public param, private field" boilerplate into a private named parameter.
+**Private named parameters**: folds the "public param, private field" boilerplate into a private named parameter.
 
 ```dart
 // before
@@ -495,7 +491,7 @@ class User {
 
 > Left alone when the parameter is transformed, renamed, or reused elsewhere in the initializer list.
 
-**🏗️ Primary constructors**: promotes a class whose only job is to bind constructor parameters to fields.
+**Primary constructors**: promotes a class whose only job is to bind constructor parameters to fields.
 
 ```dart
 // before
@@ -511,7 +507,7 @@ class Point(final int x, final int y);
 
 > Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter.
 
-**⬆️ Super parameters**: forwards a constructor parameter straight to the superclass.
+**Super parameters**: forwards a constructor parameter straight to the superclass.
 
 ```dart
 // before
@@ -527,11 +523,11 @@ class MyWidget extends Widget {
 
 > Only when the parameter is passed through unchanged and not otherwise read, renamed, or given a different default.
 
-### 🧹 Project hygiene
+### Project hygiene
 
 Whole-file cleanup that runs after the structural passes settle.
 
-**📦 Organize imports**: sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
+**Organize imports**: sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
 
 ```dart
 // before
@@ -545,7 +541,7 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**🔤 Sort members**: reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes.
+**Sort members**: reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes.
 
 ```dart
 // before
@@ -563,7 +559,7 @@ class Account {
 }
 ```
 
-**🔝 Sort constructors first**: lifts every constructor ahead of the other members of a class, enum, mixin, or extension type, satisfying the `sort_constructors_first` lint. It runs after sort members, so the two compose: sort members settles the canonical order, then this pass moves the constructors to the front. Attached doc comments and annotations travel with their constructor.
+**Sort constructors first**: lifts every constructor ahead of the other members of a class, enum, mixin, or extension type, satisfying the `sort_constructors_first` lint. It runs after sort members, so the two compose: sort members settles the canonical order, then this pass moves the constructors to the front. Attached doc comments and annotations travel with their constructor.
 
 ```dart
 // before
@@ -581,7 +577,7 @@ class Account {
 }
 ```
 
-**🩹 Fix all**: applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, and more.
+**Fix all**: applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, and more.
 
 ```dart
 // before
@@ -596,7 +592,7 @@ class Dog extends Animal {
 }
 ```
 
-**🏛️ Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
+**Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
 
 ```dart
 // before
@@ -617,19 +613,15 @@ abstract final class AppColors {
 
 <br>
 
-## 📐 Requirements
+## Requirements
 
-<div align="center">
-
-**Dart SDK `3.12.0` or newer**
-
-</div>
+Dart SDK `3.12.0` or newer.
 
 The minimum SDK is fixed per release. When a future Dart version ships new syntax, a new major version of `dart_modernize` adds support for it. Staying on an older SDK? Pin the matching release and it keeps working.
 
 <br>
 
-## 📥 Install
+## Installation
 
 Globally, as a CLI:
 
@@ -645,10 +637,10 @@ dart pub add --dev dart_modernize
 
 <br>
 
-## 🛠️ Usage
+## Usage
 
 ```sh
-# Preview every change without writing a single byte (start here)
+# Preview every change without writing anything (start here)
 dart_modernize --dry-run
 
 # Apply across the whole project
@@ -696,7 +688,7 @@ Run `dart_modernize --help` for the same reference, always current.
 
 <br>
 
-## 🚫 Excluding files
+## Excluding files
 
 The tool skips files in four ways, checked in order.
 
@@ -735,7 +727,7 @@ dart_modernize lib/ --exclude "lib/src/vendor/**"
 
 <br>
 
-## 🧠 How it works
+## How it works
 
 ```
   validate  ──▶  resolve  ──▶  transform  ──▶  finalize
@@ -749,26 +741,26 @@ dart_modernize lib/ --exclude "lib/src/vendor/**"
 3. **Transform.** Runs a fixed sequence of pass groups. Each group is resolved once and applied before the next runs, so a pass that builds on an earlier one (a shorthand over a switch expression another pass produced, say) reads the finished result. See [`doc/ORDERING.md`](doc/ORDERING.md).
 4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, and runs `dart format`.
 
-Re-running is safe: the first run does all the work and later runs change nothing. The tool is **idempotent** by design.
+Re-running is safe: the first run does all the work and later runs change nothing. The tool is idempotent by design.
 
 <br>
 
-## 🛡️ Safety
+## Safety
 
-* 🔍 **Dry run first.** Produces a full diff before touching any file.
-* 🚫 **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs, `flutter gen-l10n` localization files, and any file carrying a `DO NOT EDIT` header.
-* ⚖️ **Refuses ambiguity.** Will not apply a shorthand when the context type is too imprecise to guarantee an identical result.
-* 🔁 **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
-* ✅ **Type-checked edits.** Every rewrite is computed from fully resolved types, so the targeted element and the static type stay identical.
-* ↩️ **Verifies and rolls back.** After editing, re-analyzes the changed files and restores any that gained a new error, so a run never leaves a file that no longer compiles (`--no-verify` opts out).
-* 🌳 **Refuses a dirty tree.** Stops before writing if the Git working tree has uncommitted changes, so the modernization stays in its own reviewable diff (`--allow-dirty` opts out; skipped outside a repo and under `--dry-run`/`--check`).
-* 📏 **Preserves line endings and BOM.** Each file's original CRLF/LF endings and any UTF-8 BOM are restored after formatting, so an edit shows only the lines that changed instead of a whole-file whitespace diff (`--line-endings` overrides).
+* **Dry run first.** Produces a full diff before touching any file.
+* **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs, `flutter gen-l10n` localization files, and any file carrying a `DO NOT EDIT` header.
+* **Refuses ambiguity.** Will not apply a shorthand when the context type is too imprecise to guarantee an identical result.
+* **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
+* **Type-checked edits.** Every rewrite is computed from fully resolved types, so the targeted element and the static type stay identical.
+* **Verifies and rolls back.** After editing, re-analyzes the changed files and restores any that gained a new error, so a run never leaves a file that no longer compiles (`--no-verify` opts out).
+* **Refuses a dirty tree.** Stops before writing if the Git working tree has uncommitted changes, so the modernization stays in its own reviewable diff (`--allow-dirty` opts out; skipped outside a repo and under `--dry-run`/`--check`).
+* **Preserves line endings and BOM.** Each file's original CRLF/LF endings and any UTF-8 BOM are restored after formatting, so an edit shows only the lines that changed instead of a whole-file whitespace diff (`--line-endings` overrides).
 
-Run on a clean working tree, review the diff, then commit with confidence.
+Run on a clean working tree, review the diff, then commit.
 
 <br>
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome. Read `CONTRIBUTING.md`, then make sure your change passes `dart format`, `dart analyze`, and `dart test` before opening a pull request.
 
