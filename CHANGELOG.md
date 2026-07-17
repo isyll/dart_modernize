@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+* [#9](https://github.com/isyll/dart_modernize/issues/9) Generated files without a known suffix get rewritten
+* [#10](https://github.com/isyll/dart_modernize/issues/10) Re-analyze after editing and roll back files that stop compiling
+* [#11](https://github.com/isyll/dart_modernize/issues/11) The dart fix step ignores excludes and runs on the whole project
+* [#12](https://github.com/isyll/dart_modernize/issues/12) Line endings and BOM are not preserved
+
 ## 0.7.4
 
 - Bump analyzer from 14.0.0 to 14.1.0.
