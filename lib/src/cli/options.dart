@@ -295,9 +295,9 @@ final class CliOptions {
       verbose: results['verbose'] as bool,
       verify: results['verify'] as bool,
       lineEndings: switch (results['line-endings'] as String) {
-        'lf' => LineEndings.lf,
-        'crlf' => LineEndings.crlf,
-        _ => LineEndings.auto,
+        'lf' => .lf,
+        'crlf' => .crlf,
+        _ => .auto,
       },
       excludes: results['exclude'] as List<String>,
       dotShorthands: enabled('dot-shorthands'),

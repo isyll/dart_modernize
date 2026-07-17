@@ -12,22 +12,6 @@ import 'package:test/test.dart';
 import '../support/cli_harness.dart';
 import '../support/triggers.dart';
 
-/// A leading BOM as a string, for building fixture content.
-const _bom = '\u{FEFF}';
-
-bool _hasBom(List<int> b) =>
-    b.length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF;
-
-bool _hasCr(List<int> b) => b.contains(0x0D);
-
-/// Whether every LF byte is part of a CRLF pair.
-bool _allCrlf(List<int> b) {
-  for (var i = 0; i < b.length; i++) {
-    if (b[i] == 0x0A && (i == 0 || b[i - 1] != 0x0D)) return false;
-  }
-  return true;
-}
-
 void main() {
   group('line endings and BOM are preserved', () {
     // expression-bodies collapses this to `int square(int x) => x * x;`.
@@ -139,3 +123,19 @@ void main() {
     });
   });
 }
+
+/// A leading BOM as a string, for building fixture content.
+const _bom = '\u{FEFF}';
+
+/// Whether every LF byte is part of a CRLF pair.
+bool _allCrlf(List<int> b) {
+  for (var i = 0; i < b.length; i++) {
+    if (b[i] == 0x0A && (i == 0 || b[i - 1] != 0x0D)) return false;
+  }
+  return true;
+}
+
+bool _hasBom(List<int> b) =>
+    b.length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF;
+
+bool _hasCr(List<int> b) => b.contains(0x0D);

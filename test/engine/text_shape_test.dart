@@ -7,14 +7,6 @@ import 'dart:convert';
 import 'package:dart_modernize/src/engine/text_shape.dart';
 import 'package:test/test.dart';
 
-/// The three UTF-8 BOM bytes.
-const _bomBytes = [0xEF, 0xBB, 0xBF];
-
-/// A leading BOM as a string (U+FEFF).
-const _bom = '\u{FEFF}';
-
-List<int> _bytes(String s) => utf8.encode(s);
-
 void main() {
   group('TextShape.ofBytes', () {
     test('plain LF file has no BOM and no CRLF', () {
@@ -48,9 +40,10 @@ void main() {
       expect(TextShape.ofBytes(_bytes('a\nb\nc\r\n')).usesCrlf, isFalse);
     });
 
-    test('a tie counts as LF', () {
-      expect(TextShape.ofBytes(_bytes('a\r\nb\n')).usesCrlf, isFalse);
-    });
+    test(
+      'a tie counts as LF',
+      () => expect(TextShape.ofBytes(_bytes('a\r\nb\n')).usesCrlf, isFalse),
+    );
 
     test('a file with no newlines counts as LF', () {
       final shape = TextShape.ofBytes(_bytes('single line'));
@@ -94,33 +87,43 @@ void main() {
   group('TextShape.apply (forced)', () {
     test('crlf forces CRLF even for an LF file', () {
       const shape = TextShape(hasBom: false, usesCrlf: false);
-      expect(shape.apply('a\nb\n', LineEndings.crlf), 'a\r\nb\r\n');
+      expect(shape.apply('a\nb\n', .crlf), 'a\r\nb\r\n');
     });
 
     test('lf forces LF even for a CRLF file', () {
       const shape = TextShape(hasBom: false, usesCrlf: true);
-      expect(shape.apply('a\r\nb\r\n', LineEndings.lf), 'a\nb\n');
+      expect(shape.apply('a\r\nb\r\n', .lf), 'a\nb\n');
     });
 
     test('a BOM is preserved regardless of the forced ending', () {
       const shape = TextShape(hasBom: true, usesCrlf: true);
-      expect(shape.apply('a\r\nb\r\n', LineEndings.lf), '${_bom}a\nb\n');
+      expect(shape.apply('a\r\nb\r\n', .lf), '${_bom}a\nb\n');
     });
   });
 
   group('equality', () {
-    test('shapes with the same fields are equal', () {
-      expect(
+    test(
+      'shapes with the same fields are equal',
+      () => expect(
         const TextShape(hasBom: true, usesCrlf: true),
         const TextShape(hasBom: true, usesCrlf: true),
-      );
-    });
+      ),
+    );
 
-    test('shapes differing in a field are not equal', () {
-      expect(
+    test(
+      'shapes differing in a field are not equal',
+      () => expect(
         const TextShape(hasBom: true, usesCrlf: false),
         isNot(const TextShape(hasBom: false, usesCrlf: false)),
-      );
-    });
+      ),
+    );
   });
 }
+
+/// A leading BOM as a string (U+FEFF).
+const _bom = '\u{FEFF}';
+
+/// The three UTF-8 BOM bytes.
+const _bomBytes = [0xEF, 0xBB, 0xBF];
+
+List<int> _bytes(String s) => utf8.encode(s);

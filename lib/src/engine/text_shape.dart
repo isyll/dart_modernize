@@ -40,7 +40,7 @@ final class TextShape {
         }
       }
     }
-    return TextShape(hasBom: hasBom, usesCrlf: crlf > lf);
+    return .new(hasBom: hasBom, usesCrlf: crlf > lf);
   }
 
   /// A leading UTF-8 byte-order mark as a Dart string (U+FEFF).
@@ -52,27 +52,12 @@ final class TextShape {
   /// Whether the file's dominant line ending is CRLF rather than LF.
   final bool usesCrlf;
 
+  @override
+  int get hashCode => Object.hash(hasBom, usesCrlf);
+
   /// Whether re-applying this shape in [LineEndings.auto] mode is a no-op for
   /// already-LF content: a plain LF file with no BOM needs no restoration.
   bool get isPlainLf => !hasBom && !usesCrlf;
-
-  /// Rewrites [content] into this shape, forcing the line ending when [target]
-  /// is not [LineEndings.auto].
-  ///
-  /// [content] may arrive with any endings (an edit can leave CRLF, `dart
-  /// format` leaves LF), so it is normalized to LF first and then to the target
-  /// ending. A BOM is added back only when the original file had one.
-  String apply(String content, [LineEndings target = LineEndings.auto]) {
-    var out = content.startsWith(_bom) ? content.substring(1) : content;
-    out = out.replaceAll('\r\n', '\n');
-    final crlf = switch (target) {
-      LineEndings.auto => usesCrlf,
-      LineEndings.crlf => true,
-      LineEndings.lf => false,
-    };
-    if (crlf) out = out.replaceAll('\n', '\r\n');
-    return hasBom ? '$_bom$out' : out;
-  }
 
   @override
   bool operator ==(Object other) =>
@@ -80,6 +65,21 @@ final class TextShape {
       other.hasBom == hasBom &&
       other.usesCrlf == usesCrlf;
 
-  @override
-  int get hashCode => Object.hash(hasBom, usesCrlf);
+  /// Rewrites [content] into this shape, forcing the line ending when [target]
+  /// is not [LineEndings.auto].
+  ///
+  /// [content] may arrive with any endings (an edit can leave CRLF, `dart
+  /// format` leaves LF), so it is normalized to LF first and then to the target
+  /// ending. A BOM is added back only when the original file had one.
+  String apply(String content, [LineEndings target = .auto]) {
+    var out = content.startsWith(_bom) ? content.substring(1) : content;
+    out = out.replaceAll('\r\n', '\n');
+    final crlf = switch (target) {
+      .auto => usesCrlf,
+      .crlf => true,
+      .lf => false,
+    };
+    if (crlf) out = out.replaceAll('\n', '\r\n');
+    return hasBom ? '$_bom$out' : out;
+  }
 }

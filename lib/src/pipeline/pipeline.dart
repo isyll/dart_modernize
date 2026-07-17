@@ -149,6 +149,24 @@ final class ModernizePipeline {
     return errors;
   }
 
+  /// Reads each non-excluded file's original line-ending and BOM shape from
+  /// disk, keyed by canonical path.
+  ///
+  /// Must run before anything is written. Covers every scanned file, not just
+  /// the ones about to change, because the finalize `dart format` step rewrites
+  /// them all and any of them can lose its shape.
+  Map<String, TextShape> _captureShapes(FileFilter filter) {
+    final shapes = <String, TextShape>{};
+    for (final path in _dartFiles(options.path, filter)) {
+      try {
+        shapes[p.canonicalize(path)] = .ofBytes(File(path).readAsBytesSync());
+      } on FileSystemException {
+        continue;
+      }
+    }
+    return shapes;
+  }
+
   /// Returns every non-excluded `.dart` file under [projectPath].
   ///
   /// Walks the tree by hand instead of `listSync(recursive: true)` so it can
@@ -385,48 +403,6 @@ final class ModernizePipeline {
     return result;
   }
 
-  /// Reads each non-excluded file's original line-ending and BOM shape from
-  /// disk, keyed by canonical path.
-  ///
-  /// Must run before anything is written. Covers every scanned file, not just
-  /// the ones about to change, because the finalize `dart format` step rewrites
-  /// them all and any of them can lose its shape.
-  Map<String, TextShape> _captureShapes(FileFilter filter) {
-    final shapes = <String, TextShape>{};
-    for (final path in _dartFiles(options.path, filter)) {
-      try {
-        shapes[p.canonicalize(path)] = TextShape.ofBytes(
-          File(path).readAsBytesSync(),
-        );
-      } on FileSystemException {
-        continue;
-      }
-    }
-    return shapes;
-  }
-
-  /// Rewrites each file in [shapes] back into its original line-ending and BOM
-  /// shape (or the forced [CliOptions.lineEndings] when not auto).
-  ///
-  /// In auto mode a plain-LF file needs no work, so it is skipped without a
-  /// read. Every other file is read, re-encoded, and written back only when the
-  /// bytes actually differ, so unchanged files keep their timestamp.
-  void _restoreShapes(Map<String, TextShape> shapes) {
-    final target = options.lineEndings;
-    for (final entry in shapes.entries) {
-      if (target == LineEndings.auto && entry.value.isPlainLf) continue;
-      final path = entry.key;
-      final String current;
-      try {
-        current = File(path).readAsStringSync();
-      } on FileSystemException {
-        continue;
-      }
-      final restored = entry.value.apply(current, target);
-      if (restored != current) File(path).writeAsStringSync(restored);
-    }
-  }
-
   /// Builds the per-pass, files-changed map in canonical display order, merging
   /// the structural passes with the finalize passes.
   Map<String, int> _passCounts(_TransformResult result, _FinalizeResult fin) {
@@ -498,6 +474,28 @@ final class ModernizePipeline {
       removed: totalRemoved,
       passCounts: passCounts,
     );
+  }
+
+  /// Rewrites each file in [shapes] back into its original line-ending and BOM
+  /// shape (or the forced [CliOptions.lineEndings] when not auto).
+  ///
+  /// In auto mode a plain-LF file needs no work, so it is skipped without a
+  /// read. Every other file is read, re-encoded, and written back only when the
+  /// bytes actually differ, so unchanged files keep their timestamp.
+  void _restoreShapes(Map<String, TextShape> shapes) {
+    final target = options.lineEndings;
+    for (final entry in shapes.entries) {
+      if (target == .auto && entry.value.isPlainLf) continue;
+      final path = entry.key;
+      final String current;
+      try {
+        current = File(path).readAsStringSync();
+      } on FileSystemException {
+        continue;
+      }
+      final restored = entry.value.apply(current, target);
+      if (restored != current) File(path).writeAsStringSync(restored);
+    }
   }
 
   Future<void> _runProcess(
