@@ -1,6 +1,6 @@
 <div align="center">
 
-# dart_modernize
+# 🔥 dart_modernize
 
 A type-aware codemod that rewrites Dart and Flutter projects to use modern syntax wherever it is safe.
 
@@ -21,7 +21,7 @@ It resolves the project with full type information and applies each rewrite only
 
 <br>
 
-## Before and after
+## 🔍 Before and after
 
 <table>
 <tr>
@@ -145,7 +145,7 @@ final tags = ['base', ?extra];
 
 <br>
 
-## What it does
+## ⚙️ What it does
 
 Eighteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe.
 
@@ -174,7 +174,7 @@ Eighteen passes, grouped into five families. Each is independently toggleable, a
 
 <br>
 
-## Transformations
+## 🧩 Transformations
 
 Each pass below has a minimal before/after and the rule that decides when it is skipped.
 
@@ -613,7 +613,7 @@ abstract final class AppColors {
 
 <br>
 
-## Requirements
+## 📋 Requirements
 
 Dart SDK `3.12.0` or newer.
 
@@ -621,7 +621,7 @@ The minimum SDK is fixed per release. When a future Dart version ships new synta
 
 <br>
 
-## Installation
+## 📦 Installation
 
 Globally, as a CLI:
 
@@ -637,7 +637,7 @@ dart pub add --dev dart_modernize
 
 <br>
 
-## Usage
+## 🛠️ Usage
 
 ```sh
 # Preview every change without writing anything (start here)
@@ -688,7 +688,7 @@ Run `dart_modernize --help` for the same reference, always current.
 
 <br>
 
-## Excluding files
+## 🚫 Excluding files
 
 The tool skips files in four ways, checked in order.
 
@@ -727,7 +727,7 @@ dart_modernize lib/ --exclude "lib/src/vendor/**"
 
 <br>
 
-## How it works
+## 🧭 How it works
 
 ```
   validate  ──▶  resolve  ──▶  transform  ──▶  finalize
@@ -745,7 +745,7 @@ Re-running is safe: the first run does all the work and later runs change nothin
 
 <br>
 
-## Safety
+## 🛡️ Safety
 
 * **Dry run first.** Produces a full diff before touching any file.
 * **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs, `flutter gen-l10n` localization files, and any file carrying a `DO NOT EDIT` header.
@@ -760,7 +760,7 @@ Run on a clean working tree, review the diff, then commit.
 
 <br>
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome. Read `CONTRIBUTING.md`, then make sure your change passes `dart format`, `dart analyze`, and `dart test` before opening a pull request.
 
