@@ -69,6 +69,18 @@ void main() {
       expect(options.verify, isFalse);
     });
 
+    test('allow-dirty is off by default', () {
+      final options = CliOptions.fromResults(buildArgParser().parse([]));
+      expect(options.allowDirty, isFalse);
+    });
+
+    test('--allow-dirty enables it', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--allow-dirty']),
+      );
+      expect(options.allowDirty, isTrue);
+    });
+
     test('--no-primary-constructors disables only that transformation', () {
       final options = CliOptions.fromResults(
         buildArgParser().parse(['--no-primary-constructors']),

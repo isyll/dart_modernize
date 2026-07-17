@@ -88,6 +88,15 @@ ArgParser buildArgParser() => .new()
         'After editing, re-analyze the changed files and revert any that gain '
         'a new error, then exit non-zero. --no-verify skips the extra analysis.',
   )
+  ..addFlag(
+    'allow-dirty',
+    negatable: false,
+    defaultsTo: false,
+    help:
+        'Run even when the Git working tree has uncommitted changes. By '
+        'default the tool refuses, so its edits land in their own reviewable '
+        'diff.',
+  )
   ..addOption(
     'line-endings',
     allowed: ['auto', 'lf', 'crlf'],
@@ -245,6 +254,7 @@ final class CliOptions {
     required this.color,
     required this.verbose,
     required this.verify,
+    required this.allowDirty,
     required this.lineEndings,
     required this.excludes,
     required this.dotShorthands,
@@ -305,6 +315,7 @@ final class CliOptions {
       color: results['color'] as bool?,
       verbose: results['verbose'] as bool,
       verify: results['verify'] as bool,
+      allowDirty: results['allow-dirty'] as bool,
       lineEndings: switch (results['line-endings'] as String) {
         'lf' => .lf,
         'crlf' => .crlf,
@@ -351,6 +362,10 @@ final class CliOptions {
   /// When true, re-analyze changed files after editing and revert any that
   /// gain a new error. Off with `--no-verify`.
   final bool verify;
+
+  /// When true, run even if the Git working tree has uncommitted changes.
+  /// Off by default, so the tool refuses on a dirty tree.
+  final bool allowDirty;
 
   /// How to write line endings back to edited files. Defaults to
   /// [LineEndings.auto], which keeps each file's original ending and BOM.

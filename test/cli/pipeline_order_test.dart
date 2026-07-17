@@ -132,6 +132,7 @@ CliOptions _options({
   color: null,
   verbose: false,
   verify: verify,
+  allowDirty: false,
   lineEndings: .auto,
   excludes: const [],
   dotShorthands: dotShorthands,
