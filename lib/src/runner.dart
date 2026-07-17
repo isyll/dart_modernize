@@ -7,7 +7,7 @@ import 'modernize_exception.dart';
 import 'output/reporter.dart';
 import 'pipeline/pipeline.dart';
 
-const _version = '0.8.0';
+const _version = '0.9.0';
 
 /// Entry point for the `dart_modernize` CLI.
 ///

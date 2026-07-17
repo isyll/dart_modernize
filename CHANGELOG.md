@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0
+
+* [#13](https://github.com/isyll/dart_modernize/issues/13) Add a --check flag that exits non-zero when changes are needed
+* [#14](https://github.com/isyll/dart_modernize/issues/14) Refuse to run on a dirty Git tree unless --allow-dirty is passed
+
 ## 0.8.0
 
 * [#9](https://github.com/isyll/dart_modernize/issues/9) Generated files without a known suffix get rewritten
