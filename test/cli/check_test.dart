@@ -7,12 +7,6 @@ import 'package:test/test.dart';
 import '../support/cli_harness.dart';
 import '../support/triggers.dart';
 
-/// A file `expression-bodies` collapses to `int square(int x) => x * x;`.
-const _needsChange = expressionBodiesTrigger;
-
-/// The same file already in its modern form; no pass touches it.
-const _alreadyModern = 'int square(int x) => x * x;\n';
-
 void main() {
   group('--check', () {
     test(
@@ -104,3 +98,9 @@ void main() {
     });
   });
 }
+
+/// The same file already in its modern form; no pass touches it.
+const _alreadyModern = 'int square(int x) => x * x;\n';
+
+/// A file `expression-bodies` collapses to `int square(int x) => x * x;`.
+const _needsChange = expressionBodiesTrigger;

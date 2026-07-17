@@ -25,6 +25,13 @@ bool isInsideWorkTree(String dir) {
   return result.exitCode == 0 && '${result.stdout}'.trim() == 'true';
 }
 
+/// Filters `git status --porcelain` [output] to its tracked-change lines,
+/// dropping blank lines and untracked (`??`) entries.
+List<String> parseTrackedChanges(String output) => [
+  for (final line in const LineSplitter().convert(output))
+    if (line.isNotEmpty && !line.startsWith('??')) line,
+];
+
 /// Uncommitted changes to tracked files in the work tree containing [dir].
 ///
 /// Each entry is a `git status --porcelain` line. The list is empty when the
@@ -45,10 +52,3 @@ List<String> uncommittedTrackedChanges(String dir) {
   if (result.exitCode != 0) return const [];
   return parseTrackedChanges('${result.stdout}');
 }
-
-/// Filters `git status --porcelain` [output] to its tracked-change lines,
-/// dropping blank lines and untracked (`??`) entries.
-List<String> parseTrackedChanges(String output) => [
-  for (final line in const LineSplitter().convert(output))
-    if (line.isNotEmpty && !line.startsWith('??')) line,
-];
