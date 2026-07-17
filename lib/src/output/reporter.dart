@@ -78,6 +78,27 @@ final class Reporter {
     _out(_rule());
   }
 
+  /// One-line summary for a `--check` run: how many files would change.
+  ///
+  /// No diff is printed (pair `--check` with `--dry-run` for that). When
+  /// [changed] is greater than zero the run then exits non-zero.
+  void checkSummary({required int scanned, required int changed}) {
+    _out(_rule());
+    if (changed == 0) {
+      _out(
+        '  ${_bold('✓')} Already modern -- $scanned file(s) scanned, '
+        'nothing to change.',
+      );
+    } else {
+      final noun = changed == 1 ? 'file' : 'files';
+      _out(
+        '  ${_red('✗')} $changed of $scanned $noun would change. '
+        'Run without --check to apply.',
+      );
+    }
+    _out(_rule());
+  }
+
   void dryRunSummary({
     required int scanned,
     required int changed,

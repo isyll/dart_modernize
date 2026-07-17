@@ -62,8 +62,22 @@ final class ModernizePipeline {
     );
     final result = await _transform(filter);
 
-    if (options.dryRun) {
-      _reportDryRun(result);
+    // --dry-run and --check both preview the structural edits without writing.
+    // --dry-run prints the full diff; --check on its own prints just a summary;
+    // together they do both. --check additionally exits non-zero when any file
+    // would change, so it can gate CI (like `dart format --set-exit-if-changed`).
+    if (options.dryRun || options.check) {
+      if (options.dryRun) {
+        _reportDryRun(result);
+      } else {
+        reporter.checkSummary(
+          scanned: result.filesScanned,
+          changed: result.changedFiles.length,
+        );
+      }
+      if (options.check && result.changedFiles.isNotEmpty) {
+        throw const CheckModifiedException();
+      }
       return;
     }
 
