@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1
+
+- Rewrote the README in a plainer, less promotional style.
+- Modernized the package's own sources with the tool and simplified the CI workflows. No functional changes.
+
 ## 0.9.0
 
 * [#13](https://github.com/isyll/dart_modernize/issues/13) Add a --check flag that exits non-zero when changes are needed
