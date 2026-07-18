@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+
+- prefer-inferred-types now removes a duplicated type annotation from a declaration whose initializer is a dot-shorthand constructor, expanding the shorthand to its explicit form: `final Foo a = .new()` becomes `final a = Foo()`, and `late final Foo a = .named()` becomes `late final a = Foo.named()`. The `late` modifier and the `final`/`const` keyword are preserved.
+
 ## 0.9.1
 
 - Rewrote the README in a plainer, less promotional style.
