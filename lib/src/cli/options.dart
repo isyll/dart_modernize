@@ -219,7 +219,9 @@ ArgParser buildArgParser() => .new()
         'Remove a redundant explicit type annotation when the initializer\'s '
         'inferred static type is exactly the declared type and that type is '
         'obvious from the initializer (a non-obvious initializer such as a '
-        'method call or property access keeps its annotation). Applies to local '
+        'method call or property access keeps its annotation). A dot-shorthand '
+        'constructor initializer (.new(...)/.named(...)) is expanded to its '
+        'explicit form so the annotation can be dropped. Applies to local '
         'variables (final/const/bare-typed), top-level consts, and '
         'final/const fields with an initializer.',
   )

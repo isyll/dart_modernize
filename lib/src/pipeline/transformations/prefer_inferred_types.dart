@@ -29,6 +29,17 @@ import '../transformation.dart';
 /// literal and the annotation is removed. Also fires when the bare literal is
 /// the cascade target (i.e., after the cascades pass has run).
 ///
+/// Rule C (expand): when the initializer is a dot-shorthand constructor
+/// (`.new(...)` / `.named(...)`) whose static type is exactly the declared type,
+/// the shorthand is expanded to its explicit form and the annotation is removed,
+/// so the type is named once on the initializer instead of twice: a hand-written
+/// `final Foo a = .new(x)` becomes `final a = Foo(x)`, and
+/// `late final Foo a = .named()` becomes `late final a = Foo.named()`. The
+/// `late` modifier and the `final`/`const`/`var` keyword are left as written.
+/// Only a constructor shorthand qualifies; a static-member shorthand (`.zero`,
+/// `.parse(...)`) would expand to a non-obvious property or method access that
+/// `specify_nonobvious_*` (and fix-all) would re-annotate.
+///
 /// Scope: local finals/consts/bare-typed, top-level const, and `final`/`const`
 /// fields (instance or static) that have an initializer. A `final Foo _x = Foo()`
 /// field becomes `final _x = Foo()`, which is preferred over the `.new()`
@@ -154,8 +165,15 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
       return;
     }
 
-    // Rule B: relocate collection type args onto the literal (single-variable only).
+    // Rules B and C both rewrite the single initializer.
     if (vars.variables.length != 1) return;
+
+    // Rule C: expand a dot-shorthand constructor so the annotation can go.
+    if (_tryExpandShorthandConstructor(vars, declaredType, typeAnnotation)) {
+      return;
+    }
+
+    // Rule B: relocate collection type args onto the literal.
     _tryRelocate(
       vars,
       declaredType,
@@ -258,6 +276,60 @@ class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (!_sameType(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  /// Expands a dot-shorthand constructor initializer to its explicit form and
+  /// drops the now-redundant annotation, so `final Foo a = .new(x)` becomes
+  /// `final a = Foo(x)` and `late final Foo a = .named()` becomes
+  /// `late final a = Foo.named()`. The `late` modifier and the keyword are left
+  /// as written. Returns true when it applied.
+  ///
+  /// Only a constructor shorthand is expanded. A static-member shorthand
+  /// (`.parse(...)`, `.zero`) would become a method call or property access
+  /// whose type is not obvious, so `specify_nonobvious_*` (and fix-all) would
+  /// put the annotation straight back.
+  bool _tryExpandShorthandConstructor(
+    VariableDeclarationList vars,
+    DartType declaredType,
+    TypeAnnotation typeAnnotation,
+  ) {
+    final initializer = vars.variables.first.initializer!;
+    if (initializer is! DotShorthandConstructorInvocation) return false;
+
+    // An explicit `<...>` on the shorthand would dangle after the type name is
+    // inserted; the annotation carries the type arguments, so require none here.
+    if (initializer.typeArguments != null) return false;
+
+    final inferred = initializer.staticType;
+    if (inferred == null || !_sameType(declaredType, inferred)) return false;
+
+    // The written type text (with any import prefix and type arguments) is
+    // reused verbatim as the constructor's type, so the static type is preserved
+    // exactly and the expanded form is obvious (never re-annotated by fix-all).
+    if (typeAnnotation is! NamedType) return false;
+    final typeText = source.substring(
+      typeAnnotation.offset,
+      typeAnnotation.end,
+    );
+
+    _applyEdit(vars);
+
+    final period = initializer.period;
+    final constructorName = initializer.constructorName;
+    if (constructorName.name == 'new') {
+      // `.new(args)` -> `Foo(args)`: replace `.new` with the written type.
+      edits.add(
+        .new(
+          offset: period.offset,
+          length: constructorName.end - period.offset,
+          replacement: typeText,
+        ),
+      );
+    } else {
+      // `.named(args)` -> `Foo.named(args)`: insert the type before the `.`.
+      edits.add(.new(offset: period.offset, length: 0, replacement: typeText));
     }
     return true;
   }

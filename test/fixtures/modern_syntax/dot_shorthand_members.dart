@@ -1,6 +1,8 @@
-// Already-modern code an earlier run can produce. Re-running must not break it:
-// a dot-shorthand initializer keeps its declared type, and a generic
-// constructor whose type is inferred from its arguments keeps those arguments.
+// Modern code an earlier run can produce. Re-running must not break it: a
+// static-member shorthand (an enum value) keeps its declared type, a redundant
+// annotation over a constructor shorthand is normalized to the explicit
+// `Type(...)` form, and a generic constructor whose type is inferred from its
+// arguments keeps those arguments.
 
 class Box {
   const Box(this.width);

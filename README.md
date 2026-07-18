@@ -433,15 +433,17 @@ final String name = 'guest';
 const int retries = 3;
 final List<String> tags = [];
 final Logger _log = Logger();
+final Client _client = .new();
 
 // after
 final name = 'guest';
 const retries = 3;
 final tags = <String>[];
 final _log = Logger();
+final _client = Client();
 ```
 
-> Applies only when the initializer's inferred type is exactly the declared type **and** that type is obvious from the initializer, matching the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. A literal, an explicitly-typed collection literal, a spelled-out constructor call, a cast, or a cascade/prefix over one of these is obvious; a method call, property access, bare identifier, or generic constructor with inferred type arguments is not, and keeps its annotation (dropping it would trip `specify_nonobvious_*`, which `dart fix` then reverts). Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`. Mutable fields and non-const top-level variables are left alone.
+> Applies only when the initializer's inferred type is exactly the declared type **and** that type is obvious from the initializer, matching the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. A literal, an explicitly-typed collection literal, a spelled-out constructor call, a cast, or a cascade/prefix over one of these is obvious; a method call, property access, bare identifier, or generic constructor with inferred type arguments is not, and keeps its annotation (dropping it would trip `specify_nonobvious_*`, which `dart fix` then reverts). Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`; a declaration already written with a dot-shorthand constructor (`final Foo _x = .new()`) is expanded to `final _x = Foo()` for the same reason (a static-member shorthand such as `.zero` keeps its annotation, since expanding it would leave a non-obvious property access). Mutable fields and non-const top-level variables are left alone.
 
 ### Null-aware collections
 
