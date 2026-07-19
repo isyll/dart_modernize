@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔥 dart_modernize
+# ⚡ dart_modernize
 
 A type-aware codemod that rewrites Dart and Flutter projects to use modern syntax wherever it is safe.
 
