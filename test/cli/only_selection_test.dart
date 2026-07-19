@@ -120,23 +120,29 @@ void main() {
   });
 
   group('--only end-to-end', () {
-    test('applies only the named pass, leaving other triggers untouched', () async {
-      final result = await runCli(
-        files: {
-          'lib/interp.dart': stringInterpolationTrigger,
-          'lib/dot.dart': dotShorthandsTrigger,
-        },
-        args: ['--only', 'string-interpolation'],
-      );
+    test(
+      'applies only the named pass, leaving other triggers untouched',
+      () async {
+        final result = await runCli(
+          files: {
+            'lib/interp.dart': stringInterpolationTrigger,
+            'lib/dot.dart': dotShorthandsTrigger,
+          },
+          args: ['--only', 'string-interpolation'],
+        );
 
-      expect(result.exitCode, 0, reason: result.stderr);
-      // The selected pass fired.
-      expect(result.read('lib/interp.dart'), isNot(stringInterpolationTrigger));
-      expect(result.read('lib/interp.dart'), contains(r'$name'));
-      // Every other pass (including dot-shorthands and all finalize passes) was
-      // skipped, so its trigger is byte-for-byte unchanged.
-      expect(result.read('lib/dot.dart'), dotShorthandsTrigger);
-    });
+        expect(result.exitCode, 0, reason: result.stderr);
+        // The selected pass fired.
+        expect(
+          result.read('lib/interp.dart'),
+          isNot(stringInterpolationTrigger),
+        );
+        expect(result.read('lib/interp.dart'), contains(r'$name'));
+        // Every other pass (including dot-shorthands and all finalize passes) was
+        // skipped, so its trigger is byte-for-byte unchanged.
+        expect(result.read('lib/dot.dart'), dotShorthandsTrigger);
+      },
+    );
 
     test('applies several passes when more than one is named', () async {
       final result = await runCli(
@@ -156,18 +162,21 @@ void main() {
       expect(result.read('lib/final.dart'), finalLocalsTrigger);
     });
 
-    test('an unknown --only name exits 64 with an error and a help hint', () async {
-      final result = await runCli(
-        files: {'lib/a.dart': 'void f() {}\n'},
-        args: ['--only', 'not-a-pass'],
-      );
+    test(
+      'an unknown --only name exits 64 with an error and a help hint',
+      () async {
+        final result = await runCli(
+          files: {'lib/a.dart': 'void f() {}\n'},
+          args: ['--only', 'not-a-pass'],
+        );
 
-      expect(result.exitCode, 64);
-      expect(result.stdout, isEmpty);
-      expect(result.stderr, contains('Error:'));
-      expect(result.stderr, contains('dart_modernize --help'));
-      expect(result.read('lib/a.dart'), 'void f() {}\n');
-    });
+        expect(result.exitCode, 64);
+        expect(result.stdout, isEmpty);
+        expect(result.stderr, contains('Error:'));
+        expect(result.stderr, contains('dart_modernize --help'));
+        expect(result.read('lib/a.dart'), 'void f() {}\n');
+      },
+    );
   });
 }
 

@@ -1,13 +1,15 @@
-/// Behavioural spec for the per-feature `--<flag>` / `--no-<flag>` options.
+/// Behavioural spec for selecting or disabling a single pass.
 ///
 /// For each transformation we assert both directions against a trigger crafted
 /// so that *only* that pass would touch it:
 ///
-///   * with only `--<flag>` enabled, the trigger is transformed; and
-///   * with `--no-<flag>` (every other pass still enabled), the trigger is left
+///   * with `--only <name>` (just that pass selected), the trigger is
+///     transformed; and
+///   * with `--no-<name>` (every other pass still enabled), the trigger is left
 ///     byte-for-byte unchanged.
 ///
-/// Together these prove a flag toggles exactly its own pass, no more, no less.
+/// Together these prove selecting or disabling a pass affects exactly that
+/// pass, no more, no less.
 library;
 
 import 'package:test/test.dart';
@@ -19,7 +21,7 @@ void main() {
   for (final feature in allFeatures) {
     final flag = featureFlags[feature]!;
 
-    group('--$flag', () {
+    group(flag, () {
       test('enabling it applies the $feature pass', () async {
         final result = await runCli(
           files: triggerFiles(feature),
@@ -32,8 +34,8 @@ void main() {
           result.read('lib/trigger.dart'),
           isNot(triggers[feature]),
           reason:
-              'with only --$flag enabled, the $feature pass must transform '
-              'its trigger file',
+              'with only the $feature pass selected, it must transform its '
+              'trigger file',
         );
       });
 
