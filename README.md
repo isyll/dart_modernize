@@ -667,8 +667,8 @@ dart_modernize --check
 
 Two positional arguments, in any order:
 
-* **`[transformation ...]`** &mdash; name one or more transformations to run **only** those and skip the rest. This is an allow-list; naming any pass overrides the `--no-<name>` toggles below. Naming none runs every pass (the default). Order does not matter: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)).
-* **`[path]`** &mdash; the project or directory to modernize. Defaults to the current directory. Any positional that is not a transformation name is treated as the path.
+* **`[transformation ...]`**: name one or more transformations to run **only** those and skip the rest. This is an allow-list; naming any pass overrides the `--no-<name>` toggles below. Naming none runs every pass (the default). Order does not matter: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)).
+* **`[path]`**: the project or directory to modernize. Defaults to the current directory. Any positional that is not a transformation name is treated as the path.
 
 ### Options
 
