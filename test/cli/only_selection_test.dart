@@ -1,12 +1,14 @@
-/// Behavioural spec for positional transformation selection, the allow-list
-/// that runs a chosen subset of transformations and skips every other one.
+/// Behavioural spec for `--only`, the allow-list that runs a chosen subset of
+/// transformations and skips every other one.
 ///
-/// Three layers are covered:
-///   * parsing: `CliOptions.fromResults` maps positional transformation names to
-///     exactly the named passes, ignores the individual `--<flag>` values, and
+/// Four layers are covered:
+///   * parsing: `CliOptions.fromResults` maps `--only` names to exactly the
+///     named passes (comma-separated or repeated), leaves the rest off, and
 ///     rejects an unknown name;
-///   * path handling: a positional that is not a transformation name is the
-///     target path, and a selection and a path can be given together; and
+///   * disambiguation: a positional argument is *always* the target path, so a
+///     bare word that happens to match a pass name (e.g. `cascades`) is the
+///     path, never a selection;
+///   * path handling: a selection and a path can be given together; and
 ///   * end-to-end: the CLI applies only the selected pass(es) to a project that
 ///     would otherwise trigger several, leaving the rest byte-for-byte intact.
 library;
@@ -19,7 +21,7 @@ import '../support/cli_harness.dart';
 import '../support/triggers.dart';
 
 void main() {
-  group('positional selection parsing', () {
+  group('--only parsing', () {
     test('transformationNames matches every wired transformation flag', () {
       // The allow-list must line up with the harness feature map (one entry per
       // transformation), so a new pass cannot be added to one and forgotten in
@@ -34,8 +36,7 @@ void main() {
     });
 
     test('a single name enables exactly that pass and disables the rest', () {
-      final options = _parse(['dot-shorthands']);
-      final enabled = _enabledByName(options);
+      final enabled = _enabledByName(_parse(['--only', 'dot-shorthands']));
 
       expect(enabled['dot-shorthands'], isTrue);
       for (final entry in enabled.entries) {
@@ -48,48 +49,64 @@ void main() {
       }
     });
 
-    test('several names enable each named pass', () {
-      final enabled = _enabledByName(_parse(['cascades', 'fix-all']));
+    test('comma-separated names enable each named pass', () {
+      final enabled = _enabledByName(_parse(['--only', 'cascades,fix-all']));
       expect(enabled['cascades'], isTrue);
       expect(enabled['fix-all'], isTrue);
       expect(enabled['dot-shorthands'], isFalse);
       expect(enabled['organize-imports'], isFalse);
     });
 
-    test('a selection overrides the individual --<flag> values', () {
-      // fix-all is on by default, but a selection that does not name it must
-      // turn it off; a --no- flag on the selected pass does not un-select it.
+    test('a repeated --only enables each named pass', () {
       final enabled = _enabledByName(
-        _parse(['dot-shorthands', '--no-dot-shorthands']),
+        _parse(['--only', 'cascades', '--only', 'fix-all']),
       );
-      expect(enabled['dot-shorthands'], isTrue);
-      expect(enabled['fix-all'], isFalse);
+      expect(enabled['cascades'], isTrue);
+      expect(enabled['fix-all'], isTrue);
+      expect(enabled['dot-shorthands'], isFalse);
+    });
+
+    test('a --no-<name> switch subtracts from an --only set', () {
+      // --no- always removes a pass, even one named by --only, so an explicit
+      // contradiction leaves that pass off (and everything unnamed off too).
+      final enabled = _enabledByName(
+        _parse(['--only', 'cascades,fix-all', '--no-cascades']),
+      );
+      expect(enabled['cascades'], isFalse);
+      expect(enabled['fix-all'], isTrue);
+      expect(enabled['dot-shorthands'], isFalse);
     });
 
     test('every allow-listed name selects one pass and only that pass', () {
       for (final name in transformationNames) {
-        final enabled = _enabledByName(_parse([name]));
+        final enabled = _enabledByName(_parse(['--only', name]));
         final on = enabled.entries.where((e) => e.value).map((e) => e.key);
         expect(on, equals([name]), reason: 'selecting $name');
       }
     });
 
-    test(
-      'no positional selection leaves every pass at its default (all on)',
-      () {
-        final enabled = _enabledByName(_parse([]));
-        expect(enabled.values, everyElement(isTrue));
-      },
-    );
+    test('no --only leaves every pass at its default (all on)', () {
+      final enabled = _enabledByName(_parse([]));
+      expect(enabled.values, everyElement(isTrue));
+    });
 
-    test('an unknown name throws a FormatException', () {
-      expect(() => _parse(['not-a-pass']), throwsFormatException);
+    test('an unknown --only name throws a FormatException', () {
+      expect(() => _parse(['--only', 'not-a-pass']), throwsFormatException);
     });
   });
 
   group('positional path handling', () {
-    test('a positional path coexists with a selection', () {
-      final options = _parse(['cascades', 'sub/project']);
+    test('a bare word matching a pass name is the path, not a selection', () {
+      // The core disambiguation: `dart_modernize cascades` targets a directory
+      // named `cascades`; it never selects the cascades pass. So every pass
+      // stays on (the default) and the path is captured.
+      final options = _parse(['cascades']);
+      expect(options.path, endsWith('cascades'));
+      expect(_enabledByName(options).values, everyElement(isTrue));
+    });
+
+    test('a selection and a path can be given together', () {
+      final options = _parse(['--only', 'cascades', 'sub/project']);
       final enabled = _enabledByName(options);
       expect(enabled['cascades'], isTrue);
       expect(enabled['fix-all'], isFalse);
@@ -102,30 +119,24 @@ void main() {
     });
   });
 
-  group('positional selection end-to-end', () {
-    test(
-      'applies only the named pass, leaving other triggers untouched',
-      () async {
-        final result = await runCli(
-          files: {
-            'lib/interp.dart': stringInterpolationTrigger,
-            'lib/dot.dart': dotShorthandsTrigger,
-          },
-          args: ['string-interpolation'],
-        );
+  group('--only end-to-end', () {
+    test('applies only the named pass, leaving other triggers untouched', () async {
+      final result = await runCli(
+        files: {
+          'lib/interp.dart': stringInterpolationTrigger,
+          'lib/dot.dart': dotShorthandsTrigger,
+        },
+        args: ['--only', 'string-interpolation'],
+      );
 
-        expect(result.exitCode, 0, reason: result.stderr);
-        // The selected pass fired.
-        expect(
-          result.read('lib/interp.dart'),
-          isNot(stringInterpolationTrigger),
-        );
-        expect(result.read('lib/interp.dart'), contains(r'$name'));
-        // Every other pass (including dot-shorthands and all finalize passes) was
-        // skipped, so its trigger is byte-for-byte unchanged.
-        expect(result.read('lib/dot.dart'), dotShorthandsTrigger);
-      },
-    );
+      expect(result.exitCode, 0, reason: result.stderr);
+      // The selected pass fired.
+      expect(result.read('lib/interp.dart'), isNot(stringInterpolationTrigger));
+      expect(result.read('lib/interp.dart'), contains(r'$name'));
+      // Every other pass (including dot-shorthands and all finalize passes) was
+      // skipped, so its trigger is byte-for-byte unchanged.
+      expect(result.read('lib/dot.dart'), dotShorthandsTrigger);
+    });
 
     test('applies several passes when more than one is named', () async {
       final result = await runCli(
@@ -134,7 +145,7 @@ void main() {
           'lib/dot.dart': dotShorthandsTrigger,
           'lib/final.dart': finalLocalsTrigger,
         },
-        args: ['string-interpolation', 'dot-shorthands'],
+        args: ['--only', 'string-interpolation,dot-shorthands'],
       );
 
       expect(result.exitCode, 0, reason: result.stderr);
@@ -145,21 +156,18 @@ void main() {
       expect(result.read('lib/final.dart'), finalLocalsTrigger);
     });
 
-    test(
-      'an unknown transformation name exits 64 with an error and a help hint',
-      () async {
-        final result = await runCli(
-          files: {'lib/a.dart': 'void f() {}\n'},
-          args: ['not-a-pass'],
-        );
+    test('an unknown --only name exits 64 with an error and a help hint', () async {
+      final result = await runCli(
+        files: {'lib/a.dart': 'void f() {}\n'},
+        args: ['--only', 'not-a-pass'],
+      );
 
-        expect(result.exitCode, 64);
-        expect(result.stdout, isEmpty);
-        expect(result.stderr, contains('Error:'));
-        expect(result.stderr, contains('dart_modernize --help'));
-        expect(result.read('lib/a.dart'), 'void f() {}\n');
-      },
-    );
+      expect(result.exitCode, 64);
+      expect(result.stdout, isEmpty);
+      expect(result.stderr, contains('Error:'));
+      expect(result.stderr, contains('dart_modernize --help'));
+      expect(result.read('lib/a.dart'), 'void f() {}\n');
+    });
   });
 }
 

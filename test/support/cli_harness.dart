@@ -148,27 +148,27 @@ Future<CliResult> invokeCli(
 
 /// CLI arguments that run **only** [feature], skipping every other pass.
 ///
-/// Produces the transformation's positional name, e.g. `['dot-shorthands']`
-/// for `dot_shorthands`. Naming a pass positionally is the CLI's allow-list:
-/// only the named pass(es) run.
+/// Produces the `--only` allow-list for that pass, e.g.
+/// `['--only', 'dot-shorthands']` for `dot_shorthands`.
 List<String> onlyFeatureArgs(String feature) => onlyFeaturesArgs({feature});
 
 /// CLI arguments that run **only** the passes named in [features], skipping
 /// every other pass.
 ///
-/// The multi-feature generalisation of [onlyFeatureArgs]: each feature's
-/// positional transformation name is emitted, e.g.
-/// `['dot-shorthands', 'super-parameters']`. Keys are the snake_case
+/// The multi-feature generalisation of [onlyFeatureArgs]: the features' `--only`
+/// names are emitted as a single comma-separated flag, e.g.
+/// `['--only', 'dot-shorthands,super-parameters']`. Keys are the snake_case
 /// fixture-folder names used throughout the harness (see [featureFlags]).
 ///
 /// Use this for cross-feature interaction tests that need a specific subset of
 /// passes active at once. Names not present in [featureFlags] are dropped, so a
 /// typo silently narrows the selection rather than throwing; callers pass
-/// literals drawn from [allFeatures]. An empty [features] selects nothing and so
+/// literals drawn from [allFeatures]. An empty [features] emits no flag and so
 /// leaves every pass on (the CLI's default), not off.
-List<String> onlyFeaturesArgs(Set<String> features) => [
-  for (final feature in features) ?featureFlags[feature],
-];
+List<String> onlyFeaturesArgs(Set<String> features) {
+  final names = [for (final feature in features) ?featureFlags[feature]];
+  return names.isEmpty ? const [] : ['--only', names.join(',')];
+}
 
 /// Creates a throwaway project containing [files] and runs the CLI against it.
 ///

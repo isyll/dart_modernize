@@ -107,6 +107,26 @@ void main() {
       expect(options.sortMembers, isTrue);
     });
 
+    test('--only runs just the named passes and skips the rest', () {
+      final options = CliOptions.fromResults(
+        buildArgParser().parse(['--only', 'cascades,fix-all']),
+      );
+      expect(options.cascades, isTrue);
+      expect(options.fixAll, isTrue);
+      // Every unnamed pass is off.
+      expect(options.dotShorthands, isFalse);
+      expect(options.organizeImports, isFalse);
+    });
+
+    test('an unknown --only name throws FormatException', () {
+      expect(
+        () => CliOptions.fromResults(
+          buildArgParser().parse(['--only', 'not-a-pass']),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('positional path is captured, made absolute, and normalized', () {
       final options = CliOptions.fromResults(
         buildArgParser().parse(['sub/project']),

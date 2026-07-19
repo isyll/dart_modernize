@@ -134,9 +134,7 @@ final class Reporter {
   void finalizingStep(String label) => _out(_dim('  $label…'));
 
   void help(String usage) {
-    _out(
-      '${_bold('Usage:')} dart_modernize [options] [transformation ...] [path]\n',
-    );
+    _out('${_bold('Usage:')} dart_modernize [options] [path]\n');
     _out(usage);
   }
 
