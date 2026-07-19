@@ -73,17 +73,19 @@ dart analyze --fatal-infos                    # lint
 
 ## Releasing
 
-Pushing a `vX.Y.Z` tag triggers `.github/workflows/release.yml`, which waits for
-CI on that commit to pass, then publishes to pub.dev. Before tagging, bump the
-version in **all three** places and keep them identical (there is no test that
-enforces this, so it is easy to miss):
+Pushing a `vX.Y.Z` tag triggers `.github/workflows/release.yml`. It reuses
+`ci.yml` through `workflow_call` to run the full test suite on the tagged
+commit, and publishes to pub.dev only if that job passes. Before tagging, bump
+the version in **all three** places and keep them identical (there is no test
+that enforces this, so it is easy to miss):
 
 1. `pubspec.yaml` `version:`
 2. `lib/src/runner.dart` `_version` (what `--version` prints)
 3. `CHANGELOG.md` (add a `## X.Y.Z` section; the release notes are pulled from it)
 
-Then commit, tag `vX.Y.Z`, and push the branch before the tag so CI is already
-running when the release workflow starts polling.
+Then commit, push to main, and push the tag `vX.Y.Z`. The push to main runs
+nothing on its own; the tag push is what runs the tests (on the tagged commit,
+via `release.yml`) and then publishes.
 
 There is also an automated path. `.github/workflows/milestone-release.yml` runs
 when the last open issue of a milestone is closed. It writes a `## X.Y.Z`
@@ -101,5 +103,5 @@ does, release the next one with the workflow's manual `workflow_dispatch` (its
 issues are already closed, so no new close event fires on its own).
 
 This automation needs a `RELEASE_PAT` repository secret that can push to main
-and create tags. The default `GITHUB_TOKEN` cannot be used, because a push made
-with it does not start `ci.yml` or `release.yml`, so the release would stall.
+and create tags. The default `GITHUB_TOKEN` cannot be used, because a tag pushed
+with it does not start `release.yml`, so the release would stall.
