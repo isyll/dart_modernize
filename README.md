@@ -641,34 +641,60 @@ dart pub add --dev dart_modernize
 
 ## 🛠️ Usage
 
-```sh
-# Preview every change without writing anything (start here)
-dart_modernize --dry-run
-
-# Apply across the whole project
-dart_modernize
-
-# Target a path
-dart_modernize lib/
-
-# Turn individual passes off
-dart_modernize --no-primary-constructors --dry-run
-
-# Run only the passes you name, skipping every other one
-dart_modernize string-interpolation --dry-run
-dart_modernize cascades inline-return
-
-# Combine a selection with a path
-dart_modernize lib/ cascades
-
-# Gate CI: exit non-zero if anything would change, write nothing
-dart_modernize --check
+```
+dart_modernize [options] [path]
 ```
 
-Two positional arguments, in any order:
+`dart_modernize` takes an optional path and a handful of flags. With no path it runs in the current directory; with no flags it runs every pass. Nothing is written until you drop `--dry-run`, so start there and review the diff.
 
-* **`[transformation ...]`**: name one or more transformations to run **only** those and skip the rest. This is an allow-list; naming any pass overrides the `--no-<name>` toggles below. Naming none runs every pass (the default). Order does not matter: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)).
-* **`[path]`**: the project or directory to modernize. Defaults to the current directory. Any positional that is not a transformation name is treated as the path.
+### Start here
+
+```sh
+# Preview every change as a unified diff, writing nothing
+dart_modernize --dry-run
+
+# Apply the changes once the diff looks right
+dart_modernize
+```
+
+### Choose which passes run
+
+Every pass runs by default. Narrow that in two ways, which compose:
+
+```sh
+# Allow-list: run ONLY the passes you name (comma-separate or repeat --only)
+dart_modernize --only cascades
+dart_modernize --only cascades,inline-return
+dart_modernize --only cascades --only inline-return
+
+# Deny-list: run everything EXCEPT the passes you switch off
+dart_modernize --no-primary-constructors
+dart_modernize --no-primary-constructors --no-sort-members
+```
+
+`--only` sets the starting set (all passes when omitted) and each `--no-<name>` removes one from it. Command-line order never matters: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). The pass names are those listed under **What it does** above and printed by `dart_modernize --help`.
+
+### Choose where it runs
+
+```sh
+# Modernize one directory instead of the whole project
+dart_modernize lib/
+
+# A selection and a path together: run only cascades, over lib/
+dart_modernize --only cascades lib/
+```
+
+The positional argument is **always a path**, so a directory named after a pass is never mistaken for a selection: `dart_modernize cascades` modernizes the `cascades/` folder, whereas `dart_modernize --only cascades` runs the cascades pass.
+
+### Gate CI
+
+```sh
+# Exit non-zero if any file would change, and write nothing
+dart_modernize --check
+
+# Same gate, but also print the diff of what would change
+dart_modernize --check --dry-run
+```
 
 ### Options
 
@@ -678,13 +704,14 @@ Two positional arguments, in any order:
 | `-v, --version` | Print the version and exit. |
 | `-n, --dry-run` | Preview changes as a unified diff; write nothing. |
 | `--check` | Write nothing and exit non-zero if any file would change, for gating CI (like `dart format --set-exit-if-changed`). Prints only a summary on its own; combine with `--dry-run` to also print the diff. |
+| `--only <name>` | Run **only** the named passes and skip the rest. Comma-separate or repeat the flag to name several (`--only cascades,inline-return`). Names are the passes listed above; without `--only`, every pass runs. |
+| `--no-<name>` | Turn a single pass off, e.g. `--no-primary-constructors`. One switch exists per pass, all on by default, and it composes with `--only` (each switch removes a pass from the selected set). |
 | `--verbose` | Print per-file progress and passes that made no change. |
-| `--[no-]color` | Force ANSI color on or off. Default: auto-detect the terminal (`NO_COLOR` is honored). |
+| `--[no-]color` | Force ANSI color on or off. Default: auto-detect, so color is on when writing to a terminal and off when piped or when `NO_COLOR` is set. `--color` forces it on (handy when piping to a pager); `--no-color` forces it off. |
 | `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |
 | `--[no-]verify` | Re-analyze changed files after editing and revert any that gain a new error, then exit non-zero. On by default; `--no-verify` skips the extra analysis. |
 | `--allow-dirty` | Run even when the Git working tree has uncommitted changes. By default the tool refuses on a dirty tree, so its edits land in their own reviewable diff. Skipped when the target is not in a Git repository or under `--dry-run`/`--check`. |
 | `--line-endings <auto\|lf\|crlf>` | Line endings for files the tool rewrites. `auto` (default) keeps each file's existing endings; `lf` or `crlf` forces one. A UTF-8 BOM is always preserved. |
-| `--no-<transformation>` | Turn a single pass off, e.g. `--no-primary-constructors`. One flag exists per transformation listed above; all are on by default. |
 
 Run `dart_modernize --help` for the same reference, always current.
 

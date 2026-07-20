@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
@@ -7,12 +5,11 @@ import '../engine/text_shape.dart';
 
 /// The name of every transformation, in the order the parser lists them.
 ///
-/// This is the allow-list for positional transformation selection: naming one
-/// of these as a positional argument runs only that pass. It must stay in sync
-/// with the `--<transformation>` flags declared in [buildArgParser] and with the
-/// `name` of each pass in `lib/src/pipeline/transformations/`; the
-/// positional-selection test cross-checks it against the test harness's feature
-/// map.
+/// This is the allow-list for `--only`: naming one of these runs just that
+/// pass. It must stay in sync with the `--no-<name>` flags declared in
+/// [buildArgParser] and with the `name` of each pass in
+/// `lib/src/pipeline/transformations/`; the selection test cross-checks it
+/// against the test harness's feature map.
 const transformationNames = <String>[
   'dot-shorthands',
   'private-named-parameters',
@@ -66,8 +63,10 @@ ArgParser buildArgParser() => .new()
   ..addFlag(
     'color',
     help:
-        'Use ANSI colors in output. Default: auto-detect terminal. '
-        '--no-color also disables color when NO_COLOR env var is absent.',
+        'Force ANSI color in output on or off. Default: auto-detect, so color '
+        'is on when writing to a terminal and off when piped or when NO_COLOR '
+        'is set. Pass --color to force it on (e.g. when piping to a pager) or '
+        '--no-color to force it off.',
     defaultsTo: null,
   )
   ..addFlag(
@@ -86,7 +85,8 @@ ArgParser buildArgParser() => .new()
     defaultsTo: true,
     help:
         'After editing, re-analyze the changed files and revert any that gain '
-        'a new error, then exit non-zero. --no-verify skips the extra analysis.',
+        'a new error, then exit non-zero. On by default; --no-verify skips the '
+        'extra analysis.',
   )
   ..addFlag(
     'allow-dirty',
@@ -107,145 +107,146 @@ ArgParser buildArgParser() => .new()
         'existing endings (the default); lf or crlf forces one. A UTF-8 BOM is '
         'always preserved.',
   )
+  ..addMultiOption(
+    'only',
+    valueHelp: 'name',
+    help:
+        'Run only the named passes and skip every other one. Repeat the option '
+        'or comma-separate names to select several, e.g. `--only '
+        'cascades,inline-return`. Names are the passes listed below. Without '
+        '--only, every pass runs.',
+  )
   ..addSeparator(
-    'Transformations (all run by default). Name one or more as positional '
-    'arguments to run only those, e.g. `dart_modernize cascades '
-    'inline-return`; otherwise turn individual passes off with the '
-    '--no-<name> flags below.',
+    'Transformations (all run by default). Narrow the run to a subset with '
+    '--only, or turn an individual pass off with its --no-<name> switch below. '
+    'Order never matters: passes always run in their fixed pipeline order.',
   )
   ..addFlag(
-    'dot-shorthands',
-    defaultsTo: true,
+    'no-dot-shorthands',
+    negatable: false,
     help:
-        'Collapse ClassName.member to .member where the context type is unambiguous.',
+        'Skip dot-shorthands: collapse ClassName.member to .member where the '
+        'context type is unambiguous.',
   )
   ..addFlag(
-    'private-named-parameters',
-    defaultsTo: true,
-    help: 'Fold constructor boilerplate into private named parameter form.',
-  )
-  ..addFlag(
-    'primary-constructors',
-    defaultsTo: true,
-    help: 'Promote eligible classes to primary constructor form when safe.',
-  )
-  ..addFlag(
-    'super-parameters',
-    defaultsTo: true,
+    'no-private-named-parameters',
+    negatable: false,
     help:
-        'Forward constructor parameters to the superclass with super.x when '
-        'passed through unchanged.',
+        'Skip private-named-parameters: fold constructor boilerplate into '
+        'private named parameter form.',
   )
   ..addFlag(
-    'switch-expressions',
-    defaultsTo: true,
+    'no-primary-constructors',
+    negatable: false,
     help:
-        'Rewrite eligible statement switches as switch expressions using '
-        'modern pattern syntax.',
+        'Skip primary-constructors: promote eligible classes to primary '
+        'constructor form when safe.',
   )
   ..addFlag(
-    'expression-bodies',
-    defaultsTo: true,
+    'no-super-parameters',
+    negatable: false,
     help:
-        'Collapse single-statement block bodies into concise => bodies for '
-        'functions, methods, getters, and closures.',
+        'Skip super-parameters: forward constructor parameters to the '
+        'superclass with super.x when passed through unchanged.',
   )
   ..addFlag(
-    'organize-imports',
-    defaultsTo: true,
-    help: 'Sort, group, and prune import directives.',
-  )
-  ..addFlag(
-    'sort-members',
-    defaultsTo: true,
-    help: 'Reorder class members into canonical order.',
-  )
-  ..addFlag(
-    'fix-all',
-    defaultsTo: true,
-    help: 'Apply bulk fixes equivalent to `dart fix`.',
-  )
-  ..addFlag(
-    'cascades',
-    defaultsTo: true,
+    'no-switch-expressions',
+    negatable: false,
     help:
-        'Collapse sequential writes to a fresh local into a cascade chain '
-        '(.. operator).',
+        'Skip switch-expressions: rewrite eligible statement switches as '
+        'switch expressions using modern pattern syntax.',
   )
   ..addFlag(
-    'string-interpolation',
-    defaultsTo: true,
-    help: 'Rewrite string concatenation chains as string interpolation.',
-  )
-  ..addFlag(
-    'null-aware-spread',
-    defaultsTo: true,
+    'no-expression-bodies',
+    negatable: false,
     help:
-        'Replace `if (x != null) ...x` spread guards with the `...?x` '
-        'null-aware spread.',
+        'Skip expression-bodies: collapse single-statement block bodies into '
+        'concise => bodies for functions, methods, getters, and closures.',
   )
   ..addFlag(
-    'null-aware-elements',
-    defaultsTo: true,
-    help:
-        'Replace `if (x != null) x` collection-element guards with the '
-        '`?x` null-aware element syntax.',
+    'no-organize-imports',
+    negatable: false,
+    help: 'Skip organize-imports: sort, group, and prune import directives.',
   )
   ..addFlag(
-    'inline-return',
-    defaultsTo: true,
-    help:
-        'Inline a local variable that is declared, immediately returned, and '
-        'used nowhere else.',
+    'no-sort-members',
+    negatable: false,
+    help: 'Skip sort-members: reorder class members into canonical order.',
   )
   ..addFlag(
-    'final-locals',
-    defaultsTo: true,
-    help:
-        'Replace `var` with `final` on local variable declarations that are '
-        'never reassigned, incremented, or compound-assigned.',
+    'no-fix-all',
+    negatable: false,
+    help: 'Skip fix-all: apply bulk fixes equivalent to `dart fix`.',
   )
   ..addFlag(
-    'abstract-final-classes',
-    defaultsTo: true,
+    'no-cascades',
+    negatable: false,
     help:
-        'Add `abstract final` to classes that expose only static members and '
-        'are never instantiated, extended, implemented, or mixed in.',
+        'Skip cascades: collapse sequential writes to a fresh local into a '
+        'cascade chain (.. operator).',
   )
   ..addFlag(
-    'prefer-inferred-types',
-    defaultsTo: true,
+    'no-string-interpolation',
+    negatable: false,
     help:
-        'Remove a redundant explicit type annotation when the initializer\'s '
-        'inferred static type is exactly the declared type and that type is '
-        'obvious from the initializer (a non-obvious initializer such as a '
-        'method call or property access keeps its annotation). A dot-shorthand '
-        'constructor initializer (.new(...)/.named(...)) is expanded to its '
-        'explicit form so the annotation can be dropped. Applies to local '
-        'variables (final/const/bare-typed), top-level consts, and '
-        'final/const fields with an initializer.',
+        'Skip string-interpolation: rewrite string concatenation chains as '
+        'string interpolation.',
   )
   ..addFlag(
-    'sort-constructors-first',
-    defaultsTo: true,
+    'no-null-aware-spread',
+    negatable: false,
     help:
-        'Move constructor declarations before all other class members, '
-        'satisfying the sort_constructors_first lint rule.',
+        'Skip null-aware-spread: replace `if (x != null) ...x` spread guards '
+        'with the `...?x` null-aware spread.',
+  )
+  ..addFlag(
+    'no-null-aware-elements',
+    negatable: false,
+    help:
+        'Skip null-aware-elements: replace `if (x != null) x` collection-element '
+        'guards with the `?x` null-aware element syntax.',
+  )
+  ..addFlag(
+    'no-inline-return',
+    negatable: false,
+    help:
+        'Skip inline-return: inline a local variable that is declared, '
+        'immediately returned, and used nowhere else.',
+  )
+  ..addFlag(
+    'no-final-locals',
+    negatable: false,
+    help:
+        'Skip final-locals: replace `var` with `final` on local variable '
+        'declarations that are never reassigned, incremented, or '
+        'compound-assigned.',
+  )
+  ..addFlag(
+    'no-abstract-final-classes',
+    negatable: false,
+    help:
+        'Skip abstract-final-classes: add `abstract final` to classes that '
+        'expose only static members and are never instantiated, extended, '
+        'implemented, or mixed in.',
+  )
+  ..addFlag(
+    'no-prefer-inferred-types',
+    negatable: false,
+    help:
+        'Skip prefer-inferred-types: remove a redundant explicit type '
+        'annotation when the initializer makes the type obvious, and expand a '
+        'dot-shorthand initializer so the annotation can be dropped. Applies '
+        'to local variables, top-level consts, and final/const fields with an '
+        'initializer.',
+  )
+  ..addFlag(
+    'no-sort-constructors-first',
+    negatable: false,
+    help:
+        'Skip sort-constructors-first: move constructor declarations before '
+        'all other class members, satisfying the sort_constructors_first lint '
+        'rule.',
   );
-
-/// Whether [arg] is unmistakably a filesystem path rather than a bare word.
-///
-/// Lets a positional argument be classified without touching the disk when it
-/// contains a separator, is `.`/`..`, is absolute, or names a Dart file. A bare
-/// word (`cascades`, `lib`) is only resolved to a path once it is ruled out as a
-/// transformation name and confirmed to exist on disk.
-bool _looksLikePath(String arg) =>
-    arg.contains('/') ||
-    arg.contains(r'\') ||
-    arg == '.' ||
-    arg == '..' ||
-    p.isAbsolute(arg) ||
-    arg.endsWith('.dart');
 
 /// Parsed and validated CLI options, passed through the pipeline.
 final class CliOptions {
@@ -280,34 +281,37 @@ final class CliOptions {
   });
 
   factory CliOptions.fromResults(ArgResults results) {
-    // Positional arguments do double duty. A token that names a transformation
-    // selects just that pass (an allow-list); any other token is the target
-    // path. Naming any pass overrides the individual --<name> flags and turns
-    // every unnamed pass off; naming none leaves each pass at its flag's value
-    // (all on by default). Flag names double as pass names, so `results[name]`
-    // reads the matching flag.
-    final selected = <String>{};
-    final paths = <String>[];
-    for (final arg in results.rest) {
-      if (transformationNames.contains(arg)) {
-        selected.add(arg);
-      } else if (_looksLikePath(arg) || Directory(arg).existsSync()) {
-        paths.add(arg);
-      } else {
-        throw FormatException(
-          '"$arg" is not a known transformation or an existing directory. '
-          'Valid transformations: ${transformationNames.join(', ')}.',
-        );
-      }
-    }
+    // Positional arguments are always target paths. Transformation selection is
+    // explicit (`--only` / `--no-<name>`), so a directory named like a pass
+    // (e.g. `cascades`) is never mistaken for a selection.
+    final paths = results.rest;
     if (paths.length > 1) {
       throw FormatException(
         'Expected at most one target path, but got: ${paths.join(', ')}.',
       );
     }
 
+    // `--only` is an allow-list. Validate each name up front so a typo fails
+    // fast with the full list, instead of silently narrowing the run to
+    // nothing.
+    final only = results['only'] as List<String>;
+    for (final name in only) {
+      if (!transformationNames.contains(name)) {
+        throw FormatException(
+          '"$name" is not a known transformation. '
+          'Valid transformations: ${transformationNames.join(', ')}.',
+        );
+      }
+    }
+    final selected = only.toSet();
+
+    // A pass runs when it is in the selected set (or all, when nothing is
+    // selected) and its --no-<name> switch was not given. So --no-<name> always
+    // subtracts, even from an explicit --only set.
     bool enabled(String name) =>
-        selected.isEmpty ? results[name] as bool : selected.contains(name);
+        (selected.isEmpty || selected.contains(name)) &&
+        !(results['no-$name'] as bool);
+
     return .new(
       // Normalize so the analyzer always receives an absolute path with the
       // platform's separator (e.g. `dart_modernize C:/proj` on Windows).

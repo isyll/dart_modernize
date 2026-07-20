@@ -35,7 +35,7 @@ class Point {
     () async {
       final result = await runCli(
         files: {'lib/point.dart': eligible},
-        args: ['primary-constructors', '--verify'],
+        args: ['--only', 'primary-constructors', '--verify'],
       );
 
       expect(result.exitCode, isNonZero);
@@ -53,7 +53,7 @@ class Point {
   test('--no-verify keeps the change and exits zero', () async {
     final result = await runCli(
       files: {'lib/point.dart': eligible},
-      args: ['primary-constructors', '--no-verify'],
+      args: ['--only', 'primary-constructors', '--no-verify'],
     );
 
     expect(result.exitCode, 0, reason: result.stderr);
