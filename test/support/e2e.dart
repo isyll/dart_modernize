@@ -28,7 +28,11 @@ import 'golden.dart';
 /// All passes except primary constructors, whose output needs an experimental,
 /// newer language version than the fixture projects opt into, so it cannot be
 /// re-analyzed cleanly here. Primary constructors keep their own golden suite.
-const allStablePasses = <String>['--no-primary-constructors'];
+///
+/// sort-members is off by default, so it is switched on explicitly here: these
+/// suites exercise every stable pass composing, and the combined goldens expect
+/// members in sorted order.
+const allStablePasses = <String>['--no-primary-constructors', '--sort-members'];
 
 /// Absolute path to `test/fixtures`, resolved from the package root.
 final String _fixturesRoot = p.join(

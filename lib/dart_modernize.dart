@@ -1,7 +1,11 @@
 library;
 
 export 'src/cli/options.dart'
-    show CliOptions, buildArgParser, transformationNames;
+    show
+        CliOptions,
+        buildArgParser,
+        defaultOffTransformations,
+        transformationNames;
 export 'src/engine/edit_collector.dart';
 export 'src/engine/source_edit.dart';
 export 'src/engine/text_shape.dart' show LineEndings;

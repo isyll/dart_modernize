@@ -37,7 +37,8 @@ void main() {
 /// interaction, not just one in isolation: prefer-inferred-types drops the
 /// `final Logger` annotation, dot-shorthands collapses an enum field initializer
 /// and an assignment target, private-named-parameters folds `this._retries`,
-/// expression-bodies arrows `toggle`, and sort-members reorders the members.
+/// and expression-bodies arrows `toggle`. sort-members is off by default, so a
+/// default run leaves member order as written.
 const _multiPass = '''
 import 'dart:convert';
 

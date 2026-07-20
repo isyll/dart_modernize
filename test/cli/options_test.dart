@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 
 void main() {
   group('buildArgParser / CliOptions', () {
-    test('all transformations are enabled by default', () {
+    test('every pass except sort-members is enabled by default', () {
       final options = CliOptions.fromResults(buildArgParser().parse([]));
 
       expect(options.dryRun, isFalse);
@@ -18,8 +18,26 @@ void main() {
       expect(options.nullAwareSpread, isTrue);
       expect(options.nullAwareElements, isTrue);
       expect(options.organizeImports, isTrue);
-      expect(options.sortMembers, isTrue);
       expect(options.fixAll, isTrue);
+      // sort-members is opt-in: off unless --only names it or --sort-members
+      // switches it on.
+      expect(options.sortMembers, isFalse);
+    });
+
+    test('--sort-members switches the off-by-default pass on', () {
+      expect(
+        CliOptions.fromResults(
+          buildArgParser().parse(['--sort-members']),
+        ).sortMembers,
+        isTrue,
+      );
+      // Naming it with --only also runs it.
+      expect(
+        CliOptions.fromResults(
+          buildArgParser().parse(['--only', 'sort-members']),
+        ).sortMembers,
+        isTrue,
+      );
     });
 
     test('--no-switch-expressions disables only that transformation', () {
@@ -104,7 +122,7 @@ void main() {
       expect(options.fixAll, isFalse);
       // others still on
       expect(options.primaryConstructors, isTrue);
-      expect(options.sortMembers, isTrue);
+      expect(options.superParameters, isTrue);
     });
 
     test('--only runs just the named passes and skips the rest', () {

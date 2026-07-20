@@ -118,8 +118,13 @@ class Account {
     // primary-constructors is disabled here on purpose: it promotes an eligible
     // class to primary-constructor form, which needs a language experiment the
     // fixture SDK does not enable, and it is orthogonal to the member/import
-    // ordering this suite guards. Every other pass runs.
-    final baseArgs = withoutFeatureArgs('primary_constructors');
+    // ordering this suite guards. sort-members is switched on explicitly because
+    // it is off by default and its ordering is exactly what this suite checks.
+    // Every other pass runs.
+    final baseArgs = [
+      ...withoutFeatureArgs('primary_constructors'),
+      ...enableFeatureArgs('sort_members'),
+    ];
 
     // dart:math is unused (organize-imports prunes it) and the two imports are
     // out of order; the class members are scrambled and the class has two

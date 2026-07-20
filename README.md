@@ -147,7 +147,7 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Eighteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe.
+Eighteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
 
 | Feature | Description |
 |:--|:--|
@@ -165,7 +165,7 @@ Eighteen passes, grouped into five families. Each is independently toggleable, a
 | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | **Organize imports** | Sorts, groups, and prunes unused directives. |
-| **Sort members** | Reorders members into the canonical order. |
+| **Sort members** | Reorders members into the canonical order. **Off by default** (opt in with `--sort-members`); it only moves code but can produce a large diff. |
 | **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
 | **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
@@ -543,7 +543,7 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**Sort members**: reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes.
+**Sort members** (off by default; switch it on with `--sort-members`, or run it alone with `--only sort-members`): reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes. It is opt-in because it only reorders code (never changing behavior) yet is the biggest single source of diff noise, which buries the real modernizations under moved lines.
 
 ```dart
 // before
@@ -659,20 +659,22 @@ dart_modernize
 
 ### Choose which passes run
 
-Every pass runs by default. Narrow that in two ways, which compose:
+Every pass runs by default except **sort-members**, which is opt-in. Adjust the set three ways, which compose:
 
 ```sh
 # Allow-list: run ONLY the passes you name (comma-separate or repeat --only)
 dart_modernize --only cascades
 dart_modernize --only cascades,inline-return
-dart_modernize --only cascades --only inline-return
 
 # Deny-list: run everything EXCEPT the passes you switch off
 dart_modernize --no-primary-constructors
-dart_modernize --no-primary-constructors --no-sort-members
+dart_modernize --no-primary-constructors --no-organize-imports
+
+# Switch on an off-by-default pass (currently just sort-members)
+dart_modernize --sort-members
 ```
 
-`--only` sets the starting set (all passes when omitted) and each `--no-<name>` removes one from it. Command-line order never matters: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). The pass names are those listed under **What it does** above and printed by `dart_modernize --help`.
+Each pass has exactly one switch: an on-by-default pass takes `--no-<name>` (turn it off), an off-by-default pass takes `--<name>` (turn it on). `--only` sets the starting set (the defaults when omitted); `--no-<name>` removes from it and `--<name>` adds to it, so the switches compose with `--only`. Command-line order never matters: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). The pass names are those listed under **What it does** above and printed by `dart_modernize --help`.
 
 ### Choose where it runs
 
@@ -705,7 +707,8 @@ dart_modernize --check --dry-run
 | `-n, --dry-run` | Preview changes as a unified diff; write nothing. |
 | `--check` | Write nothing and exit non-zero if any file would change, for gating CI (like `dart format --set-exit-if-changed`). Prints only a summary on its own; combine with `--dry-run` to also print the diff. |
 | `--only <name>` | Run **only** the named passes and skip the rest. Comma-separate or repeat the flag to name several (`--only cascades,inline-return`). Names are the passes listed above; without `--only`, every pass runs. |
-| `--no-<name>` | Turn a single pass off, e.g. `--no-primary-constructors`. One switch exists per pass, all on by default, and it composes with `--only` (each switch removes a pass from the selected set). |
+| `--no-<name>` | Turn an on-by-default pass off, e.g. `--no-primary-constructors`. Composes with `--only` (removes the pass from the selected set). |
+| `--sort-members` | Switch on sort-members, the one opt-in pass (off by default because it only reorders members but can produce a large diff). Composes with `--only` (adds it to the selected set). |
 | `--verbose` | Print per-file progress and passes that made no change. |
 | `--[no-]color` | Force ANSI color on or off. Default: auto-detect, so color is on when writing to a terminal and off when piped or when `NO_COLOR` is set. `--color` forces it on (handy when piping to a pager); `--no-color` forces it off. |
 | `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |

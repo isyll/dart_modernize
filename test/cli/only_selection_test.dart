@@ -85,9 +85,16 @@ void main() {
       }
     });
 
-    test('no --only leaves every pass at its default (all on)', () {
+    test('no --only leaves every pass at its default', () {
+      // On by default, except the opt-in passes in defaultOffTransformations.
       final enabled = _enabledByName(_parse([]));
-      expect(enabled.values, everyElement(isTrue));
+      for (final entry in enabled.entries) {
+        expect(
+          entry.value,
+          !defaultOffTransformations.contains(entry.key),
+          reason: '${entry.key} should be at its default',
+        );
+      }
     });
 
     test('an unknown --only name throws a FormatException', () {
@@ -98,11 +105,14 @@ void main() {
   group('positional path handling', () {
     test('a bare word matching a pass name is the path, not a selection', () {
       // The core disambiguation: `dart_modernize cascades` targets a directory
-      // named `cascades`; it never selects the cascades pass. So every pass
-      // stays on (the default) and the path is captured.
+      // named `cascades`; it never selects the cascades pass. With no selection,
+      // every pass stays at its default: cascades still on, opt-in sort-members
+      // still off.
       final options = _parse(['cascades']);
       expect(options.path, endsWith('cascades'));
-      expect(_enabledByName(options).values, everyElement(isTrue));
+      final enabled = _enabledByName(options);
+      expect(enabled['cascades'], isTrue);
+      expect(enabled['sort-members'], isFalse);
     });
 
     test('a selection and a path can be given together', () {
