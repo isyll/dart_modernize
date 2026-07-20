@@ -89,6 +89,8 @@ After the structural stages, the finalize passes run over the files on disk, in
 a fixed order (`buildFinalizeTransformations`):
 
 1. `dart fix --apply` first, because its fixes may remove imports.
-2. `organize-imports` (with `sort-members`, computed on one source and merged).
+2. `organize-imports` (merged with `sort-members` when it is on, computed on
+   one source; `sort-members` is off by default, so usually only
+   `organize-imports` runs here).
 3. `dart format` last, over the same filtered file list the rest of the pipeline
    uses, since it does not read `analyzer: exclude:` or `--exclude` itself.

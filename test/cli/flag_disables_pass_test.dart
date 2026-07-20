@@ -5,10 +5,11 @@
 ///
 ///   * with `--only <name>` (just that pass selected), the trigger is
 ///     transformed; and
-///   * with `--no-<name>` (every other pass still enabled), the trigger is left
-///     byte-for-byte unchanged.
+///   * with that pass off (its `--no-<name>` switch, or simply a default run
+///     for an off-by-default pass), every other pass still runs and the trigger
+///     is left byte-for-byte unchanged.
 ///
-/// Together these prove selecting or disabling a pass affects exactly that
+/// Together these prove selecting or leaving out a pass affects exactly that
 /// pass, no more, no less.
 library;
 
@@ -39,22 +40,30 @@ void main() {
         );
       });
 
-      test('--no-$flag skips the $feature pass', () async {
-        final result = await runCli(
-          files: triggerFiles(feature),
-          args: withoutFeatureArgs(feature),
-          pubspec: defaultPubspec,
-        );
+      final off = defaultOffFeatures.contains(feature);
+      test(
+        off
+            ? 'it stays off in a default run'
+            : '--no-$flag skips the $feature pass',
+        () async {
+          final result = await runCli(
+            files: triggerFiles(feature),
+            args: withoutFeatureArgs(feature),
+            pubspec: defaultPubspec,
+          );
 
-        expect(result.exitCode, 0, reason: result.stderr);
-        expect(
-          result.read('lib/trigger.dart'),
-          triggers[feature],
-          reason:
-              'with --no-$flag, no other (still-enabled) pass may modify the '
-              '$feature trigger',
-        );
-      });
+          expect(result.exitCode, 0, reason: result.stderr);
+          expect(
+            result.read('lib/trigger.dart'),
+            triggers[feature],
+            reason: off
+                ? '$feature is off by default, so a default run must not touch '
+                      'its trigger'
+                : 'with --no-$flag, no other (still-enabled) pass may modify the '
+                      '$feature trigger',
+          );
+        },
+      );
     });
   }
 }

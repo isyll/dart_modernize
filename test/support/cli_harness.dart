@@ -57,6 +57,13 @@ environment:
 /// `test/fixtures/<feature>/`); the value is the `--<flag>` spelling accepted
 /// by the CLI. Keeping the mapping in one place means a new feature is wired up
 /// by adding a single entry here.
+/// Feature folder names whose pass is off by default (opt-in).
+///
+/// Mirrors `defaultOffTransformations` in `lib/src/cli/options.dart`, keyed by
+/// the fixture-folder name used throughout the harness. A pass named here runs
+/// only when selected with `--only` or switched on with [enableFeatureArgs].
+const defaultOffFeatures = <String>{'sort_members'};
+
 const featureFlags = <String, String>{
   'dot_shorthands': 'dot-shorthands',
   'private_named_parameters': 'private-named-parameters',
@@ -184,20 +191,26 @@ Future<CliResult> runCli({
   return invokeCli(project, args: args);
 }
 
-/// CLI flags that disable a single [feature], leaving all others enabled.
+/// CLI flags that switch a single off-by-default [feature] on, leaving every
+/// other pass at its default.
 ///
-/// Two features overlap with sort_members and so disable it too; without that,
-/// sort_members would still rewrite the trigger with the target flag off:
-///   * `organize_imports`: the analysis server's sortMembers request sorts
-///     import directives too, so the two overlap on that operation; and
-///   * `sort_constructors_first`: sort_members now also emits constructors
-///     first, so it would lift the constructor that the sort_constructors_first
-///     trigger relies on staying put.
-List<String> withoutFeatureArgs(String feature) => [
-  '--no-${featureFlags[feature]}',
-  if (feature == 'organize_imports' || feature == 'sort_constructors_first')
-    '--no-sort-members',
-];
+/// For an on-by-default feature this is empty (it already runs); for an
+/// off-by-default feature it is the `--<flag>` switch, e.g. `['--sort-members']`.
+List<String> enableFeatureArgs(String feature) =>
+    defaultOffFeatures.contains(feature)
+    ? ['--${featureFlags[feature]}']
+    : const [];
+
+/// CLI flags that leave a single [feature] off while every other pass stays at
+/// its default.
+///
+/// For an on-by-default feature this is its `--no-<flag>` switch. For an
+/// off-by-default feature (e.g. sort_members) it is empty: the pass is already
+/// off in a default run, so no flag is needed to keep it off.
+List<String> withoutFeatureArgs(String feature) =>
+    defaultOffFeatures.contains(feature)
+    ? const []
+    : ['--no-${featureFlags[feature]}'];
 
 /// The outcome of a single CLI invocation against a throwaway project.
 final class CliResult {

@@ -31,6 +31,15 @@ const transformationNames = <String>[
   'sort-constructors-first',
 ];
 
+/// Transformations that are off by default.
+///
+/// Every other pass in [transformationNames] runs unless turned off; a pass
+/// named here runs only when selected with `--only` or switched on with its
+/// `--<name>` flag. sort-members only reorders declarations and never changes
+/// behavior, but it is the single biggest source of diff noise, so it is
+/// opt-in.
+const defaultOffTransformations = <String>{'sort-members'};
+
 /// Builds the [ArgParser] for the `dart_modernize` CLI.
 ArgParser buildArgParser() => .new()
   ..addFlag(
@@ -117,9 +126,11 @@ ArgParser buildArgParser() => .new()
         '--only, every pass runs.',
   )
   ..addSeparator(
-    'Transformations (all run by default). Narrow the run to a subset with '
-    '--only, or turn an individual pass off with its --no-<name> switch below. '
-    'Order never matters: passes always run in their fixed pipeline order.',
+    'Transformations. All run by default except sort-members, which is off '
+    '(switch it on with --sort-members). Narrow the run to a subset with '
+    '--only, or turn an on-by-default pass off with its --no-<name> switch '
+    'below. Order never matters: passes always run in their fixed pipeline '
+    'order.',
   )
   ..addFlag(
     'no-dot-shorthands',
@@ -169,9 +180,12 @@ ArgParser buildArgParser() => .new()
     help: 'Skip organize-imports: sort, group, and prune import directives.',
   )
   ..addFlag(
-    'no-sort-members',
+    'sort-members',
     negatable: false,
-    help: 'Skip sort-members: reorder class members into canonical order.',
+    help:
+        'Switch on sort-members (off by default): reorder class members into '
+        'canonical order. It only moves code and never changes behavior, but '
+        'it can produce a large diff.',
   )
   ..addFlag(
     'no-fix-all',
@@ -305,12 +319,18 @@ final class CliOptions {
     }
     final selected = only.toSet();
 
-    // A pass runs when it is in the selected set (or all, when nothing is
-    // selected) and its --no-<name> switch was not given. So --no-<name> always
-    // subtracts, even from an explicit --only set.
-    bool enabled(String name) =>
-        (selected.isEmpty || selected.contains(name)) &&
-        !(results['no-$name'] as bool);
+    // A pass starts from the selected set (or its default, when nothing is
+    // selected), then its one switch overrides: an on-by-default pass has
+    // --no-<name> (forces off), an off-by-default pass has --<name> (forces
+    // on). So a switch always wins and composes with --only: --no-<name>
+    // subtracts from a selection, --<name> adds to it.
+    bool enabled(String name) {
+      final defaultOn = !defaultOffTransformations.contains(name);
+      final inBase = selected.isEmpty ? defaultOn : selected.contains(name);
+      return defaultOn
+          ? inBase && !(results['no-$name'] as bool)
+          : inBase || (results[name] as bool);
+    }
 
     return .new(
       // Normalize so the analyzer always receives an absolute path with the
