@@ -2,6 +2,7 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
 import '../engine/text_shape.dart';
+import 'config.dart';
 
 /// The name of every transformation, in the order the parser lists them.
 ///
@@ -262,6 +263,25 @@ ArgParser buildArgParser() => .new()
         'rule.',
   );
 
+/// The single target path from the positional arguments, absolute and
+/// normalized.
+///
+/// Positional arguments are always target paths (transformation selection is
+/// explicit via `--only`), so a directory named like a pass is never mistaken
+/// for one. At most one path is allowed. Normalizing yields an absolute path
+/// with the platform separator (e.g. `dart_modernize C:/proj` on Windows), so
+/// the analyzer never sees mixed separators. The runner also uses this to find
+/// the project's `analysis_options.yaml` before building [CliOptions].
+String resolveTargetPath(ArgResults results) {
+  final paths = results.rest;
+  if (paths.length > 1) {
+    throw FormatException(
+      'Expected at most one target path, but got: ${paths.join(', ')}.',
+    );
+  }
+  return p.normalize(p.absolute(paths.isEmpty ? p.current : paths.first));
+}
+
 /// Parsed and validated CLI options, passed through the pipeline.
 final class CliOptions {
   const CliOptions({
@@ -294,22 +314,15 @@ final class CliOptions {
     required this.sortConstructorsFirst,
   });
 
-  factory CliOptions.fromResults(ArgResults results) {
-    // Positional arguments are always target paths. Transformation selection is
-    // explicit (`--only` / `--no-<name>`), so a directory named like a pass
-    // (e.g. `cascades`) is never mistaken for a selection.
-    final paths = results.rest;
-    if (paths.length > 1) {
-      throw FormatException(
-        'Expected at most one target path, but got: ${paths.join(', ')}.',
-      );
-    }
-
-    // `--only` is an allow-list. Validate each name up front so a typo fails
-    // fast with the full list, instead of silently narrowing the run to
-    // nothing.
+  factory CliOptions.fromResults(
+    ArgResults results, {
+    DartModernizeConfig config = const DartModernizeConfig.empty(),
+  }) {
+    // `--only` is an allow-list, and the config's enabled/disabled lists select
+    // passes too. Validate every name against the same allow-list up front so a
+    // typo fails fast with the full list instead of silently doing nothing.
     final only = results['only'] as List<String>;
-    for (final name in only) {
+    for (final name in [...only, ...config.enabled, ...config.disabled]) {
       if (!transformationNames.contains(name)) {
         throw FormatException(
           '"$name" is not a known transformation. '
@@ -317,25 +330,44 @@ final class CliOptions {
         );
       }
     }
+    final bothInConfig = config.enabled.intersection(config.disabled);
+    if (bothInConfig.isNotEmpty) {
+      throw FormatException(
+        'analysis_options.yaml dart_modernize: '
+        '${bothInConfig.join(', ')} listed under both enabled and disabled.',
+      );
+    }
     final selected = only.toSet();
 
-    // A pass starts from the selected set (or its default, when nothing is
-    // selected), then its one switch overrides: an on-by-default pass has
-    // --no-<name> (forces off), an off-by-default pass has --<name> (forces
-    // on). So a switch always wins and composes with --only: --no-<name>
-    // subtracts from a selection, --<name> adds to it.
+    // Each pass is resolved in layers, later layers winning:
+    //   1. its built-in default (on, or off for defaultOffTransformations);
+    //   2. the config's enabled/disabled lists;
+    //   3. `--only`, which when given is the absolute base set (CLI beats
+    //      config), so a config list no longer contributes to the base; and
+    //   4. the pass's one CLI switch, highest of all: an on-by-default pass has
+    //      --no-<name> (forces off), an off-by-default pass has --<name>
+    //      (forces on). A switch composes with --only, and where a pass has no
+    //      switch for the wanted direction, `--only` is the way to override the
+    //      config.
     bool enabled(String name) {
       final defaultOn = !defaultOffTransformations.contains(name);
-      final inBase = selected.isEmpty ? defaultOn : selected.contains(name);
+      final bool base;
+      if (selected.isNotEmpty) {
+        base = selected.contains(name);
+      } else if (config.enabled.contains(name)) {
+        base = true;
+      } else if (config.disabled.contains(name)) {
+        base = false;
+      } else {
+        base = defaultOn;
+      }
       return defaultOn
-          ? inBase && !(results['no-$name'] as bool)
-          : inBase || (results[name] as bool);
+          ? base && !(results['no-$name'] as bool)
+          : base || (results[name] as bool);
     }
 
     return .new(
-      // Normalize so the analyzer always receives an absolute path with the
-      // platform's separator (e.g. `dart_modernize C:/proj` on Windows).
-      path: p.normalize(p.absolute(paths.isEmpty ? p.current : paths.first)),
+      path: resolveTargetPath(results),
       dryRun: results['dry-run'] as bool,
       check: results['check'] as bool,
       color: results['color'] as bool?,
@@ -347,7 +379,7 @@ final class CliOptions {
         'crlf' => .crlf,
         _ => .auto,
       },
-      excludes: results['exclude'] as List<String>,
+      excludes: [...config.excludes, ...results['exclude'] as List<String>],
       dotShorthands: enabled('dot-shorthands'),
       privateNamedParameters: enabled('private-named-parameters'),
       primaryConstructors: enabled('primary-constructors'),

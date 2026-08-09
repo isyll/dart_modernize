@@ -16,6 +16,7 @@ lib/
     modernize_exception.dart         exception type
     cli/
       options.dart                   ArgParser + CliOptions
+      config.dart                    dart_modernize: analysis_options section
     analysis/
       project_analyzer.dart          full type resolution
       validator.dart                 pubspec / SDK validation

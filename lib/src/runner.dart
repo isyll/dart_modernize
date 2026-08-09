@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 
+import 'cli/config.dart';
 import 'cli/options.dart';
 import 'modernize_exception.dart';
 import 'output/reporter.dart';
@@ -43,7 +44,10 @@ Future<void> run(List<String> arguments) async {
 
   final CliOptions options;
   try {
-    options = .fromResults(results);
+    // Read the project's dart_modernize: config before building options, so the
+    // file's enabled/disabled/exclude settings layer in under the CLI flags.
+    final config = readDartModernizeConfig(resolveTargetPath(results));
+    options = .fromResults(results, config: config);
   } on FormatException catch (e) {
     earlyReporter
       ..error(e.message)
