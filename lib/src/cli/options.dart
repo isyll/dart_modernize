@@ -25,6 +25,7 @@ const transformationNames = <String>[
   'string-interpolation',
   'null-aware-spread',
   'null-aware-elements',
+  'null-aware-conditionals',
   'inline-return',
   'final-locals',
   'abstract-final-classes',
@@ -222,6 +223,14 @@ ArgParser buildArgParser() => .new()
         'guards with the `?x` null-aware element syntax.',
   )
   ..addFlag(
+    'no-null-aware-conditionals',
+    negatable: false,
+    help:
+        'Skip null-aware-conditionals: collapse `x == null ? null : x[i]` to '
+        '`x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the '
+        'forms `dart fix` leaves behind.',
+  )
+  ..addFlag(
     'no-inline-return',
     negatable: false,
     help:
@@ -308,6 +317,7 @@ final class CliOptions {
     required this.stringInterpolation,
     required this.nullAwareSpread,
     required this.nullAwareElements,
+    required this.nullAwareConditionals,
     required this.finalLocals,
     required this.abstractFinalClasses,
     required this.preferInferredTypes,
@@ -394,6 +404,7 @@ final class CliOptions {
       stringInterpolation: enabled('string-interpolation'),
       nullAwareSpread: enabled('null-aware-spread'),
       nullAwareElements: enabled('null-aware-elements'),
+      nullAwareConditionals: enabled('null-aware-conditionals'),
       finalLocals: enabled('final-locals'),
       abstractFinalClasses: enabled('abstract-final-classes'),
       preferInferredTypes: enabled('prefer-inferred-types'),
@@ -447,6 +458,7 @@ final class CliOptions {
   final bool stringInterpolation;
   final bool nullAwareSpread;
   final bool nullAwareElements;
+  final bool nullAwareConditionals;
   final bool finalLocals;
   final bool abstractFinalClasses;
 

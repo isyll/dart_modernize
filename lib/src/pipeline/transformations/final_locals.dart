@@ -25,6 +25,17 @@ import '../transformation.dart';
 ///
 /// Pattern declarations (`var (x, y) = ...`) are a different AST node and
 /// are never visited.
+///
+/// The same `var` -> `final` rule is applied to for-in loop variables, so
+/// `for (var x in xs)` becomes `for (final x in xs)` when `x` is never
+/// reassigned in the loop. A classic `for (var i = 0; ...; i++)` is a different
+/// AST node and is left alone; its counter is mutated by definition.
+///
+/// The lint `prefer_final_in_for_each` covers the for-in case, so `dart fix`
+/// applies it too, but only for projects that enable that rule (it is not in
+/// `package:lints/recommended.yaml`). This pass does it for every project. The
+/// two cannot collide: this pass runs in the transform stage and fix-all runs
+/// later over the finalized file, where the loop already reads `final`.
 final class FinalLocals implements Transformation {
   const FinalLocals({required this.enabled});
 
@@ -52,6 +63,41 @@ class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
   void visitVariableDeclarationStatement(VariableDeclarationStatement node) {
     _collect(node);
     super.visitVariableDeclarationStatement(node);
+  }
+
+  @override
+  void visitForEachPartsWithDeclaration(ForEachPartsWithDeclaration node) {
+    _collectLoopVariable(node);
+    super.visitForEachPartsWithDeclaration(node);
+  }
+
+  /// Upgrades `for (var x in xs)` to `for (final x in xs)`.
+  ///
+  /// The reassignment scan covers the whole enclosing for statement, which is
+  /// the loop variable's entire scope, so a closure in the body that writes to
+  /// it is still seen. Matching is by element identity, so a same-named
+  /// variable elsewhere never counts.
+  void _collectLoopVariable(ForEachPartsWithDeclaration node) {
+    final loopVariable = node.loopVariable;
+    final keyword = loopVariable.keyword;
+    if (keyword?.lexeme != 'var') return;
+
+    final element = loopVariable.declaredFragment?.element;
+    if (element == null) return;
+
+    // The parent is the enclosing `for` statement (or collection `for` element),
+    // which is exactly the loop variable's scope.
+    final finder = _ReassignmentFinder(element);
+    node.parent.accept(finder);
+    if (finder.found) return;
+
+    edits.add(
+      .new(
+        offset: keyword!.offset,
+        length: keyword.length,
+        replacement: 'final',
+      ),
+    );
   }
 
   void _collect(VariableDeclarationStatement stmt) {

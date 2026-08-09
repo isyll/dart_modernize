@@ -138,7 +138,7 @@ class Worker extends Base {
 }
 ''';
 
-/// All eighteen passes (fixture-folder names).
+/// All nineteen passes (fixture-folder names).
 ///
 /// primary_constructors and switch_expressions do not fire on the project
 /// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
@@ -161,6 +161,7 @@ const _stable = <String>{
   'string_interpolation',
   'null_aware_spread',
   'null_aware_elements',
+  'null_aware_conditionals',
   'organize_imports',
   'sort_members',
   'sort_constructors_first',

@@ -7,6 +7,7 @@ import 'transformations/expression_bodies.dart';
 import 'transformations/final_locals.dart';
 import 'transformations/fix_all.dart';
 import 'transformations/inline_return.dart';
+import 'transformations/null_aware_conditionals.dart';
 import 'transformations/null_aware_elements.dart';
 import 'transformations/null_aware_spread.dart';
 import 'transformations/organize_imports.dart';
@@ -76,7 +77,14 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     FinalLocals(enabled: options.finalLocals),
   ],
 
-  // 5. Innermost edits, run last so they see final positions. abstract-final
+  // 5. null-aware-conditionals replaces a whole conditional expression, so it
+  //    has to land before the innermost passes edit inside that span (a
+  //    fallback arm such as `Color.red` is a dot-shorthand target), and after
+  //    the passes that rewrite an enclosing statement (inline-return,
+  //    expression-bodies) have already moved the conditional into place.
+  [NullAwareConditionals(enabled: options.nullAwareConditionals)],
+
+  // 6. Innermost edits, run last so they see final positions. abstract-final
   //    needs the whole project resolved to decide which classes are safe to seal.
   [
     DotShorthands(enabled: options.dotShorthands),

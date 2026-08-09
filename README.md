@@ -147,7 +147,7 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Eighteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
+Nineteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
 
 | Feature | Description |
 |:--|:--|
@@ -157,10 +157,11 @@ Eighteen passes, grouped into five families. Each is independently toggleable, a
 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into `'a $b c'` interpolation. |
 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
 | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
-| **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
+| **Final locals** | Replaces `var` with `final` on local variables, and on for-in loop variables, that are never reassigned, incremented, or compound-assigned. |
 | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type and that type is obvious from the initializer (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
 | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
+| **Null-aware conditionals** | Collapses `x == null ? null : x[i]` to `x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the forms `dart fix` leaves behind. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
 | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
@@ -407,7 +408,7 @@ return Connection(host)
 
 > Skipped when the local has more than one use, carries a comment, is declared alongside other variables in one statement, or the return is not an immediate bare reference to the local.
 
-**Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body.
+**Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body, and on for-in loop variables that are never reassigned in the loop.
 
 ```dart
 // before
@@ -423,7 +424,19 @@ print(name);
 return multiplier * rate;
 ```
 
-> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures.
+```dart
+// before
+for (var item in items) {
+  render(item);
+}
+
+// after
+for (final item in items) {
+  render(item);
+}
+```
+
+> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures. A classic `for (var i = 0; i < n; i++)` counter is left alone. The for-in case is what the lint `prefer_final_in_for_each` flags, so **fix all** also applies it, but only in projects that enable that rule; this pass does it everywhere. The two never collide, because this pass runs before **fix all** sees the file.
 
 **Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
 
@@ -470,6 +483,22 @@ List<int> build(List<int>? extra) => [0, ...?extra];
 ```
 
 > `?expr` evaluates the operand **once**, where the old `if`/value form evaluated it twice. So these apply only to a stable, side-effect-free reference (a local or const). Getters, method calls, and index lookups are left alone.
+
+**Null-aware conditionals**: collapses a null-check conditional into `?[]` and `??`.
+
+```dart
+// before
+int? first(List<int>? xs) => xs == null ? null : xs[0];
+String label(Box? box, String fallback) => box != null ? box.name : fallback;
+
+// after
+int? first(List<int>? xs) => xs?[0];
+String label(Box? box, String fallback) => box?.name ?? fallback;
+```
+
+> Scope is deliberately narrow. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` are both in `package:lints/recommended.yaml`, so **fix all** already rewrites `x == null ? d : x` and `x == null ? null : x.foo` in either operand order. This pass only handles what those lints miss: the **index** form, which no lint flags, and a chain against an **arbitrary fallback** rather than `null`.
+>
+> The fallback form applies only when the chain's static type is non-nullable. That guard is load-bearing: if `box.name` could itself be null, then `box != null ? box.name : d` yields null where `box?.name ?? d` would yield `d`. Both forms also require the tested expression to be a stable, side-effect-free reference.
 
 ### Constructor shorthands
 
