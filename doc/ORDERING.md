@@ -105,3 +105,30 @@ a fixed order (`buildFinalizeTransformations`):
    `organize-imports` runs here).
 3. `dart format` last, over the same filtered file list the rest of the pipeline
    uses, since it does not read `analyzer: exclude:` or `--exclude` itself.
+
+## Rewrites vs reordering
+
+The finalize phase is also where the two *layout-only* passes live, and the
+distinction matters when reading a diff.
+
+Every structural pass in the stage table rewrites a construct in place: it edits
+the code it targets and leaves the surrounding declarations where they sit.
+`sort-members` and `sort-constructors-first` do the opposite. They edit nothing
+and move whole declarations, so their output is pure relocation.
+
+That is safe because Dart does not resolve declarations positionally, so moving
+one cannot change what a name resolves to. The single position-dependent thing is
+field initialization order, which `MemberSorter` preserves explicitly: fields
+share one priority slot and compare by source offset (see `_sortedMembers`), so
+they move as a group but never past one another.
+
+The cost is review noise, not correctness: a reordered file is a wall of moved
+lines that buries any real change and misattributes `git blame`. That is why
+`sort-members` is off by default (see `defaultOffTransformations`), and why it is
+worth running on its own rather than in the same commit as a rewrite.
+
+Both passes order class members, so they must agree with each other or the
+pipeline would not converge. `pass_convergence_test.dart` guards that from two
+sides: it runs them in either order and requires the same fixed point, and it
+runs the full pipeline with `sort-members` switched on and then re-runs every
+region-rewriting pass, which must be a no-op.

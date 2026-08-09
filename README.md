@@ -175,6 +175,26 @@ Nineteen passes, grouped into five families. Each is independently toggleable, a
 
 <br>
 
+## 🔀 Rewrites vs reordering
+
+No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
+
+**Syntax rewrites.** Seventeen of the nineteen passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+
+**Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
+
+Reordering is safe because Dart does not resolve declarations by their position in the file. A method can call one declared below it, and a class can reference a top-level function defined later, so moving a declaration cannot change what any name resolves to.
+
+The one thing that genuinely does depend on position is **field initialization order**, and it is preserved. Fields move as a group into their slot in the canonical order, but never past one another: within that group they stay in the exact order they were declared, public and private alike. So a field whose initializer reads another field still runs after the one it depends on.
+
+What reordering does cost you is review. A single file can turn into hundreds of moved lines, `git blame` points at the move instead of the original author, and a real change hiding among the moves is easy to miss. That is why **sort members**, the noisiest of the two, is off by default. Turn it on deliberately with `--sort-members`, and prefer landing it in its own commit so the reordering never shares a diff with a behavior change:
+
+```sh
+dart_modernize --only sort-members,sort-constructors-first
+```
+
+<br>
+
 ## 🧩 Transformations
 
 Each pass below has a minimal before/after and the rule that decides when it is skipped.
