@@ -2,6 +2,7 @@ import '../cli/options.dart';
 import 'transformation.dart';
 import 'transformations/abstract_final_classes.dart';
 import 'transformations/cascades.dart';
+import 'transformations/destructure_for_in.dart';
 import 'transformations/dot_shorthands.dart';
 import 'transformations/expression_bodies.dart';
 import 'transformations/final_locals.dart';
@@ -84,7 +85,13 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
   //    expression-bodies) have already moved the conditional into place.
   [NullAwareConditionals(enabled: options.nullAwareConditionals)],
 
-  // 6. Innermost edits, run last so they see final positions. abstract-final
+  // 6. destructure-for-in rewrites the loop header and every field read in the
+  //    body, so it runs after final-locals has settled the header keyword and
+  //    after null-aware-conditionals has replaced any conditional wrapping one
+  //    of those reads, and before the innermost passes edit the same reads.
+  [DestructureForIn(enabled: options.destructureForIn)],
+
+  // 7. Innermost edits, run last so they see final positions. abstract-final
   //    needs the whole project resolved to decide which classes are safe to seal.
   [
     DotShorthands(enabled: options.dotShorthands),

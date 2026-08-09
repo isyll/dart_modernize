@@ -147,7 +147,7 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Nineteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
+Twenty passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
 
 | Feature | Description |
 |:--|:--|
@@ -162,6 +162,7 @@ Nineteen passes, grouped into five families. Each is independently toggleable, a
 | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | **Null-aware conditionals** | Collapses `x == null ? null : x[i]` to `x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the forms `dart fix` leaves behind. |
+| **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
 | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
@@ -179,7 +180,7 @@ Nineteen passes, grouped into five families. Each is independently toggleable, a
 
 No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
 
-**Syntax rewrites.** Seventeen of the nineteen passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+**Syntax rewrites.** Eighteen of the twenty passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
 
 **Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
 
@@ -519,6 +520,24 @@ String label(Box? box, String fallback) => box?.name ?? fallback;
 > Scope is deliberately narrow. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` are both in `package:lints/recommended.yaml`, so **fix all** already rewrites `x == null ? d : x` and `x == null ? null : x.foo` in either operand order. This pass only handles what those lints miss: the **index** form, which no lint flags, and a chain against an **arbitrary fallback** rather than `null`.
 >
 > The fallback form applies only when the chain's static type is non-nullable. That guard is load-bearing: if `box.name` could itself be null, then `box != null ? box.name : d` yields null where `box?.name ?? d` would yield `d`. Both forms also require the tested expression to be a stable, side-effect-free reference.
+
+**Destructure for-in**: moves a loop variable's field reads into an object pattern in the header.
+
+```dart
+// before
+for (final entry in scores.entries) {
+  print('${entry.key} = ${entry.value}');
+}
+
+// after
+for (final MapEntry(:key, :value) in scores.entries) {
+  print('$key = $value');
+}
+```
+
+> Only the fields actually read are destructured, and each binding takes the field's own name, so no identifier is ever invented. Skipped when the loop variable is used whole, reassigned, or has a method called on it, and when a bound name would clash with something already in the enclosing function.
+>
+> Every field read must resolve to a **final, non-late instance field**. Destructuring reads each field once per iteration where the original read it once per use, so a computed getter (which could run code) or a `late final` field (whose initializer could be forced on an iteration that never used it) is left alone. Positional record fields (`pair.$1`) are skipped too: there is no name to bind.
 
 ### Constructor shorthands
 

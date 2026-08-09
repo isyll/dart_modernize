@@ -30,7 +30,8 @@ inline-return,cascades` still runs `cascades` (stage 2) before `inline-return`
 | 3 | `inline-return`, `prefer-inferred-types` | Read stage 2. |
 | 4 | `expression-bodies`, `final-locals` | Read stage 3. |
 | 5 | `null-aware-conditionals` | Replace a whole conditional expression. |
-| 6 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes` | Innermost edits and the project-wide seal. |
+| 6 | `destructure-for-in` | Rewrite a loop header and its field reads. |
+| 7 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes` | Innermost edits and the project-wide seal. |
 
 Two rules decide a pass's stage:
 
@@ -53,7 +54,7 @@ Two rules decide a pass's stage:
    expressions. Running `dot-shorthands`, `string-interpolation`, and the
    null-aware passes last lets them edit the final positions.
 
-`prefer-inferred-types` (stage 3) runs before `dot-shorthands` (stage 6). When a
+`prefer-inferred-types` (stage 3) runs before `dot-shorthands` (stage 7). When a
 declared type is redundant, prefer-inferred-types drops it, so dot-shorthands
 sees no context type and leaves the value alone: `final c = Color.blue` and
 `final p = Provider()`, not `final Color c = .blue` or `final Provider p = .new()`.
@@ -64,7 +65,7 @@ run *after* the passes that rewrite an enclosing statement (`inline-return`,
 `expression-bodies`) have moved that conditional into its final home, and
 *before* the innermost passes edit inside it, since a fallback arm is itself
 rewritable: `box != null ? box.name : Color.red` becomes `box?.name ?? Color.red`
-in stage 5 and then `box?.name ?? .red` in stage 6. Sharing a stage with either
+in stage 5 and then `box?.name ?? .red` in stage 7. Sharing a stage with either
 neighbour would put two edits on overlapping spans, and `EditCollector` drops the
 loser.
 

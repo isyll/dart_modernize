@@ -26,6 +26,7 @@ const transformationNames = <String>[
   'null-aware-spread',
   'null-aware-elements',
   'null-aware-conditionals',
+  'destructure-for-in',
   'inline-return',
   'final-locals',
   'abstract-final-classes',
@@ -231,6 +232,14 @@ ArgParser buildArgParser() => .new()
         'forms `dart fix` leaves behind.',
   )
   ..addFlag(
+    'no-destructure-for-in',
+    negatable: false,
+    help:
+        'Skip destructure-for-in: move a for-in variable\'s field reads into an '
+        'object pattern, so `for (final e in map.entries)` reading `e.key` and '
+        '`e.value` becomes `for (final MapEntry(:key, :value) in map.entries)`.',
+  )
+  ..addFlag(
     'no-inline-return',
     negatable: false,
     help:
@@ -318,6 +327,7 @@ final class CliOptions {
     required this.nullAwareSpread,
     required this.nullAwareElements,
     required this.nullAwareConditionals,
+    required this.destructureForIn,
     required this.finalLocals,
     required this.abstractFinalClasses,
     required this.preferInferredTypes,
@@ -405,6 +415,7 @@ final class CliOptions {
       nullAwareSpread: enabled('null-aware-spread'),
       nullAwareElements: enabled('null-aware-elements'),
       nullAwareConditionals: enabled('null-aware-conditionals'),
+      destructureForIn: enabled('destructure-for-in'),
       finalLocals: enabled('final-locals'),
       abstractFinalClasses: enabled('abstract-final-classes'),
       preferInferredTypes: enabled('prefer-inferred-types'),
@@ -459,6 +470,7 @@ final class CliOptions {
   final bool nullAwareSpread;
   final bool nullAwareElements;
   final bool nullAwareConditionals;
+  final bool destructureForIn;
   final bool finalLocals;
   final bool abstractFinalClasses;
 
