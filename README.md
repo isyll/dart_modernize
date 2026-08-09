@@ -147,7 +147,7 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Twenty passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
+Twenty-one passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
 
 | Feature | Description |
 |:--|:--|
@@ -163,6 +163,7 @@ Twenty passes, grouped into five families. Each is independently toggleable, and
 | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
 | **Null-aware conditionals** | Collapses `x == null ? null : x[i]` to `x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the forms `dart fix` leaves behind. |
 | **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
+| **Destructure locals** | Collapses a local that only exists to read fields off it into one destructuring declaration: `final p = get(); final x = p.x; final y = p.y;` becomes `final Point(:x, :y) = get();`. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
 | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
@@ -180,7 +181,7 @@ Twenty passes, grouped into five families. Each is independently toggleable, and
 
 No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
 
-**Syntax rewrites.** Eighteen of the twenty passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+**Syntax rewrites.** Nineteen of the twenty-one passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, destructure locals, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
 
 **Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
 
@@ -538,6 +539,32 @@ for (final MapEntry(:key, :value) in scores.entries) {
 > Only the fields actually read are destructured, and each binding takes the field's own name, so no identifier is ever invented. Skipped when the loop variable is used whole, reassigned, or has a method called on it, and when a bound name would clash with something already in the enclosing function.
 >
 > Every field read must resolve to a **final, non-late instance field**. Destructuring reads each field once per iteration where the original read it once per use, so a computed getter (which could run code) or a `late final` field (whose initializer could be forced on an iteration that never used it) is left alone. Positional record fields (`pair.$1`) are skipped too: there is no name to bind.
+
+**Destructure locals**: collapses a local that only exists to read fields off it.
+
+```dart
+// before
+final result = computePair();
+final a = result.$1;
+final b = result.$2;
+
+// after
+final (a, b) = computePair();
+```
+
+```dart
+// before
+final p = getPoint();
+final x = p.x;
+final y = p.y;
+
+// after
+final Point(:x, :y) = getPoint();
+```
+
+> Binding names come from the locals that already exist, so nothing is invented; a local named differently from its field keeps its own name (`final first = p.x` becomes `Point(x: first)`). Skipped when the intermediate is used for anything else at all, when an unrelated statement interrupts the run, or when a statement in the run carries a comment the single replacement would drop.
+>
+> The same **final, non-late instance field** rule as destructure for-in applies, and for the same reason: destructuring reads every field up front, where the original read each one at its own declaration. Records with named fields are skipped; the positional form covers the shape this targets.
 
 ### Constructor shorthands
 

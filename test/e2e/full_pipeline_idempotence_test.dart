@@ -138,7 +138,7 @@ class Worker extends Base {
 }
 ''';
 
-/// All twenty passes (fixture-folder names).
+/// All twenty-one passes (fixture-folder names).
 ///
 /// primary_constructors and switch_expressions do not fire on the project
 /// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
@@ -163,6 +163,7 @@ const _stable = <String>{
   'null_aware_elements',
   'null_aware_conditionals',
   'destructure_for_in',
+  'destructure_locals',
   'organize_imports',
   'sort_members',
   'sort_constructors_first',

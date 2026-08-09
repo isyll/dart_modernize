@@ -30,7 +30,7 @@ inline-return,cascades` still runs `cascades` (stage 2) before `inline-return`
 | 3 | `inline-return`, `prefer-inferred-types` | Read stage 2. |
 | 4 | `expression-bodies`, `final-locals` | Read stage 3. |
 | 5 | `null-aware-conditionals` | Replace a whole conditional expression. |
-| 6 | `destructure-for-in` | Rewrite a loop header and its field reads. |
+| 6 | `destructure-for-in`, `destructure-locals` | Move field reads into a pattern. |
 | 7 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes` | Innermost edits and the project-wide seal. |
 
 Two rules decide a pass's stage:

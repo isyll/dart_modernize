@@ -193,7 +193,7 @@ void main() {
 /// The enabled state of every transformation, keyed by its CLI flag name.
 ///
 /// Lets a test assert over [transformationNames] without hard-coding each of
-/// the twenty boolean getters.
+/// the twenty-one boolean getters.
 Map<String, bool> _enabledByName(CliOptions o) => {
   'dot-shorthands': o.dotShorthands,
   'private-named-parameters': o.privateNamedParameters,
@@ -210,6 +210,7 @@ Map<String, bool> _enabledByName(CliOptions o) => {
   'null-aware-elements': o.nullAwareElements,
   'null-aware-conditionals': o.nullAwareConditionals,
   'destructure-for-in': o.destructureForIn,
+  'destructure-locals': o.destructureLocals,
   'inline-return': o.inlineReturn,
   'final-locals': o.finalLocals,
   'abstract-final-classes': o.abstractFinalClasses,

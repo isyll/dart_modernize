@@ -27,6 +27,7 @@ const transformationNames = <String>[
   'null-aware-elements',
   'null-aware-conditionals',
   'destructure-for-in',
+  'destructure-locals',
   'inline-return',
   'final-locals',
   'abstract-final-classes',
@@ -240,6 +241,14 @@ ArgParser buildArgParser() => .new()
         '`e.value` becomes `for (final MapEntry(:key, :value) in map.entries)`.',
   )
   ..addFlag(
+    'no-destructure-locals',
+    negatable: false,
+    help:
+        'Skip destructure-locals: collapse a local that only exists to read '
+        'fields off it into one destructuring declaration, so `final p = get(); '
+        'final x = p.x;` becomes `final Point(:x) = get();`.',
+  )
+  ..addFlag(
     'no-inline-return',
     negatable: false,
     help:
@@ -328,6 +337,7 @@ final class CliOptions {
     required this.nullAwareElements,
     required this.nullAwareConditionals,
     required this.destructureForIn,
+    required this.destructureLocals,
     required this.finalLocals,
     required this.abstractFinalClasses,
     required this.preferInferredTypes,
@@ -416,6 +426,7 @@ final class CliOptions {
       nullAwareElements: enabled('null-aware-elements'),
       nullAwareConditionals: enabled('null-aware-conditionals'),
       destructureForIn: enabled('destructure-for-in'),
+      destructureLocals: enabled('destructure-locals'),
       finalLocals: enabled('final-locals'),
       abstractFinalClasses: enabled('abstract-final-classes'),
       preferInferredTypes: enabled('prefer-inferred-types'),
@@ -471,6 +482,7 @@ final class CliOptions {
   final bool nullAwareElements;
   final bool nullAwareConditionals;
   final bool destructureForIn;
+  final bool destructureLocals;
   final bool finalLocals;
   final bool abstractFinalClasses;
 
