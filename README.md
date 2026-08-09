@@ -720,9 +720,31 @@ Run `dart_modernize --help` for the same reference, always current.
 
 <br>
 
+## 🗂️ Configuration file
+
+Record per-project settings in a `dart_modernize:` section of `analysis_options.yaml`, so they live in the repo instead of being repeated on every run:
+
+```yaml
+dart_modernize:
+  enabled:
+    - sort-members        # switch on an off-by-default pass
+  disabled:
+    - organize-imports    # switch off an on-by-default pass
+  exclude:
+    - lib/generated/**    # extra globs, added to analyzer: exclude and --exclude
+```
+
+- **`enabled`** switches passes on (use it for opt-in passes like `sort-members`).
+- **`disabled`** switches passes off.
+- **`exclude`** adds glob patterns on top of `analyzer: exclude:` and any `--exclude` flags.
+
+CLI flags win over the file: `--only` replaces the file's selection entirely, and a pass's own switch (`--no-<name>` or `--<name>`) overrides the file for that pass. Since each pass has exactly one switch, that switch only counters the file in one direction; `--only` is the way to override the file in the other (e.g. to run a pass the file disabled). An unknown pass name, or a name listed under both `enabled` and `disabled`, is reported as an error.
+
+<br>
+
 ## 🚫 Excluding files
 
-The tool skips files in four ways, checked in order.
+The tool skips files in five ways, checked in order.
 
 **Built-in**: always excluded, no configuration required.
 
@@ -743,6 +765,8 @@ analyzer:
     - lib/src/proto/**
     - test/golden/**
 ```
+
+**`dart_modernize: exclude:`**: the project config section above takes exclude globs too, merged with the `analyzer: exclude:` list and any `--exclude` flags. Use it for paths you want skipped by this tool but kept in the analyzer's own view.
 
 **`--exclude` flag**: for ad-hoc patterns not already in `analysis_options.yaml`. The pattern is matched against the path relative to the project root and the flag can be repeated:
 
