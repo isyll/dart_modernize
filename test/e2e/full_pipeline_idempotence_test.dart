@@ -1,7 +1,7 @@
 /// Full-pipeline safety spec over a realistic, multi-file project.
 ///
 /// This is the broadest behavioural check: a small but production-shaped package
-/// is modernized with all eighteen passes enabled at once, and the
+/// is modernized with every compatible pass enabled at once, and the
 /// result must be (a) actually transformed by every applicable structural pass,
 /// (b) idempotent (a second run changes nothing), and (c) still analyze without
 /// errors.
@@ -138,7 +138,13 @@ class Worker extends Base {
 }
 ''';
 
-/// All twenty-two passes (fixture-folder names).
+/// Every pass but `collection_elements` (fixture-folder names), 21 of the 22.
+///
+/// collection_elements is left out deliberately, not by oversight: it and
+/// cascades both target a run of `add` calls on a fresh local, and whichever
+/// runs first wins. Enabling both here would pin that race into this suite's
+/// expectations, where it would read as an accident. The two are covered
+/// against each other in `flag_disables_pass_test.dart` instead.
 ///
 /// primary_constructors and switch_expressions do not fire on the project
 /// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
