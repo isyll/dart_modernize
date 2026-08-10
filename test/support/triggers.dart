@@ -174,6 +174,49 @@ int classify(int code) {
 }
 ''';
 
+const nullAwareConditionalsTrigger = '''
+int? first(List<int>? xs) => xs == null ? null : xs[0];
+''';
+
+const destructureForInTrigger = '''
+void report(Map<String, int> scores) {
+  for (final entry in scores.entries) {
+    print(entry.key);
+  }
+}
+''';
+
+/// The point is taken as a parameter rather than built by a helper. A helper
+/// like `Point getPoint() => const Point(1, 2);` is a dot-shorthand target, so
+/// dot-shorthands would rewrite it to `const .new(1, 2)` and the "only its own
+/// pass may touch this trigger" check would fail for the wrong reason.
+const destructureLocalsTrigger = '''
+class Point {
+  const Point(this.x, this.y);
+  final int x;
+  final int y;
+}
+
+int sum(Point point) {
+  final p = point;
+  final x = p.x;
+  final y = p.y;
+  return x + y;
+}
+''';
+
+/// Deliberately guarded with an `if` rather than a plain run of `add` calls.
+/// A bare run is also exactly what `cascades` folds, so a default run (where
+/// collection-elements is off but cascades is on) would rewrite it anyway and
+/// the "stays off by default" check could never tell the two apart.
+const collectionElementsTrigger = '''
+List<int> build(bool flag) {
+  final items = <int>[];
+  if (flag) items.add(1);
+  return items;
+}
+''';
+
 /// Trigger source keyed by feature folder name.
 const triggers = <String, String>{
   'dot_shorthands': dotShorthandsTrigger,
@@ -189,6 +232,10 @@ const triggers = <String, String>{
   'string_interpolation': stringInterpolationTrigger,
   'null_aware_spread': nullAwareSpreadTrigger,
   'null_aware_elements': nullAwareElementsTrigger,
+  'null_aware_conditionals': nullAwareConditionalsTrigger,
+  'destructure_for_in': destructureForInTrigger,
+  'destructure_locals': destructureLocalsTrigger,
+  'collection_elements': collectionElementsTrigger,
   'organize_imports': organizeImportsTrigger,
   'sort_members': sortMembersTrigger,
   'sort_constructors_first': sortConstructorsFirstTrigger,

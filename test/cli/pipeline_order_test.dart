@@ -18,6 +18,7 @@ void main() {
 
       expect(stages, [
         ['primary-constructors'],
+        ['collection-elements'],
         [
           'switch-expressions',
           'cascades',
@@ -26,6 +27,8 @@ void main() {
         ],
         ['inline-return', 'prefer-inferred-types'],
         ['expression-bodies', 'final-locals'],
+        ['null-aware-conditionals'],
+        ['destructure-for-in', 'destructure-locals'],
         [
           'dot-shorthands',
           'string-interpolation',
@@ -118,6 +121,10 @@ CliOptions _options({
   bool stringInterpolation = true,
   bool nullAwareSpread = true,
   bool nullAwareElements = true,
+  bool nullAwareConditionals = true,
+  bool destructureForIn = true,
+  bool destructureLocals = true,
+  bool collectionElements = true,
   bool organizeImports = true,
   bool sortMembers = true,
   bool sortConstructorsFirst = true,
@@ -147,6 +154,10 @@ CliOptions _options({
   stringInterpolation: stringInterpolation,
   nullAwareSpread: nullAwareSpread,
   nullAwareElements: nullAwareElements,
+  nullAwareConditionals: nullAwareConditionals,
+  destructureForIn: destructureForIn,
+  destructureLocals: destructureLocals,
+  collectionElements: collectionElements,
   organizeImports: organizeImports,
   sortMembers: sortMembers,
   sortConstructorsFirst: sortConstructorsFirst,

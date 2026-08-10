@@ -147,7 +147,7 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Eighteen passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
+Twenty-two passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except two opt-in ones: **sort members** (`--sort-members`), which only reorders code but can produce a large diff, and **collection elements** (`--collection-elements`), which restructures a run of statements into a single literal.
 
 | Feature | Description |
 |:--|:--|
@@ -157,20 +157,44 @@ Eighteen passes, grouped into five families. Each is independently toggleable, a
 | **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into `'a $b c'` interpolation. |
 | **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
 | **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
-| **Final locals** | Replaces `var` with `final` on local variables that are never reassigned, incremented, or compound-assigned. |
+| **Final locals** | Replaces `var` with `final` on local variables, and on for-in loop variables, that are never reassigned, incremented, or compound-assigned. |
 | **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type and that type is obvious from the initializer (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
 | **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
 | **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
+| **Null-aware conditionals** | Collapses `x == null ? null : x[i]` to `x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the forms `dart fix` leaves behind. |
+| **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
+| **Destructure locals** | Collapses a local that only exists to read fields off it into one destructuring declaration: `final p = get(); final x = p.x; final y = p.y;` becomes `final Point(:x, :y) = get();`. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
 | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | **Organize imports** | Sorts, groups, and prunes unused directives. |
+| **Collection elements** | Folds a run of `add`/`addAll` calls on a freshly declared empty literal into one literal with collection-`if` and collection-`for` elements. **Off by default** (opt in with `--collection-elements`). |
 | **Sort members** | Reorders members into the canonical order. **Off by default** (opt in with `--sort-members`); it only moves code but can produce a large diff. |
 | **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
 | **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
 
 > Every edit is type checked before it lands. The tool does not change the resolved type, the targeted element, the evaluation count, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves the code as is.
+
+<br>
+
+## 🔀 Rewrites vs reordering
+
+No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
+
+**Syntax rewrites.** Twenty of the twenty-two passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, destructure locals, collection elements, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+
+**Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
+
+Reordering is safe because Dart does not resolve declarations by their position in the file. A method can call one declared below it, and a class can reference a top-level function defined later, so moving a declaration cannot change what any name resolves to.
+
+The one thing that genuinely does depend on position is **field initialization order**, and it is preserved. Fields move as a group into their slot in the canonical order, but never past one another: within that group they stay in the exact order they were declared, public and private alike. So a field whose initializer reads another field still runs after the one it depends on.
+
+What reordering does cost you is review. A single file can turn into hundreds of moved lines, `git blame` points at the move instead of the original author, and a real change hiding among the moves is easy to miss. That is why **sort members**, the noisiest of the two, is off by default. Turn it on deliberately with `--sort-members`, and prefer landing it in its own commit so the reordering never shares a diff with a behavior change:
+
+```sh
+dart_modernize --only sort-members,sort-constructors-first
+```
 
 <br>
 
@@ -407,7 +431,7 @@ return Connection(host)
 
 > Skipped when the local has more than one use, carries a comment, is declared alongside other variables in one statement, or the return is not an immediate bare reference to the local.
 
-**Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body.
+**Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body, and on for-in loop variables that are never reassigned in the loop.
 
 ```dart
 // before
@@ -423,7 +447,19 @@ print(name);
 return multiplier * rate;
 ```
 
-> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures.
+```dart
+// before
+for (var item in items) {
+  render(item);
+}
+
+// after
+for (final item in items) {
+  render(item);
+}
+```
+
+> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures. A classic `for (var i = 0; i < n; i++)` counter is left alone. The for-in case is what the lint `prefer_final_in_for_each` flags, so **fix all** also applies it, but only in projects that enable that rule; this pass does it everywhere. The two never collide, because this pass runs before **fix all** sees the file.
 
 **Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
 
@@ -470,6 +506,89 @@ List<int> build(List<int>? extra) => [0, ...?extra];
 ```
 
 > `?expr` evaluates the operand **once**, where the old `if`/value form evaluated it twice. So these apply only to a stable, side-effect-free reference (a local or const). Getters, method calls, and index lookups are left alone.
+
+**Null-aware conditionals**: collapses a null-check conditional into `?[]` and `??`.
+
+```dart
+// before
+int? first(List<int>? xs) => xs == null ? null : xs[0];
+String label(Box? box, String fallback) => box != null ? box.name : fallback;
+
+// after
+int? first(List<int>? xs) => xs?[0];
+String label(Box? box, String fallback) => box?.name ?? fallback;
+```
+
+> Scope is deliberately narrow. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` are both in `package:lints/recommended.yaml`, so **fix all** already rewrites `x == null ? d : x` and `x == null ? null : x.foo` in either operand order. This pass only handles what those lints miss: the **index** form, which no lint flags, and a chain against an **arbitrary fallback** rather than `null`.
+>
+> The fallback form applies only when the chain's static type is non-nullable. That guard is load-bearing: if `box.name` could itself be null, then `box != null ? box.name : d` yields null where `box?.name ?? d` would yield `d`. Both forms also require the tested expression to be a stable, side-effect-free reference.
+
+**Destructure for-in**: moves a loop variable's field reads into an object pattern in the header.
+
+```dart
+// before
+for (final entry in scores.entries) {
+  print('${entry.key} = ${entry.value}');
+}
+
+// after
+for (final MapEntry(:key, :value) in scores.entries) {
+  print('$key = $value');
+}
+```
+
+> Only the fields actually read are destructured, and each binding takes the field's own name, so no identifier is ever invented. Skipped when the loop variable is used whole, reassigned, or has a method called on it, and when a bound name would clash with something already in the enclosing function.
+>
+> Every field read must resolve to a **final, non-late instance field**. Destructuring reads each field once per iteration where the original read it once per use, so a computed getter (which could run code) or a `late final` field (whose initializer could be forced on an iteration that never used it) is left alone. Positional record fields (`pair.$1`) are skipped too: there is no name to bind.
+
+**Destructure locals**: collapses a local that only exists to read fields off it.
+
+```dart
+// before
+final result = computePair();
+final a = result.$1;
+final b = result.$2;
+
+// after
+final (a, b) = computePair();
+```
+
+```dart
+// before
+final p = getPoint();
+final x = p.x;
+final y = p.y;
+
+// after
+final Point(:x, :y) = getPoint();
+```
+
+> Binding names come from the locals that already exist, so nothing is invented; a local named differently from its field keeps its own name (`final first = p.x` becomes `Point(x: first)`). Skipped when the intermediate is used for anything else at all, when an unrelated statement interrupts the run, or when a statement in the run carries a comment the single replacement would drop.
+>
+> The same **final, non-late instance field** rule as destructure for-in applies, and for the same reason: destructuring reads every field up front, where the original read each one at its own declaration. Records with named fields are skipped; the positional form covers the shape this targets.
+
+**Collection elements** (off by default): folds a step-by-step build into one literal.
+
+```dart
+// before
+final items = <Widget>[];
+items.add(header);
+if (showBody) items.add(body);
+for (final s in sections) items.add(s);
+
+// after
+final items = <Widget>[
+  header,
+  if (showBody) body,
+  for (final s in sections) s,
+];
+```
+
+> Opt in with `--collection-elements`. This one turns a run of statements into a single expression, a bigger structural change than any other pass makes, which is why it is off by default.
+>
+> The local must be declared with an **empty** literal, and the run may only contain `add`/`addAll` calls, an `else`-less `if` around one of them, or a `for` around one of them. The run stops at the first statement that is not one of those, so it folds the prefix and leaves the rest; it also stops at a call that reads the collection while building it (`items.add(items.length)`), which no literal can express.
+>
+> It runs before **cascades** on purpose. Both passes want the same statements, and cascades would otherwise fold them into `<Widget>[]..add(header)..add(body)` first, leaving nothing to collapse into a literal.
 
 ### Constructor shorthands
 

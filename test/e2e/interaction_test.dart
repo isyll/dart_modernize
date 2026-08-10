@@ -265,6 +265,96 @@ class Engine {
 }
 ''',
     );
+
+    _composes(
+      'null-aware-conditionals folds the conditional and dot-shorthands then '
+      'collapses the fallback arm it produced',
+      passes: {'null_aware_conditionals', 'dot_shorthands'},
+      input: '''
+enum Color { red, blue }
+
+class Box {
+  Color get color => Color.blue;
+}
+
+Color pick(Box? box) => box != null ? box.color : Color.red;
+''',
+      expected: '''
+enum Color { red, blue }
+
+class Box {
+  Color get color => .blue;
+}
+
+Color pick(Box? box) => box?.color ?? .red;
+''',
+    );
+  });
+
+  group('final-locals and fix-all on the same for-in loop', () {
+    // `prefer_final_in_for_each` makes `dart fix` want the exact edit
+    // final-locals makes, so this is the one construct the two passes could
+    // fight over. They cannot: final-locals runs in the transform stage and
+    // fix-all runs later over the finalized file, where the loop already reads
+    // `final` and `dart fix` reports nothing.
+    const options = '''
+linter:
+  rules:
+    - prefer_final_in_for_each
+''';
+    const input = '''
+void use(int value) {}
+
+void loop(List<int> xs) {
+  for (var x in xs) {
+    use(x);
+  }
+}
+''';
+    const expected = '''
+void use(int value) {}
+
+void loop(List<int> xs) {
+  for (final x in xs) {
+    use(x);
+  }
+}
+''';
+
+    test('produce the lint fix exactly once and stay idempotent', () async {
+      final project = createProject(
+        files: {_file: input, 'analysis_options.yaml': options},
+      );
+      final args = onlyFeaturesArgs({'final_locals', 'fix_all'});
+
+      final run1 = await invokeCli(project, args: args);
+      expect(run1.exitCode, 0, reason: run1.stderr);
+      expect(run1.read(_file), expected, reason: 'no double edit, no conflict');
+
+      final run2 = await invokeCli(project, args: args);
+      expect(run2.exitCode, 0, reason: run2.stderr);
+      expect(
+        run2.read(_file),
+        expected,
+        reason: 'a second run changes nothing',
+      );
+    });
+
+    test(
+      'fix-all alone reaches the same bytes final-locals produces',
+      () async {
+        final project = createProject(
+          files: {_file: input, 'analysis_options.yaml': options},
+        );
+
+        final result = await invokeCli(
+          project,
+          args: onlyFeaturesArgs({'fix_all'}),
+        );
+        expect(result.exitCode, 0, reason: result.stderr);
+        expect(result.read(_file), expected);
+      },
+    );
   });
 }
 

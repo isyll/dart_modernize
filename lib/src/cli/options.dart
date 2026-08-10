@@ -25,6 +25,10 @@ const transformationNames = <String>[
   'string-interpolation',
   'null-aware-spread',
   'null-aware-elements',
+  'null-aware-conditionals',
+  'destructure-for-in',
+  'destructure-locals',
+  'collection-elements',
   'inline-return',
   'final-locals',
   'abstract-final-classes',
@@ -39,7 +43,10 @@ const transformationNames = <String>[
 /// `--<name>` flag. sort-members only reorders declarations and never changes
 /// behavior, but it is the single biggest source of diff noise, so it is
 /// opt-in.
-const defaultOffTransformations = <String>{'sort-members'};
+const defaultOffTransformations = <String>{
+  'sort-members',
+  'collection-elements',
+};
 
 /// Builds the [ArgParser] for the `dart_modernize` CLI.
 ArgParser buildArgParser() => .new()
@@ -127,8 +134,9 @@ ArgParser buildArgParser() => .new()
         '--only, every pass runs.',
   )
   ..addSeparator(
-    'Transformations. All run by default except sort-members, which is off '
-    '(switch it on with --sort-members). Narrow the run to a subset with '
+    'Transformations. All run by default except sort-members and '
+    'collection-elements, which are off (switch them on with --sort-members '
+    'and --collection-elements). Narrow the run to a subset with '
     '--only, or turn an on-by-default pass off with its --no-<name> switch '
     'below. Order never matters: passes always run in their fixed pipeline '
     'order.',
@@ -222,6 +230,39 @@ ArgParser buildArgParser() => .new()
         'guards with the `?x` null-aware element syntax.',
   )
   ..addFlag(
+    'no-null-aware-conditionals',
+    negatable: false,
+    help:
+        'Skip null-aware-conditionals: collapse `x == null ? null : x[i]` to '
+        '`x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the '
+        'forms `dart fix` leaves behind.',
+  )
+  ..addFlag(
+    'no-destructure-for-in',
+    negatable: false,
+    help:
+        'Skip destructure-for-in: move a for-in variable\'s field reads into an '
+        'object pattern, so `for (final e in map.entries)` reading `e.key` and '
+        '`e.value` becomes `for (final MapEntry(:key, :value) in map.entries)`.',
+  )
+  ..addFlag(
+    'no-destructure-locals',
+    negatable: false,
+    help:
+        'Skip destructure-locals: collapse a local that only exists to read '
+        'fields off it into one destructuring declaration, so `final p = get(); '
+        'final x = p.x;` becomes `final Point(:x) = get();`.',
+  )
+  ..addFlag(
+    'collection-elements',
+    negatable: false,
+    help:
+        'Switch on collection-elements (off by default): fold a run of '
+        'add/addAll calls on a freshly declared empty literal into one literal '
+        'using collection-if and collection-for elements. It restructures '
+        'statements into an expression, so it is opt-in.',
+  )
+  ..addFlag(
     'no-inline-return',
     negatable: false,
     help:
@@ -308,6 +349,10 @@ final class CliOptions {
     required this.stringInterpolation,
     required this.nullAwareSpread,
     required this.nullAwareElements,
+    required this.nullAwareConditionals,
+    required this.destructureForIn,
+    required this.destructureLocals,
+    required this.collectionElements,
     required this.finalLocals,
     required this.abstractFinalClasses,
     required this.preferInferredTypes,
@@ -394,6 +439,10 @@ final class CliOptions {
       stringInterpolation: enabled('string-interpolation'),
       nullAwareSpread: enabled('null-aware-spread'),
       nullAwareElements: enabled('null-aware-elements'),
+      nullAwareConditionals: enabled('null-aware-conditionals'),
+      destructureForIn: enabled('destructure-for-in'),
+      destructureLocals: enabled('destructure-locals'),
+      collectionElements: enabled('collection-elements'),
       finalLocals: enabled('final-locals'),
       abstractFinalClasses: enabled('abstract-final-classes'),
       preferInferredTypes: enabled('prefer-inferred-types'),
@@ -447,6 +496,10 @@ final class CliOptions {
   final bool stringInterpolation;
   final bool nullAwareSpread;
   final bool nullAwareElements;
+  final bool nullAwareConditionals;
+  final bool destructureForIn;
+  final bool destructureLocals;
+  final bool collectionElements;
   final bool finalLocals;
   final bool abstractFinalClasses;
 
