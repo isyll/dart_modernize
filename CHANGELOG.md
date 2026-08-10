@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0
+
+* [#15](https://github.com/isyll/dart_modernize/issues/15) Turn sort-members off by default
+* [#16](https://github.com/isyll/dart_modernize/issues/16) Read configuration from analysis_options.yaml
+* [#17](https://github.com/isyll/dart_modernize/issues/17) Explain which passes are cosmetic and which preserve behavior
+* [#19](https://github.com/isyll/dart_modernize/issues/19) Destructure intermediate variables with record/object patterns
+* [#20](https://github.com/isyll/dart_modernize/issues/20) Destructure for-in loop variables with patterns
+* [#21](https://github.com/isyll/dart_modernize/issues/21) Rewrite conditionals into null-aware operators
+* [#22](https://github.com/isyll/dart_modernize/issues/22) Build collections with if/for elements (opt-in, off by default)
+* [#23](https://github.com/isyll/dart_modernize/issues/23) Extend final_locals to for-in loop variables
+* [#30](https://github.com/isyll/dart_modernize/issues/30) Select transformations with --only instead of positional pass names
+* [#32](https://github.com/isyll/dart_modernize/issues/32) Final pre-release audit and cleanup for 0.10.0
+
 ## 0.9.2
 
 - prefer-inferred-types now removes a duplicated type annotation from a declaration whose initializer is a dot-shorthand constructor, expanding the shorthand to its explicit form: `final Foo a = .new()` becomes `final a = Foo()`, and `late final Foo a = .named()` becomes `late final a = Foo.named()`. The `late` modifier and the `final`/`const` keyword are preserved.
