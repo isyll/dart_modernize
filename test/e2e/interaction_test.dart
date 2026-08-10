@@ -283,7 +283,7 @@ Color pick(Box? box) => box != null ? box.color : Color.red;
 enum Color { red, blue }
 
 class Box {
-  Color get color => Color.blue;
+  Color get color => .blue;
 }
 
 Color pick(Box? box) => box?.color ?? .red;
