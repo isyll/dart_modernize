@@ -39,6 +39,7 @@ const allFeatures = <String>[
   'null_aware_conditionals',
   'destructure_for_in',
   'destructure_locals',
+  'collection_elements',
   'organize_imports',
   'sort_members',
   'sort_constructors_first',
@@ -65,7 +66,7 @@ environment:
 /// Mirrors `defaultOffTransformations` in `lib/src/cli/options.dart`, keyed by
 /// the fixture-folder name used throughout the harness. A pass named here runs
 /// only when selected with `--only` or switched on with [enableFeatureArgs].
-const defaultOffFeatures = <String>{'sort_members'};
+const defaultOffFeatures = <String>{'sort_members', 'collection_elements'};
 
 const featureFlags = <String, String>{
   'dot_shorthands': 'dot-shorthands',
@@ -84,6 +85,7 @@ const featureFlags = <String, String>{
   'null_aware_conditionals': 'null-aware-conditionals',
   'destructure_for_in': 'destructure-for-in',
   'destructure_locals': 'destructure-locals',
+  'collection_elements': 'collection-elements',
   'organize_imports': 'organize-imports',
   'sort_members': 'sort-members',
   'sort_constructors_first': 'sort-constructors-first',

@@ -147,7 +147,7 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Twenty-one passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except **sort members**, which is opt-in: it only reorders code and can produce a large diff, so switch it on with `--sort-members` when you want it.
+Twenty-two passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except two opt-in ones: **sort members** (`--sort-members`), which only reorders code but can produce a large diff, and **collection elements** (`--collection-elements`), which restructures a run of statements into a single literal.
 
 | Feature | Description |
 |:--|:--|
@@ -168,6 +168,7 @@ Twenty-one passes, grouped into five families. Each is independently toggleable,
 | **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | **Organize imports** | Sorts, groups, and prunes unused directives. |
+| **Collection elements** | Folds a run of `add`/`addAll` calls on a freshly declared empty literal into one literal with collection-`if` and collection-`for` elements. **Off by default** (opt in with `--collection-elements`). |
 | **Sort members** | Reorders members into the canonical order. **Off by default** (opt in with `--sort-members`); it only moves code but can produce a large diff. |
 | **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
 | **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
@@ -181,7 +182,7 @@ Twenty-one passes, grouped into five families. Each is independently toggleable,
 
 No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
 
-**Syntax rewrites.** Nineteen of the twenty-one passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, destructure locals, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+**Syntax rewrites.** Twenty of the twenty-two passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, destructure locals, collection elements, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
 
 **Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
 
@@ -565,6 +566,29 @@ final Point(:x, :y) = getPoint();
 > Binding names come from the locals that already exist, so nothing is invented; a local named differently from its field keeps its own name (`final first = p.x` becomes `Point(x: first)`). Skipped when the intermediate is used for anything else at all, when an unrelated statement interrupts the run, or when a statement in the run carries a comment the single replacement would drop.
 >
 > The same **final, non-late instance field** rule as destructure for-in applies, and for the same reason: destructuring reads every field up front, where the original read each one at its own declaration. Records with named fields are skipped; the positional form covers the shape this targets.
+
+**Collection elements** (off by default): folds a step-by-step build into one literal.
+
+```dart
+// before
+final items = <Widget>[];
+items.add(header);
+if (showBody) items.add(body);
+for (final s in sections) items.add(s);
+
+// after
+final items = <Widget>[
+  header,
+  if (showBody) body,
+  for (final s in sections) s,
+];
+```
+
+> Opt in with `--collection-elements`. This one turns a run of statements into a single expression, a bigger structural change than any other pass makes, which is why it is off by default.
+>
+> The local must be declared with an **empty** literal, and the run may only contain `add`/`addAll` calls, an `else`-less `if` around one of them, or a `for` around one of them. The run stops at the first statement that is not one of those, so it folds the prefix and leaves the rest; it also stops at a call that reads the collection while building it (`items.add(items.length)`), which no literal can express.
+>
+> It runs before **cascades** on purpose. Both passes want the same statements, and cascades would otherwise fold them into `<Widget>[]..add(header)..add(body)` first, leaving nothing to collapse into a literal.
 
 ### Constructor shorthands
 

@@ -20,18 +20,19 @@ Selecting a subset of passes (with `--only`, or turning some off with
 `--no-<name>`) only flips each pass's `enabled` flag. The stage sequence is
 unchanged, so a selected pass always runs in its stage's position no matter the
 order it is named on the command line: `dart_modernize --only
-inline-return,cascades` still runs `cascades` (stage 2) before `inline-return`
-(stage 3).
+inline-return,cascades` still runs `cascades` (stage 3) before `inline-return`
+(stage 4).
 
 | Stage | Passes | Role |
 | ----- | ------ | ---- |
 | 1 | `primary-constructors` | Outermost class rewrite. |
-| 2 | `switch-expressions`, `cascades`, `super-parameters`, `private-named-parameters` | Fold statement runs, build new constructs. |
-| 3 | `inline-return`, `prefer-inferred-types` | Read stage 2. |
-| 4 | `expression-bodies`, `final-locals` | Read stage 3. |
-| 5 | `null-aware-conditionals` | Replace a whole conditional expression. |
-| 6 | `destructure-for-in`, `destructure-locals` | Move field reads into a pattern. |
-| 7 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes` | Innermost edits and the project-wide seal. |
+| 2 | `collection-elements` | Fold an add/addAll run into one literal. |
+| 3 | `switch-expressions`, `cascades`, `super-parameters`, `private-named-parameters` | Fold statement runs, build new constructs. |
+| 4 | `inline-return`, `prefer-inferred-types` | Read stage 3. |
+| 5 | `expression-bodies`, `final-locals` | Read stage 4. |
+| 6 | `null-aware-conditionals` | Replace a whole conditional expression. |
+| 7 | `destructure-for-in`, `destructure-locals` | Move field reads into a pattern. |
+| 8 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes` | Innermost edits and the project-wide seal. |
 
 Two rules decide a pass's stage:
 
@@ -54,7 +55,7 @@ Two rules decide a pass's stage:
    expressions. Running `dot-shorthands`, `string-interpolation`, and the
    null-aware passes last lets them edit the final positions.
 
-`prefer-inferred-types` (stage 3) runs before `dot-shorthands` (stage 7). When a
+`prefer-inferred-types` (stage 4) runs before `dot-shorthands` (stage 8). When a
 declared type is redundant, prefer-inferred-types drops it, so dot-shorthands
 sees no context type and leaves the value alone: `final c = Color.blue` and
 `final p = Provider()`, not `final Color c = .blue` or `final Provider p = .new()`.
@@ -65,7 +66,7 @@ run *after* the passes that rewrite an enclosing statement (`inline-return`,
 `expression-bodies`) have moved that conditional into its final home, and
 *before* the innermost passes edit inside it, since a fallback arm is itself
 rewritable: `box != null ? box.name : Color.red` becomes `box?.name ?? Color.red`
-in stage 5 and then `box?.name ?? .red` in stage 7. Sharing a stage with either
+in stage 6 and then `box?.name ?? .red` in stage 8. Sharing a stage with either
 neighbour would put two edits on overlapping spans, and `EditCollector` drops the
 loser.
 

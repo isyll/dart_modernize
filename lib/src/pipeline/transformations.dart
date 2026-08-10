@@ -2,6 +2,7 @@ import '../cli/options.dart';
 import 'transformation.dart';
 import 'transformations/abstract_final_classes.dart';
 import 'transformations/cascades.dart';
+import 'transformations/collection_elements.dart';
 import 'transformations/destructure_for_in.dart';
 import 'transformations/destructure_locals.dart';
 import 'transformations/dot_shorthands.dart';
@@ -57,7 +58,12 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
   //    verbatim, so they run first; later stages then modernize those members.
   [PrimaryConstructors(enabled: options.primaryConstructors)],
 
-  // 2. Fold statement runs and build the new constructs later stages read.
+  // 2. collection-elements folds an add/addAll run into one literal. It has to
+  //    beat cascades to that run: cascades would otherwise fold the same
+  //    statements into `<T>[]..add(a)..add(b)` and leave nothing to collapse.
+  [CollectionElements(enabled: options.collectionElements)],
+
+  // 3. Fold statement runs and build the new constructs later stages read.
   [
     SwitchExpressions(enabled: options.switchExpressions),
     Cascades(enabled: options.cascades),
@@ -65,28 +71,28 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     PrivateNamedParameters(enabled: options.privateNamedParameters),
   ],
 
-  // 3. inline-return collapses a folded cascade that is then returned;
+  // 4. inline-return collapses a folded cascade that is then returned;
   //    prefer-inferred-types drops or relocates a redundant type annotation.
   [
     InlineReturn(enabled: options.inlineReturn),
     PreferInferredTypes(enabled: options.preferInferredTypes),
   ],
 
-  // 4. expression-bodies arrows the body inline-return just produced;
+  // 5. expression-bodies arrows the body inline-return just produced;
   //    final-locals upgrades the `var` prefer-inferred-types emits.
   [
     ExpressionBodies(enabled: options.expressionBodies),
     FinalLocals(enabled: options.finalLocals),
   ],
 
-  // 5. null-aware-conditionals replaces a whole conditional expression, so it
+  // 6. null-aware-conditionals replaces a whole conditional expression, so it
   //    has to land before the innermost passes edit inside that span (a
   //    fallback arm such as `Color.red` is a dot-shorthand target), and after
   //    the passes that rewrite an enclosing statement (inline-return,
   //    expression-bodies) have already moved the conditional into place.
   [NullAwareConditionals(enabled: options.nullAwareConditionals)],
 
-  // 6. The two destructuring passes rewrite a loop header or a run of
+  // 7. The two destructuring passes rewrite a loop header or a run of
   //    statements plus the reads inside them, so they run after final-locals has
   //    settled the declaration keyword and after null-aware-conditionals has
   //    replaced any conditional wrapping one of those reads, and before the
@@ -97,7 +103,7 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     DestructureLocals(enabled: options.destructureLocals),
   ],
 
-  // 7. Innermost edits, run last so they see final positions. abstract-final
+  // 8. Innermost edits, run last so they see final positions. abstract-final
   //    needs the whole project resolved to decide which classes are safe to seal.
   [
     DotShorthands(enabled: options.dotShorthands),

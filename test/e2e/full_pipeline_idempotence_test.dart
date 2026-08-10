@@ -138,7 +138,7 @@ class Worker extends Base {
 }
 ''';
 
-/// All twenty-one passes (fixture-folder names).
+/// All twenty-two passes (fixture-folder names).
 ///
 /// primary_constructors and switch_expressions do not fire on the project
 /// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
