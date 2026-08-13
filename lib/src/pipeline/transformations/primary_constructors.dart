@@ -7,6 +7,11 @@ import '../transformation.dart';
 
 /// Promotes eligible single-constructor classes to primary constructor form.
 ///
+/// Primary constructors are stable as of Dart 3.13 (they were behind an
+/// experiment in 3.12). The pass reads the resolved feature set rather than the
+/// SDK constraint, so it simply does nothing on a project whose language version
+/// is below 3.13 instead of emitting code that would not compile there.
+///
 /// A class is eligible when:
 ///   * it is not abstract;
 ///   * it is not directly extended by another class in the same compilation
@@ -20,6 +25,18 @@ import '../transformation.dart';
 /// Fields that the constructor does not initialise stay in the class body.
 /// Consumed fields move into the header: `final` fields become `final T name`,
 /// mutable fields become `var T name`.
+///
+/// A `const` constructor promotes to a constant primary constructor, where the
+/// modifier sits between `class` and the name: `class const Point(final int x)`.
+/// That is safe by construction. Dart already requires every instance field of a
+/// const-constructor class to be final, so the header can never need `var`, and
+/// the fields left in the body are copied over byte for byte, keeping whatever
+/// made them constant. The guard below re-checks the finality anyway rather than
+/// trusting that reasoning.
+///
+/// A *named* primary constructor (`class Point.origin(final int x)`) is valid
+/// 3.13 syntax but is not produced here: the eligibility rule above admits only
+/// an unnamed constructor.
 final class PrimaryConstructors implements Transformation {
   const PrimaryConstructors({required this.enabled});
 
@@ -110,8 +127,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
     if (ctor.name != null) return;
     if (ctor.body is! EmptyFunctionBody) return;
     if (ctor.initializers.isNotEmpty) return;
-    if (ctor.constKeyword != null) return;
     if (ctor.externalKeyword != null) return;
+    final isConst = ctor.constKeyword != null;
 
     final params = ctor.parameters.parameters;
     if (!params.every((p) => p is FieldFormalParameter)) return;
@@ -143,6 +160,11 @@ class _Visitor extends RecursiveAstVisitor<void> {
       if (fd == null) return;
       final typeAnnotation = fd.fields.type;
       if (typeAnnotation == null) return;
+
+      // A const-constructor class cannot hold a mutable instance field, so this
+      // never fires on code that compiles. It is kept as a hard stop: emitting
+      // `class const C(var int x)` would be a compile error, not a style slip.
+      if (isConst && !fd.fields.isFinal) return;
 
       final modifier = fd.fields.isFinal ? 'final' : 'var';
       final typeText = source.substring(
@@ -209,7 +231,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
         offset: cls.offset,
         length: cls.end - cls.offset,
         replacement:
-            '${classModifiers}class ${cls.namePart.typeName.lexeme}'
+            '${classModifiers}class ${isConst ? 'const ' : ''}'
+            '${cls.namePart.typeName.lexeme}'
             '$typeParamsText($paramsText)$extendsText$withText$implementsText$body',
       ),
     );

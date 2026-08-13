@@ -165,7 +165,7 @@ Twenty-two passes, grouped into five families. Each is independently toggleable,
 | **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
 | **Destructure locals** | Collapses a local that only exists to read fields off it into one destructuring declaration: `final p = get(); final x = p.x; final y = p.y;` becomes `final Point(:x, :y) = get();`. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
-| **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
+| **Primary constructors** | Promotes eligible classes to the primary constructor form, including `const` ones, only when it is provably safe. Requires the target project to be on Dart 3.13, where the feature went stable. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | **Collection elements** | Folds a run of `add`/`addAll` calls on a freshly declared empty literal into one literal with collection-`if` and collection-`for` elements. **Off by default** (opt in with `--collection-elements`). |
@@ -626,7 +626,22 @@ class Point {
 class Point(final int x, final int y);
 ```
 
-> Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter.
+A `const` constructor promotes to a constant primary constructor, with the modifier between `class` and the name:
+
+```dart
+// before
+class Origin {
+  final int x;
+  const Origin(this.x);
+}
+
+// after
+class const Origin(final int x);
+```
+
+> **Requires Dart 3.13 in the project being modernized.** Primary constructors went stable in 3.13 (they were behind an experiment in 3.12). The pass reads the resolved language version, so on an older project it simply does nothing rather than emitting code that would not compile there. Nothing to configure: raise the project's SDK constraint to `>=3.13.0` and the pass starts applying.
+>
+> Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter. A *named* primary constructor (`class Point.origin(...)`) is valid 3.13 syntax but is never produced, since the pass only promotes an unnamed constructor.
 
 **Super parameters**: forwards a constructor parameter straight to the superclass.
 
@@ -713,6 +728,10 @@ class Dog extends Animal {
 }
 ```
 
+> It applies whatever lints the *target* project enables, so it picks up new SDK lints on its own. Dart 3.13 added several around primary constructors: `use_primary_constructors` (experimental), `use_declaring_parameters`, `initialize_in_field_declaration`, `unnecessary_primary_constructor_body`, `unnecessary_type_name_in_constructor`, `empty_container_bodies`, `unnecessary_const_in_enum_constructor`, and `async_return_with_no_await`.
+>
+> `use_primary_constructors` overlaps with the **primary constructors** pass above. The two cannot fight: that pass runs first, in the transform stage, and **fix all** runs later over the finalized file, where the promotion has already happened and `dart fix` finds nothing to do. The pass is also the stricter of the two, so enabling the lint as well only widens what gets promoted.
+
 **Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
 
 ```dart
@@ -739,6 +758,8 @@ abstract final class AppColors {
 Dart SDK `3.12.0` or newer.
 
 The minimum SDK is fixed per release. When a future Dart version ships new syntax, a new major version of `dart_modernize` adds support for it. Staying on an older SDK? Pin the matching release and it keeps working.
+
+Individual passes may need more than the floor. **Primary constructors** is the only one today: it needs the project being modernized to be on Dart `3.13.0`, where the feature went stable. Every other pass applies at `3.12.0`. A pass whose language version is not met is skipped silently rather than producing code that would not compile, so the tool stays safe to run on a mixed set of projects.
 
 <br>
 
