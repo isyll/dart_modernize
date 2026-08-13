@@ -4,14 +4,14 @@
 /// Cases live under `test/fixtures/<feature>/` and come in two shapes:
 ///
 ///   * **A pair**: `<case>.input.dart` plus `<case>.expected.dart`.
-///     The tool is run over the input and the result must equal the expected
-///     file, byte for byte. Both carry the `.dart` extension so an editor reads
-///     them as the Dart they are. Nothing in the toolchain rewrites them out
-///     from under the suite: `analysis_options.yaml` excludes `test/fixtures/**`
-///     from the analyzer, and CI formats only `git ls-files '*.dart'
-///     ':!test/fixtures'`. That exclusion is what keeps a fixture free to hold
-///     deliberately non-idiomatic input, and output the tool has already
-///     formatted its own way.
+///     The tool runs over the input and the result must equal the expected
+///     file, byte for byte.
+///
+///     Both keep the `.dart` extension so editors read them as Dart. They are
+///     safe from the toolchain because `analysis_options.yaml` excludes
+///     `test/fixtures/**` and CI formats only
+///     `git ls-files '*.dart' ':!test/fixtures'`. That is what lets an input
+///     hold non-idiomatic code on purpose.
 ///
 ///   * **A negative case**: a single `<case>.unchanged.dart`.
 ///     The transformation must *not* apply, so the expected output is the input
@@ -27,10 +27,9 @@
 /// library file with no cross-imports, top-level names may safely repeat across
 /// cases.
 ///
-/// Optionally, a feature folder may contain a `pubspec.yaml` and/or
-/// `analysis_options.yaml`; when present they replace/augment the defaults for
-/// that feature's project (e.g. primary constructors need a higher SDK; import
-/// and lint fixes may need specific lints enabled).
+/// A feature folder may also contain a `pubspec.yaml` or an
+/// `analysis_options.yaml`, used instead of the defaults for that project. The
+/// lint fixes need this to switch specific lints on.
 library;
 
 import 'dart:io';
@@ -63,7 +62,7 @@ void defineGoldenSuite(String feature) {
         isNotEmpty,
         reason:
             'No fixtures found in test/fixtures/$feature/. Add a '
-            '<case>.input.dart + <case>.expected pair, or a '
+            '<case>.input.dart + <case>.expected.dart pair, or a '
             '<case>.unchanged.dart negative case.',
       ),
     );
@@ -97,7 +96,7 @@ void defineGoldenSuite(String feature) {
               ? 'Negative case "${c.name}": the transformation fired but the '
                     'context does not support it; output must equal input.'
               : 'Golden case "${c.name}" did not match '
-                    'test/fixtures/$feature/${c.name}.expected.',
+                    'test/fixtures/$feature/${c.name}.expected.dart.',
         ),
       );
     }

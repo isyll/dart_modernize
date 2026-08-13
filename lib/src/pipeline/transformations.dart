@@ -58,9 +58,8 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
   //    verbatim, so they run first; later stages then modernize those members.
   [PrimaryConstructors(enabled: options.primaryConstructors)],
 
-  // 2. collection-elements folds an add/addAll run into one literal. It has to
-  //    beat cascades to that run: cascades would otherwise fold the same
-  //    statements into `<T>[]..add(a)..add(b)` and leave nothing to collapse.
+  // 2. collection-elements must run before cascades, which would otherwise fold
+  //    the same statements into `<T>[]..add(a)..add(b)` first.
   [CollectionElements(enabled: options.collectionElements)],
 
   // 3. Fold statement runs and build the new constructs later stages read.
@@ -85,19 +84,14 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     FinalLocals(enabled: options.finalLocals),
   ],
 
-  // 6. null-aware-conditionals replaces a whole conditional expression, so it
-  //    has to land before the innermost passes edit inside that span (a
-  //    fallback arm such as `Color.red` is a dot-shorthand target), and after
-  //    the passes that rewrite an enclosing statement (inline-return,
-  //    expression-bodies) have already moved the conditional into place.
+  // 6. null-aware-conditionals replaces a whole conditional, so it runs after
+  //    the passes that move statements around and before the ones that edit
+  //    inside it (a fallback like `Color.red` is a dot-shorthand target).
   [NullAwareConditionals(enabled: options.nullAwareConditionals)],
 
-  // 7. The two destructuring passes rewrite a loop header or a run of
-  //    statements plus the reads inside them, so they run after final-locals has
-  //    settled the declaration keyword and after null-aware-conditionals has
-  //    replaced any conditional wrapping one of those reads, and before the
-  //    innermost passes edit the same reads. They target different constructs (a
-  //    for-in header vs a statement run), so they share a stage.
+  // 7. The destructuring passes rewrite a declaration plus the reads that go
+  //    with it, so they run once those reads have settled. They target
+  //    different constructs, so they share a stage.
   [
     DestructureForIn(enabled: options.destructureForIn),
     DestructureLocals(enabled: options.destructureLocals),

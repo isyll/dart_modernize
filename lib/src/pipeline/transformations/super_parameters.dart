@@ -15,7 +15,7 @@ import '../transformation.dart';
 ///   * `MyWidget({Key? key}) : super(key: key);`
 ///     becomes `MyWidget({super.key});`
 ///
-/// The rewrite is deliberately conservative. A parameter is folded only when:
+/// A parameter is folded only when:
 ///
 ///   * its value reaches `super(...)` verbatim: a bare identifier, never an
 ///     expression like `key ?? const Key()` or `id * 2`;

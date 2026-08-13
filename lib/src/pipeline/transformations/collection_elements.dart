@@ -25,26 +25,19 @@ import '../transformation.dart';
 /// ];
 /// ```
 ///
-/// **Off by default.** This rewrites a run of statements into a single
-/// expression, which is a much larger structural change than the other passes
-/// make, so it is opt-in via `--collection-elements`.
+/// Off by default, because it turns several statements into one expression,
+/// a bigger change than the other passes make. Switch it on with
+/// `--collection-elements`.
 ///
-/// The rewrite is applied only when ALL of the following hold:
-///   * the local is declared with an **empty** list or set literal, so nothing
-///     already in it can be reordered;
-///   * every statement in the run is `local.add(x)`, `local.addAll(xs)`, an
-///     `if` (with no `else`) wrapping exactly one of those, or a `for` wrapping
-///     exactly one of those. The run stops at the first statement that is not,
-///     so an unrelated statement in the middle simply ends it rather than being
-///     stepped over;
-///   * the local is never mentioned inside the run other than as the receiver of
-///     those calls. `items.add(items.length)` reads the collection while it is
-///     being built, which a single literal cannot express; and
-///   * no statement in the run carries a comment, which the single replacement
-///     span would otherwise drop.
+/// Skipped when:
+///   * the literal is not empty to start with;
+///   * a statement is not `add`/`addAll`, an `else`-less `if` around one, or a
+///     `for` around one. The run simply stops at that statement;
+///   * the run reads the collection while building it, as in
+///     `items.add(items.length)`, which a literal cannot express;
+///   * a statement carries a comment, which the rewrite would drop.
 ///
-/// Evaluation order is preserved exactly: the elements are emitted in statement
-/// order, and each guard and iterable stays in front of what it guards.
+/// Elements come out in statement order, so evaluation order does not change.
 final class CollectionElements implements Transformation {
   const CollectionElements({required this.enabled});
 
@@ -103,9 +96,8 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
     }
     if (elements.isEmpty) return;
 
-    // Splice the elements between the literal's brackets. The bracket is not
-    // the literal's first token when it carries a type argument (`<int>[]`
-    // begins at `<`), so take it from the node rather than from beginToken.
+    // Put the elements between the brackets. With a type argument the literal
+    // starts at `<`, not `[`, so read the bracket off the node.
     final brackets = _brackets(literal!);
     if (brackets == null) return;
     final (leftBracket, rightBracket) = brackets;
@@ -150,9 +142,7 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
       return _addElement(statement.expression, target);
     }
     if (statement is IfStatement) {
-      // An `else` would need a collection-`if`/`else`, whose second branch is
-      // not part of the same build step; keeping to the guard-only form is what
-      // makes the ordering argument simple.
+      // Only the guard form. An `else` adds a second branch to reason about.
       if (statement.elseStatement != null) return null;
       final inner = _soleStatement(statement.thenStatement);
       if (inner == null) return null;
@@ -186,7 +176,7 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
     if (arguments.length != 1) return null;
     final argument = arguments.single;
     if (argument is NamedArgument) return null;
-    // Reading the collection while building it cannot be expressed in a literal.
+    // A literal cannot read the collection it is building.
     if (_mentions(argument, target)) return null;
 
     return switch (expression.methodName.name) {
@@ -196,7 +186,7 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
     };
   }
 
-  /// The single statement [statement] holds, unwrapping a one-statement block.
+  /// The one statement inside [statement], unwrapping a single-statement block.
   Statement? _soleStatement(Statement statement) {
     if (statement is Block) {
       return statement.statements.length == 1

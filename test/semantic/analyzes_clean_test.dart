@@ -5,13 +5,12 @@
 /// error or warning. This guards against a transformation that produces output
 /// which no longer compiles or type-checks.
 ///
-/// The first case excludes primary constructors, whose output needs language
-/// version 3.13 while the default fixture project sits on the package's SDK
-/// floor. The second case covers them on their own, against a 3.13 project.
-/// That second case matters more than it looks: golden `.expected` files
-/// deliberately drop the `.dart` extension so no tool reads them, which means a
-/// golden pass proves the bytes match but never that they compile. This is the
-/// only check that primary-constructor output is real Dart.
+/// The first case runs every pass but primary constructors; the second covers
+/// that one on its own. Splitting them keeps each sample small enough to read.
+///
+/// The second case earns its keep: golden files are compared byte for byte but
+/// never compiled, so this is the only check that promoted classes are still
+/// valid Dart.
 library;
 
 import 'package:test/test.dart';

@@ -4,8 +4,8 @@
 /// Two shapes are provided:
 ///
 ///   * [defineCombinedGoldenSuite]: exact before/after on curated files that
-///     deliberately combine several transformations, plus analyze-clean,
-///     idempotency, and determinism checks. Use when the exact output matters.
+///     combine several transformations, plus analyze-clean, idempotency and
+///     determinism checks. Use when the exact output matters.
 ///
 ///   * [defineRobustnessSuite]: runs every pass over already-modern files
 ///     (records, patterns, sealed classes, …) and asserts only that the tool
@@ -27,20 +27,12 @@ import 'golden.dart';
 
 /// Every pass except primary constructors, for the suites that pin exact bytes.
 ///
-/// The exclusion is no longer about language version: the fixture projects are
-/// on 3.13, where primary constructors are stable. It is that promoting a class
-/// rewrites its whole declaration, which would churn every combined golden and
-/// bury the pass interactions those files exist to show.
-///
-/// sort-members is off by default, so it is switched on explicitly here: these
-/// suites exercise every stable pass composing, and the combined goldens expect
-/// members in sorted order.
+/// Promoting a class rewrites its whole declaration, which would churn every
+/// combined golden and hide the pass interactions those files are there to
+/// show. sort-members is switched on because the goldens expect sorted members.
 const allStablePasses = <String>['--no-primary-constructors', '--sort-members'];
 
-/// Every pass, primary constructors included.
-///
-/// For suites that assert only "still compiles, still idempotent" and pin no
-/// bytes, so there is no golden to churn and no reason to hold a pass back.
+/// Every pass, primary constructors included. For suites that pin no bytes.
 const everyPass = <String>['--sort-members'];
 
 /// Absolute path to `test/fixtures`, resolved from the package root.
@@ -52,11 +44,9 @@ final String _fixturesRoot = p.join(
 
 /// Defines a combined golden suite over `test/fixtures/[dir]/`.
 ///
-/// Each `<case>.input.dart` / `<case>.expected.dart` pair is dropped into one
-/// project,
-/// the CLI is run with [args], and for every case the rewritten file must match
-/// its expected output. The whole project must then analyze clean, and a second
-/// run must change nothing.
+/// Each `<case>.input.dart` / `<case>.expected.dart` pair goes into one project,
+/// the CLI runs with [args], and every rewritten file must match its expected
+/// output. The project must then analyze clean, and a second run change nothing.
 void defineCombinedGoldenSuite({
   required String label,
   required String dir,
@@ -101,7 +91,7 @@ void defineCombinedGoldenSuite({
           c.expected,
           reason:
               'combined output for "${c.name}" did not match '
-              'test/fixtures/$dir/${c.name}.expected',
+              'test/fixtures/$dir/${c.name}.expected.dart',
         ),
       );
     }
@@ -158,8 +148,8 @@ void defineCombinedGoldenSuite({
 ///
 /// Every file is modernized with [args] in one project. The suite asserts the
 /// run succeeds, the project still analyzes without errors, and a second run is
-/// a no-op. It deliberately does **not** pin exact output; its job is to prove
-/// the tool handles modern syntax without corrupting it.
+/// a no-op. It does not pin exact output; the point is that modern syntax
+/// survives the tool intact.
 void defineRobustnessSuite({
   required String label,
   required String dir,

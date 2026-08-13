@@ -182,7 +182,7 @@ Twenty-two passes, grouped into five families. Each is independently toggleable,
 
 No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
 
-**Syntax rewrites.** Twenty of the twenty-two passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, destructure locals, collection elements, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+**Syntax rewrites.** Twenty of the twenty-two passes rewrite code in place. Each one edits what it touches and leaves the rest alone, so the diff only covers the lines that actually changed.
 
 **Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
 
@@ -190,7 +190,7 @@ Reordering is safe because Dart does not resolve declarations by their position 
 
 The one thing that genuinely does depend on position is **field initialization order**, and it is preserved. Fields move as a group into their slot in the canonical order, but never past one another: within that group they stay in the exact order they were declared, public and private alike. So a field whose initializer reads another field still runs after the one it depends on.
 
-What reordering does cost you is review. A single file can turn into hundreds of moved lines, `git blame` points at the move instead of the original author, and a real change hiding among the moves is easy to miss. That is why **sort members**, the noisiest of the two, is off by default. Turn it on deliberately with `--sort-members`, and prefer landing it in its own commit so the reordering never shares a diff with a behavior change:
+The cost is review, not correctness. A file can turn into hundreds of moved lines, `git blame` points at the move, and a real change is easy to miss in the noise. That is why **sort members** is off by default. Run it on its own commit:
 
 ```sh
 dart_modernize --only sort-members,sort-constructors-first
@@ -479,7 +479,11 @@ final _log = Logger();
 final _client = Client();
 ```
 
-> Applies only when the initializer's inferred type is exactly the declared type **and** that type is obvious from the initializer, matching the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. A literal, an explicitly-typed collection literal, a spelled-out constructor call, a cast, or a cascade/prefix over one of these is obvious; a method call, property access, bare identifier, or generic constructor with inferred type arguments is not, and keeps its annotation (dropping it would trip `specify_nonobvious_*`, which `dart fix` then reverts). Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`; a declaration already written with a dot-shorthand constructor (`final Foo _x = .new()`) is expanded to `final _x = Foo()` for the same reason (a static-member shorthand such as `.zero` keeps its annotation, since expanding it would leave a non-obvious property access). Mutable fields and non-const top-level variables are left alone.
+> The type is only dropped when the initializer already says it plainly: a literal, a typed collection literal, a written-out constructor call, or a cast. A method call, a property access or a bare identifier is not plain enough, so those keep their annotation. This matches the analyzer's `omit_obvious_*` and `specify_nonobvious_*` rules, so `dart fix` will not put the type back.
+>
+> Applies to locals, top-level consts, and `final`/`const` fields with an initializer. Mutable fields and non-const top-level variables are left alone.
+>
+> Dropping the type wins over the `.new()` shorthand: `final Foo _x = Foo()` becomes `final _x = Foo()`, and a field already written `final Foo _x = .new()` is expanded back to `final _x = Foo()`.
 
 ### Null-aware collections
 
@@ -519,9 +523,9 @@ int? first(List<int>? xs) => xs?[0];
 String label(Box? box, String fallback) => box?.name ?? fallback;
 ```
 
-> Scope is deliberately narrow. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` are both in `package:lints/recommended.yaml`, so **fix all** already rewrites `x == null ? d : x` and `x == null ? null : x.foo` in either operand order. This pass only handles what those lints miss: the **index** form, which no lint flags, and a chain against an **arbitrary fallback** rather than `null`.
+> Only these two shapes. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` ship in `package:lints/recommended.yaml`, so **fix all** already handles `x == null ? d : x` and `x == null ? null : x.foo`. What is left is the index form, which no lint covers, and a chain with a real fallback instead of `null`.
 >
-> The fallback form applies only when the chain's static type is non-nullable. That guard is load-bearing: if `box.name` could itself be null, then `box != null ? box.name : d` yields null where `box?.name ?? d` would yield `d`. Both forms also require the tested expression to be a stable, side-effect-free reference.
+> The fallback form needs the chain's type to be non-nullable. If `box.name` could itself be null, `box != null ? box.name : d` gives null where `box?.name ?? d` gives `d`. Both forms also need the tested expression to be a plain local or parameter.
 
 **Destructure for-in**: moves a loop variable's field reads into an object pattern in the header.
 
@@ -537,9 +541,9 @@ for (final MapEntry(:key, :value) in scores.entries) {
 }
 ```
 
-> Only the fields actually read are destructured, and each binding takes the field's own name, so no identifier is ever invented. Skipped when the loop variable is used whole, reassigned, or has a method called on it, and when a bound name would clash with something already in the enclosing function.
+> Only the fields the body reads are moved, and each binding keeps the field's own name. Skipped when the loop variable is used whole, reassigned, or has a method called on it, or when a bound name is already taken in the enclosing function.
 >
-> Every field read must resolve to a **final, non-late instance field**. Destructuring reads each field once per iteration where the original read it once per use, so a computed getter (which could run code) or a `late final` field (whose initializer could be forced on an iteration that never used it) is left alone. Positional record fields (`pair.$1`) are skipped too: there is no name to bind.
+> Fields must be final and non-late. The pattern reads every field once per iteration, where the body read them where they appeared, so a computed getter could end up running when it did not before. Positional record fields (`pair.$1`) have no name to bind, so they are skipped.
 
 **Destructure locals**: collapses a local that only exists to read fields off it.
 
@@ -563,9 +567,9 @@ final y = p.y;
 final Point(:x, :y) = getPoint();
 ```
 
-> Binding names come from the locals that already exist, so nothing is invented; a local named differently from its field keeps its own name (`final first = p.x` becomes `Point(x: first)`). Skipped when the intermediate is used for anything else at all, when an unrelated statement interrupts the run, or when a statement in the run carries a comment the single replacement would drop.
+> The names come from the locals you already wrote, so nothing is invented. One named differently from its field keeps its own name: `final first = p.x` gives `Point(x: first)`.
 >
-> The same **final, non-late instance field** rule as destructure for-in applies, and for the same reason: destructuring reads every field up front, where the original read each one at its own declaration. Records with named fields are skipped; the positional form covers the shape this targets.
+> Skipped when the intermediate is used for anything else, when another statement interrupts the run, or when a statement carries a comment the rewrite would drop. Fields must be final and non-late, for the same reason as destructure for-in: the reads all move up to the declaration. Records with named fields are skipped.
 
 **Collection elements** (off by default): folds a step-by-step build into one literal.
 
@@ -586,7 +590,7 @@ final items = <Widget>[
 
 > Opt in with `--collection-elements`. This one turns a run of statements into a single expression, a bigger structural change than any other pass makes, which is why it is off by default.
 >
-> The local must be declared with an **empty** literal, and the run may only contain `add`/`addAll` calls, an `else`-less `if` around one of them, or a `for` around one of them. The run stops at the first statement that is not one of those, so it folds the prefix and leaves the rest; it also stops at a call that reads the collection while building it (`items.add(items.length)`), which no literal can express.
+> The literal has to start out empty, and the statements after it have to be `add`/`addAll` calls, or an `else`-less `if` or a `for` around one. Anything else ends the run, so the part before it is folded and the rest stays. Reading the collection while building it (`items.add(items.length)`) also ends the run, since a literal cannot express that.
 >
 > It runs before **cascades** on purpose. Both passes want the same statements, and cascades would otherwise fold them into `<Widget>[]..add(header)..add(body)` first, leaving nothing to collapse into a literal.
 
@@ -728,9 +732,9 @@ class Dog extends Animal {
 }
 ```
 
-> It applies whatever lints the *target* project enables, so it picks up new SDK lints on its own. Dart 3.13 added several around primary constructors: `use_primary_constructors` (experimental), `use_declaring_parameters`, `initialize_in_field_declaration`, `unnecessary_primary_constructor_body`, `unnecessary_type_name_in_constructor`, `empty_container_bodies`, `unnecessary_const_in_enum_constructor`, and `async_return_with_no_await`.
+> It applies the lints the *target* project enables, so new SDK lints work without any change here. Dart 3.13 added several: `use_primary_constructors`, `use_declaring_parameters`, `initialize_in_field_declaration`, `unnecessary_primary_constructor_body`, `unnecessary_type_name_in_constructor`, `empty_container_bodies`, `unnecessary_const_in_enum_constructor`, and `async_return_with_no_await`.
 >
-> `use_primary_constructors` overlaps with the **primary constructors** pass above. The two cannot fight: that pass runs first, in the transform stage, and **fix all** runs later over the finalized file, where the promotion has already happened and `dart fix` finds nothing to do. The pass is also the stricter of the two, so enabling the lint as well only widens what gets promoted.
+> `use_primary_constructors` does the same job as the **primary constructors** pass. They do not clash: the pass runs first, and by the time `dart fix` sees the file the promotion is already done.
 
 **Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
 

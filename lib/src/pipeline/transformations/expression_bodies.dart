@@ -12,8 +12,7 @@ import '../transformation.dart';
 /// `=> e;`. The rewrite is purely syntactic: it never changes the value the
 /// body produces, only how it is spelled.
 ///
-/// It deliberately stays its hand when the arrow form would change meaning or
-/// lose information:
+/// Skipped when the arrow form would change meaning or lose something:
 ///
 ///   * more than one statement, an empty body, or a bare `return;`: there is
 ///     no single value for `=>` to carry;

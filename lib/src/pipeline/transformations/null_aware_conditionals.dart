@@ -9,38 +9,26 @@ import '../../engine/source_edit.dart';
 import '../safe_reference.dart';
 import '../transformation.dart';
 
-/// Collapses null-check conditionals into null-aware operators, for the two
-/// shapes `dart fix` leaves behind.
+/// Turns a null check written with `? :` into a null-aware operator.
 ///
-/// Before: `x == null ? null : x[0]`      After: `x?[0]`
-/// Before: `x != null ? x.name : fallback` After: `x?.name ?? fallback`
+///     x == null ? null : x[0]        ->  x?[0]
+///     x != null ? x.name : fallback  ->  x?.name ?? fallback
 ///
-/// **Scope is deliberately narrow.** The lints `prefer_if_null_operators` and
-/// `prefer_null_aware_operators` are both in `package:lints/recommended.yaml`,
-/// so for most projects `dart fix` (the fix-all pass) already rewrites
-/// `x == null ? d : x` to `x ?? d` and `x == null ? null : x.foo` to `x?.foo`,
-/// in either operand order and through deep chains. Redoing that here would
-/// duplicate fix-all, so this pass handles only what those lints miss:
+/// Only these two shapes. `dart fix` already covers the others, because the
+/// lints prefer_if_null_operators and prefer_null_aware_operators ship in
+/// package:lints/recommended.yaml, and the fix-all pass runs `dart fix`.
 ///
-///   * **null-aware index**: `x == null ? null : x[i]` becomes `x?[i]`. No lint
-///     flags the index form, in either operand order.
-///   * **null-aware chain with a fallback**: `x != null ? x.name : d` becomes
-///     `x?.name ?? d`. The lints handle a `null` alternative but not an
-///     arbitrary one, because that needs the type check below.
+/// Skipped when:
+///   * `x` is not a plain local or parameter. The rewrite reads it once where
+///     the conditional read it twice, so it has to be a stable value.
+///   * the branch is a bare `x`, or a property read against `null`. Those are
+///     the lints' cases, not ours.
+///   * the fallback form would change the result. `x != null ? x.foo : d`
+///     gives null when `x.foo` is null, while `x?.foo ?? d` gives `d`. So the
+///     chain's type has to be non-nullable.
 ///
-/// The rewrite is applied only when ALL of the following hold:
-///   * the tested expression is a side-effect-free stable reference (a local or
-///     a parameter), so folding two reads into one preserves behavior;
-///   * the non-null branch is a selector chain rooted at that same element, and
-///     is strictly deeper than the bare reference (a bare `x` is the plain
-///     if-null case the lint already owns);
-///   * for the fallback form, the chain's static type is non-nullable. This is
-///     the load-bearing guard: with a nullable chain, `x != null ? x.foo : d`
-///     yields `null` when `x.foo` is null, while `x?.foo ?? d` yields `d`, so
-///     the rewrite would change behavior.
-///
-/// Precedence is safe without parentheses: `??` binds tighter than `? :`, and
-/// `?[]` is a selector, so either replacement fits wherever the conditional did.
+/// No parentheses are needed around the result: `??` binds tighter than `? :`,
+/// and `?[]` is a selector.
 final class NullAwareConditionals implements Transformation {
   const NullAwareConditionals({required this.enabled});
 
@@ -83,10 +71,9 @@ class _NullAwareConditionalsVisitor extends RecursiveAstVisitor<void> {
         replacement: replacement,
       ),
     );
-    // Deliberately no `super` call: [_render] already folded every nested
-    // rewrite into `replacement`. Descending as well would queue edits inside a
-    // span this one replaces, and EditCollector drops overlaps, so the nested
-    // rewrite would silently reappear as pending work on the next run.
+    // No `super` call: _render already handled anything nested. Recursing too
+    // would add edits inside the span we just replaced, and EditCollector drops
+    // overlapping edits.
   }
 
   /// Returns the replacement text for [node], or null when it does not qualify.
@@ -94,8 +81,8 @@ class _NullAwareConditionalsVisitor extends RecursiveAstVisitor<void> {
     final test = _NullTest.from(node.condition);
     if (test == null) return null;
 
-    // Line the branches up by what the test proved, not by their syntactic
-    // position, so both operand orders funnel into one code path.
+    // Order the branches by what the test proved, so `== null` and `!= null`
+    // share one code path.
     final (nonNullBranch, nullBranch) = test.isEqualsNull
         ? (node.elseExpression, node.thenExpression)
         : (node.thenExpression, node.elseExpression);
@@ -108,8 +95,7 @@ class _NullAwareConditionalsVisitor extends RecursiveAstVisitor<void> {
     final rewritten = _render(chain.expression, insertAt: chain.rootEnd);
 
     if (nullBranch is NullLiteral) {
-      // Property and method chains against a `null` alternative are exactly
-      // what prefer_null_aware_operators fixes; only the index form is ours.
+      // prefer_null_aware_operators handles property and method chains here.
       if (!chain.isIndexed) return null;
       return rewritten;
     }
@@ -120,14 +106,13 @@ class _NullAwareConditionalsVisitor extends RecursiveAstVisitor<void> {
     return '$rewritten ?? ${_render(nullBranch)}';
   }
 
-  /// Renders [expression]'s source with this pass's own nested rewrites already
-  /// applied, optionally splicing a `?` in at [insertAt].
+  /// The source of [expression], with any nested rewrite already applied and a
+  /// `?` inserted at [insertAt].
   ///
-  /// Working from the original text rather than reprinting the AST keeps
-  /// comments and line breaks inside the expression byte-for-byte intact. The
-  /// nested run is what makes a single pipeline run converge: a fallback that is
-  /// itself a null-check conditional, as in `a != null ? a.name : (b != null ?
-  /// b.name : '')`, is folded here instead of being left for a second run.
+  /// Reusing the original text keeps comments and line breaks intact. Running
+  /// the pass on the sub-expression handles a fallback that is itself a null
+  /// check, so `a != null ? a.name : (b != null ? b.name : '')` is done in one
+  /// go instead of needing a second run.
   String _render(Expression expression, {int? insertAt}) {
     final start = expression.offset;
 
@@ -154,12 +139,11 @@ class _NullAwareConditionalsVisitor extends RecursiveAstVisitor<void> {
   }
 }
 
-/// A `x == null` / `x != null` test against a stable reference.
+/// An `x == null` or `x != null` test on a local or parameter.
 final class _NullTest {
   const _NullTest({required this.element, required this.isEqualsNull});
 
-  /// Returns the test described by [condition], or null when it is not a null
-  /// check against a side-effect-free reference.
+  /// The test [condition] describes, or null if it is not one.
   static _NullTest? from(Expression condition) {
     if (condition is! BinaryExpression) return null;
     final operator = condition.operator.lexeme;
@@ -196,12 +180,11 @@ final class _SelectorChain {
     required this.isIndexed,
   });
 
-  /// Returns the chain [expression] forms over [root], or null when it is not
-  /// one, is rooted elsewhere, or is just the bare reference.
+  /// The chain [expression] forms over [root], or null if it is rooted
+  /// elsewhere or is just the bare reference.
   ///
-  /// Walking down the receivers keeps the whole chain in one edit, so
-  /// `x.items.length` becomes `x?.items.length` rather than being rejected for
-  /// having more than one selector.
+  /// Walks down the receivers so a longer chain like `x.items.length` is
+  /// handled as one edit.
   static _SelectorChain? from(Expression expression, Element root) {
     final isIndexed = expression is IndexExpression;
 
@@ -209,8 +192,7 @@ final class _SelectorChain {
     var depth = 0;
     while (true) {
       final Expression? next = switch (current) {
-        // A cascade has its own receiver semantics, and a null-aware root is
-        // already what this pass would produce, so neither is rewritten.
+        // Cascades and already null-aware reads are left alone.
         IndexExpression(isCascaded: false, isNullAware: false, :final target) =>
           target,
         MethodInvocation(
@@ -229,9 +211,9 @@ final class _SelectorChain {
       depth++;
     }
 
-    // The root must be the very reference the null test proved non-null.
+    // The root has to be the reference the null test checked.
     if (current is! SimpleIdentifier || current.element != root) return null;
-    // A bare `x` is `x ?? d`, which prefer_if_null_operators already fixes.
+    // A bare `x` is `x ?? d`, which prefer_if_null_operators handles.
     if (depth == 0) return null;
 
     return .new(

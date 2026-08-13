@@ -177,10 +177,9 @@ void report(Map<String, int> scores) {
 }
 ''';
 
-/// The point is taken as a parameter rather than built by a helper. A helper
-/// like `Point getPoint() => const Point(1, 2);` is a dot-shorthand target, so
-/// dot-shorthands would rewrite it to `const .new(1, 2)` and the "only its own
-/// pass may touch this trigger" check would fail for the wrong reason.
+/// The point comes in as a parameter instead of from a helper. A helper like
+/// `Point getPoint() => const Point(1, 2);` is a dot-shorthand target, so that
+/// pass would touch this trigger and the check would fail for the wrong reason.
 const destructureLocalsTrigger = '''
 class Point {
   const Point(this.x, this.y);
@@ -196,10 +195,9 @@ int sum(Point point) {
 }
 ''';
 
-/// Deliberately guarded with an `if` rather than a plain run of `add` calls.
-/// A bare run is also exactly what `cascades` folds, so a default run (where
-/// collection-elements is off but cascades is on) would rewrite it anyway and
-/// the "stays off by default" check could never tell the two apart.
+/// Guarded with an `if` rather than a plain run of `add` calls, because a plain
+/// run is also what `cascades` folds. Without the `if`, a default run would
+/// rewrite this anyway and the "stays off by default" check would prove nothing.
 const collectionElementsTrigger = '''
 List<int> build(bool flag) {
   final items = <int>[];

@@ -7,12 +7,9 @@ import '../transformation.dart';
 
 /// Promotes eligible single-constructor classes to primary constructor form.
 ///
-/// Primary constructors are stable as of Dart 3.13, which is also this tool's
-/// SDK floor, so the syntax below is always available to a project the validator
-/// let through. The feature-set check is kept as a second line of defence: it
-/// reads the resolved language version rather than the SDK constraint, so an
-/// individual library pinned lower still gets left alone instead of being handed
-/// code it cannot compile.
+/// Primary constructors are stable in Dart 3.13, which is also this tool's SDK
+/// floor. The feature check in [editsFor] is a second guard, for a library
+/// pinned to an older language version.
 ///
 /// A class is eligible when:
 ///   * it is not abstract;
@@ -28,17 +25,11 @@ import '../transformation.dart';
 /// Consumed fields move into the header: `final` fields become `final T name`,
 /// mutable fields become `var T name`.
 ///
-/// A `const` constructor promotes to a constant primary constructor, where the
-/// modifier sits between `class` and the name: `class const Point(final int x)`.
-/// That is safe by construction. Dart already requires every instance field of a
-/// const-constructor class to be final, so the header can never need `var`, and
-/// the fields left in the body are copied over byte for byte, keeping whatever
-/// made them constant. The guard below re-checks the finality anyway rather than
-/// trusting that reasoning.
+/// A `const` constructor becomes `class const Point(final int x)`, with the
+/// modifier between `class` and the name. Dart already requires every field of
+/// a const class to be final, so the header never needs `var`.
 ///
-/// A *named* primary constructor (`class Point.origin(final int x)`) is valid
-/// 3.13 syntax but is not produced here: the eligibility rule above admits only
-/// an unnamed constructor.
+/// Named primary constructors (`class Point.origin(...)`) are not produced.
 final class PrimaryConstructors implements Transformation {
   const PrimaryConstructors({required this.enabled});
 
@@ -163,9 +154,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
       final typeAnnotation = fd.fields.type;
       if (typeAnnotation == null) return;
 
-      // A const-constructor class cannot hold a mutable instance field, so this
-      // never fires on code that compiles. It is kept as a hard stop: emitting
-      // `class const C(var int x)` would be a compile error, not a style slip.
+      // A const class cannot have a mutable field, so this should not fire.
+      // Kept because `class const C(var int x)` would not compile.
       if (isConst && !fd.fields.isFinal) return;
 
       final modifier = fd.fields.isFinal ? 'final' : 'var';
