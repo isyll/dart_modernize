@@ -12,9 +12,9 @@ import 'package:test/test.dart';
 void main() {
   group('transform stage layering', () {
     test('stages are built in the documented structure', () {
-      final stages = buildTransformationStages(
-        _options(),
-      ).map((s) => s.map((t) => t.name).toList()).toList();
+      final stages = buildTransformationStages(_options())
+          .map((s) => s.map((t) => t.name).toList())
+          .toList();
 
       expect(stages, [
         ['primary-constructors'],

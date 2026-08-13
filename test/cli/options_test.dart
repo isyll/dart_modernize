@@ -26,9 +26,8 @@ void main() {
 
     test('--sort-members switches the off-by-default pass on', () {
       expect(
-        CliOptions.fromResults(
-          buildArgParser().parse(['--sort-members']),
-        ).sortMembers,
+        CliOptions.fromResults(buildArgParser().parse(['--sort-members']))
+            .sortMembers,
         isTrue,
       );
       // Naming it with --only also runs it.
@@ -201,15 +200,13 @@ void main() {
 
     test('--line-endings=lf and =crlf are parsed', () {
       expect(
-        CliOptions.fromResults(
-          buildArgParser().parse(['--line-endings=lf']),
-        ).lineEndings,
+        CliOptions.fromResults(buildArgParser().parse(['--line-endings=lf']))
+            .lineEndings,
         LineEndings.lf,
       );
       expect(
-        CliOptions.fromResults(
-          buildArgParser().parse(['--line-endings=crlf']),
-        ).lineEndings,
+        CliOptions.fromResults(buildArgParser().parse(['--line-endings=crlf']))
+            .lineEndings,
         LineEndings.crlf,
       );
     });

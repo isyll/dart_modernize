@@ -59,9 +59,9 @@ final class ModernizePipeline {
       _ensureCleanWorktree();
     }
 
-    final finalize = buildFinalizeTransformations(
-      options,
-    ).where((t) => t.enabled).toList();
+    final finalize = buildFinalizeTransformations(options)
+        .where((t) => t.enabled)
+        .toList();
 
     // 2. Transform: apply the structural stages to an in-memory copy.
     reporter.resolving();
@@ -282,9 +282,9 @@ final class ModernizePipeline {
       // sees files the rest of the pipeline excludes. Snapshot them first and
       // restore any it touches, so an excluded file stays byte for byte
       // identical.
-      final excluded = _fixApplyScope(
-        projectPath,
-      ).where(filter.shouldSkip).toList();
+      final excluded = _fixApplyScope(projectPath)
+          .where(filter.shouldSkip)
+          .toList();
       final excludedBefore = _snapshot(excluded);
       final before = _snapshot(files);
       await _runProcess(Platform.resolvedExecutable, [
