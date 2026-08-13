@@ -52,7 +52,7 @@ const allFeatures = <String>[
 const defaultPubspec = '''
 name: fixture_project
 environment:
-  sdk: ">=3.12.0 <4.0.0"
+  sdk: ">=3.13.0 <4.0.0"
 ''';
 
 /// The machine-readable CLI flag name for each transformation feature.

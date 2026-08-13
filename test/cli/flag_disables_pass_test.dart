@@ -27,7 +27,6 @@ void main() {
         final result = await runCli(
           files: triggerFiles(feature),
           args: onlyFeatureArgs(feature),
-          pubspec: triggerPubspec(feature),
         );
 
         expect(result.exitCode, 0, reason: result.stderr);

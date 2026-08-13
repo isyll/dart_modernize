@@ -13,6 +13,7 @@ analyzer:
 
 linter:
   rules:
+    - async_return_with_no_await
     - avoid_bool_literals_in_conditional_expressions
     - avoid_catches_without_on_clauses
     - avoid_catching_errors
@@ -23,4 +24,3 @@ linter:
     - prefer_final_in_for_each
     - prefer_final_locals
     - unawaited_futures
-    - unnecessary_await_in_return

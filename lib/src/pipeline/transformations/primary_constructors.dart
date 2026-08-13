@@ -7,10 +7,12 @@ import '../transformation.dart';
 
 /// Promotes eligible single-constructor classes to primary constructor form.
 ///
-/// Primary constructors are stable as of Dart 3.13 (they were behind an
-/// experiment in 3.12). The pass reads the resolved feature set rather than the
-/// SDK constraint, so it simply does nothing on a project whose language version
-/// is below 3.13 instead of emitting code that would not compile there.
+/// Primary constructors are stable as of Dart 3.13, which is also this tool's
+/// SDK floor, so the syntax below is always available to a project the validator
+/// let through. The feature-set check is kept as a second line of defence: it
+/// reads the resolved language version rather than the SDK constraint, so an
+/// individual library pinned lower still gets left alone instead of being handed
+/// code it cannot compile.
 ///
 /// A class is eligible when:
 ///   * it is not abstract;

@@ -25,14 +25,23 @@ import 'analysis_helper.dart';
 import 'cli_harness.dart';
 import 'golden.dart';
 
-/// All passes except primary constructors, whose output needs an experimental,
-/// newer language version than the fixture projects opt into, so it cannot be
-/// re-analyzed cleanly here. Primary constructors keep their own golden suite.
+/// Every pass except primary constructors, for the suites that pin exact bytes.
+///
+/// The exclusion is no longer about language version: the fixture projects are
+/// on 3.13, where primary constructors are stable. It is that promoting a class
+/// rewrites its whole declaration, which would churn every combined golden and
+/// bury the pass interactions those files exist to show.
 ///
 /// sort-members is off by default, so it is switched on explicitly here: these
 /// suites exercise every stable pass composing, and the combined goldens expect
 /// members in sorted order.
 const allStablePasses = <String>['--no-primary-constructors', '--sort-members'];
+
+/// Every pass, primary constructors included.
+///
+/// For suites that assert only "still compiles, still idempotent" and pin no
+/// bytes, so there is no golden to churn and no reason to hold a pass back.
+const everyPass = <String>['--sort-members'];
 
 /// Absolute path to `test/fixtures`, resolved from the package root.
 final String _fixturesRoot = p.join(
@@ -43,7 +52,8 @@ final String _fixturesRoot = p.join(
 
 /// Defines a combined golden suite over `test/fixtures/[dir]/`.
 ///
-/// Each `<case>.input.dart` / `<case>.expected` pair is dropped into one project,
+/// Each `<case>.input.dart` / `<case>.expected.dart` pair is dropped into one
+/// project,
 /// the CLI is run with [args], and for every case the rewritten file must match
 /// its expected output. The whole project must then analyze clean, and a second
 /// run must change nothing.
@@ -219,6 +229,7 @@ Map<String, String> _plainDartFiles(String dir) {
     final name = p.basename(entity.path);
     if (!name.endsWith('.dart')) continue;
     if (name.endsWith('.input.dart') ||
+        name.endsWith('.expected.dart') ||
         name.endsWith('.unchanged.dart') ||
         name.endsWith('.support.dart')) {
       continue;

@@ -7,8 +7,6 @@
 /// (every other pass still on) and the trigger must be untouched.
 library;
 
-import 'cli_harness.dart';
-
 const abstractFinalClassesTrigger = '''
 class Constants {
   static const maxRetries = 3;
@@ -119,13 +117,6 @@ class C {
 
   int get x => _x;
 }
-''';
-
-/// A pubspec opting into the language version primary constructors require.
-const pubspec313 = '''
-name: fixture_project
-environment:
-  sdk: ">=3.13.0 <4.0.0"
 ''';
 
 const sortConstructorsFirstTrigger = '''
@@ -249,7 +240,3 @@ Map<String, String> triggerFiles(String feature) => {
   'lib/trigger.dart': triggers[feature]!,
   if (feature == 'fix_all') 'analysis_options.yaml': fixAllLints,
 };
-
-/// The pubspec [feature]'s trigger should run under.
-String triggerPubspec(String feature) =>
-    feature == 'primary_constructors' ? pubspec313 : defaultPubspec;

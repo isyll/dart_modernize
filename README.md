@@ -5,7 +5,7 @@
 A type-aware codemod that rewrites Dart and Flutter projects to use modern syntax wherever it is safe.
 
 [![pub package](https://img.shields.io/pub/v/dart_modernize.svg)](https://pub.dev/packages/dart_modernize)
-[![sdk](https://img.shields.io/badge/dart-%3E%3D3.12-0175C2.svg)](https://dart.dev)
+[![sdk](https://img.shields.io/badge/dart-%3E%3D3.13-0175C2.svg)](https://dart.dev)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![style](https://img.shields.io/badge/style-strict-success.svg)](analysis_options.yaml)
 
@@ -165,7 +165,7 @@ Twenty-two passes, grouped into five families. Each is independently toggleable,
 | **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
 | **Destructure locals** | Collapses a local that only exists to read fields off it into one destructuring declaration: `final p = get(); final x = p.x; final y = p.y;` becomes `final Point(:x, :y) = get();`. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
-| **Primary constructors** | Promotes eligible classes to the primary constructor form, including `const` ones, only when it is provably safe. Requires the target project to be on Dart 3.13, where the feature went stable. |
+| **Primary constructors** | Promotes eligible classes to the primary constructor form, including `const` ones, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | **Collection elements** | Folds a run of `add`/`addAll` calls on a freshly declared empty literal into one literal with collection-`if` and collection-`for` elements. **Off by default** (opt in with `--collection-elements`). |
@@ -639,7 +639,7 @@ class Origin {
 class const Origin(final int x);
 ```
 
-> **Requires Dart 3.13 in the project being modernized.** Primary constructors went stable in 3.13 (they were behind an experiment in 3.12). The pass reads the resolved language version, so on an older project it simply does nothing rather than emitting code that would not compile there. Nothing to configure: raise the project's SDK constraint to `>=3.13.0` and the pass starts applying.
+> Primary constructors went stable in Dart 3.13, which is also this tool's SDK floor, so nothing extra is needed to opt in. The pass double-checks the resolved language version anyway and stays a no-op if it is somehow not met.
 >
 > Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter. A *named* primary constructor (`class Point.origin(...)`) is valid 3.13 syntax but is never produced, since the pass only promotes an unnamed constructor.
 
@@ -755,11 +755,11 @@ abstract final class AppColors {
 
 ## 📋 Requirements
 
-Dart SDK `3.12.0` or newer.
+Dart SDK `3.13.0` or newer.
 
 The minimum SDK is fixed per release. When a future Dart version ships new syntax, a new major version of `dart_modernize` adds support for it. Staying on an older SDK? Pin the matching release and it keeps working.
 
-Individual passes may need more than the floor. **Primary constructors** is the only one today: it needs the project being modernized to be on Dart `3.13.0`, where the feature went stable. Every other pass applies at `3.12.0`. A pass whose language version is not met is skipped silently rather than producing code that would not compile, so the tool stays safe to run on a mixed set of projects.
+The floor is `3.13.0` because primary constructors became stable there and the promotion pass emits that syntax. The tool refuses to run on a project whose SDK constraint allows anything older, rather than letting a run reach code that cannot compile the result.
 
 <br>
 

@@ -147,8 +147,10 @@ class Worker extends Base {
 /// against each other in `flag_disables_pass_test.dart` instead.
 ///
 /// primary_constructors and switch_expressions do not fire on the project
-/// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
-/// for the latter) but are included so the set covers all passes.
+/// fixtures here, but are included so the set covers all passes. Base is
+/// extended inside the same file and Worker forwards to super, and both of
+/// those disqualify a class from promotion; there are no eligible switch
+/// statements for the latter.
 ///
 /// sort_members and sort_constructors_first are both included: they order class
 /// members and must agree, so enabling both keeps the idempotence check honest

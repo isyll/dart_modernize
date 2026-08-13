@@ -1,4 +1,4 @@
-/// Behavioural spec: the tool emits 3.12+ idioms, so it refuses to touch a
+/// Behavioural spec: the tool emits 3.13+ idioms, so it refuses to touch a
 /// project whose SDK constraint admits an older Dart version, and rejects a
 /// constraint it cannot parse. In every rejection the source is left untouched.
 library;
@@ -24,7 +24,7 @@ environment:
 
       expect(result.exitCode, 1);
       expect(result.stderr, contains('Error:'));
-      expect(result.stderr, contains('3.12.0'));
+      expect(result.stderr, contains('3.13.0'));
       expect(result.read('lib/a.dart'), source);
     });
 
@@ -46,7 +46,22 @@ environment:
       },
     );
 
-    test('a constraint pinned to exactly 3.12.0 is accepted', () async {
+    test('a constraint pinned to exactly 3.13.0 is accepted', () async {
+      final result = await runCli(
+        files: {'lib/a.dart': source},
+        pubspec: '''
+name: fixture_project
+environment:
+  sdk: ">=3.13.0 <4.0.0"
+''',
+      );
+
+      expect(result.exitCode, 0);
+    });
+
+    test('3.12.0 is now below the floor and is rejected', () async {
+      // 3.12 was the floor until primary constructors went stable in 3.13 and
+      // the promotion pass started emitting that syntax.
       final result = await runCli(
         files: {'lib/a.dart': source},
         pubspec: '''
@@ -56,7 +71,9 @@ environment:
 ''',
       );
 
-      expect(result.exitCode, 0);
+      expect(result.exitCode, 1);
+      expect(result.stderr, contains('3.13.0'));
+      expect(result.read('lib/a.dart'), source);
     });
   });
 }

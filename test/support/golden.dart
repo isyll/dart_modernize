@@ -3,12 +3,15 @@
 /// A *golden test* pins the exact output of a transformation for a given input.
 /// Cases live under `test/fixtures/<feature>/` and come in two shapes:
 ///
-///   * **A pair**: `<case>.input.dart` plus `<case>.expected`.
+///   * **A pair**: `<case>.input.dart` plus `<case>.expected.dart`.
 ///     The tool is run over the input and the result must equal the expected
-///     file, byte for byte. The expected file deliberately drops the `.dart`
-///     extension so it is treated as plain data: `dart format`/`dart analyze`
-///     never touch it, which lets it hold output that uses language features
-///     newer than this package's own version (e.g. primary constructors).
+///     file, byte for byte. Both carry the `.dart` extension so an editor reads
+///     them as the Dart they are. Nothing in the toolchain rewrites them out
+///     from under the suite: `analysis_options.yaml` excludes `test/fixtures/**`
+///     from the analyzer, and CI formats only `git ls-files '*.dart'
+///     ':!test/fixtures'`. That exclusion is what keeps a fixture free to hold
+///     deliberately non-idiomatic input, and output the tool has already
+///     formatted its own way.
 ///
 ///   * **A negative case**: a single `<case>.unchanged.dart`.
 ///     The transformation must *not* apply, so the expected output is the input
@@ -118,11 +121,11 @@ List<GoldenCase> discoverCases(String feature) {
         0,
         fileName.length - '.input.dart'.length,
       );
-      final expectedFile = File(p.join(dir.path, '$stem.expected'));
+      final expectedFile = File(p.join(dir.path, '$stem.expected.dart'));
       if (!expectedFile.existsSync()) {
         throw StateError(
-          'Golden case "$stem" in $feature is missing $stem.expected. '
-          'Every *.input.dart needs a matching *.expected file.',
+          'Golden case "$stem" in $feature is missing $stem.expected.dart. '
+          'Every *.input.dart needs a matching *.expected.dart file.',
         );
       }
       cases.add(

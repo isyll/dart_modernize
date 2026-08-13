@@ -18,7 +18,6 @@ import 'package:test/test.dart';
 
 import '../support/analysis_helper.dart';
 import '../support/cli_harness.dart';
-import '../support/triggers.dart';
 
 void main() {
   test('a modernized project still analyzes without errors', () async {
@@ -48,7 +47,6 @@ void main() {
   test('promoted primary constructors still analyze without errors', () async {
     final project = createProject(
       files: {'lib/models.dart': _primaryConstructorSample},
-      pubspec: pubspec313,
     );
 
     final before = await analyzeProject(project);

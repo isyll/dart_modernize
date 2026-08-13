@@ -8,9 +8,13 @@ import '../modernize_exception.dart';
 
 /// The lowest Dart SDK the modernized output is guaranteed to compile against.
 ///
-/// The transformations emit 3.12+ idioms, so a project whose SDK constraint
+/// The transformations emit 3.13+ idioms, so a project whose SDK constraint
 /// admits an older version would be broken by them.
-final Version _minimumSdk = .new(3, 12, 0);
+///
+/// 3.13 is the floor because primary constructors became stable there, and the
+/// promotion pass emits that syntax. Refusing up front is better than letting a
+/// run reach a project that cannot compile the result.
+final Version _minimumSdk = .new(3, 13, 0);
 
 /// Validates that the project at [projectPath] is ready for modernization.
 ///

@@ -39,11 +39,12 @@ A case is one of:
   - `<case>.input.dart`: the source the tool is run over. It is the "before"
     code, so it is always valid current-syntax Dart and keeps the `.dart`
     extension (editor highlighting, format-clean).
-  - `<case>.expected`: the exact source the file must contain afterwards. It
-    deliberately **drops** the `.dart` extension so Dart tooling treats it as
-    plain data: `dart format` and `dart analyze` skip it, which lets it hold
-    output using language features newer than this package's version (e.g.
-    primary constructors, which `dart format` cannot yet parse here).
+  - `<case>.expected.dart`: the exact source the file must contain afterwards.
+    It keeps the `.dart` extension too, so an editor reads it as the Dart it is.
+    Nothing rewrites it out from under the suite: `analysis_options.yaml`
+    excludes `test/fixtures/**` from the analyzer, and CI formats only
+    `git ls-files '*.dart' ':!test/fixtures'`. Note that `dart format .` with no
+    filter *would* reach these files; use the CI command instead.
 
 - **Negative**: a single file:
   - `<case>.unchanged.dart`: the transformation must **not** apply here, so the
