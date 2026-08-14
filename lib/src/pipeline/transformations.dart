@@ -54,21 +54,23 @@ List<Transformation> buildTransformations(CliOptions options) => [
 /// Passes in the same stage touch separate parts of the code, so their order
 /// within a stage does not matter.
 List<List<Transformation>> buildTransformationStages(CliOptions options) => [
-  // 1. Primary constructors rewrite a whole class and copy its other members
-  //    verbatim, so they run first; later stages then modernize those members.
-  [PrimaryConstructors(enabled: options.primaryConstructors)],
-
-  // 2. collection-elements must run before cascades, which would otherwise fold
+  // 1. collection-elements must run before cascades, which would otherwise fold
   //    the same statements into `<T>[]..add(a)..add(b)` first.
   [CollectionElements(enabled: options.collectionElements)],
 
-  // 3. Fold statement runs and build the new constructs later stages read.
+  // 2. Fold statement runs and build the new constructs later stages read.
   [
     SwitchExpressions(enabled: options.switchExpressions),
     Cascades(enabled: options.cascades),
     SuperParameters(enabled: options.superParameters),
     PrivateNamedParameters(enabled: options.privateNamedParameters),
   ],
+
+  // 3. primary-constructors runs after private-named-parameters, which turns
+  //    `Config({required int r}) : _r = r` into `Config({required this._r})`,
+  //    exactly the shape promotion needs. The other way round the promotion
+  //    would only happen on a second run, so the tool would not be idempotent.
+  [PrimaryConstructors(enabled: options.primaryConstructors)],
 
   // 4. inline-return collapses a folded cascade that is then returned;
   //    prefer-inferred-types drops or relocates a redundant type annotation.

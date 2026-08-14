@@ -177,21 +177,17 @@ void report(Map<String, int> scores) {
 }
 ''';
 
-/// The point comes in as a parameter instead of from a helper. A helper like
-/// `Point getPoint() => const Point(1, 2);` is a dot-shorthand target, so that
-/// pass would touch this trigger and the check would fail for the wrong reason.
+/// Uses a record rather than a class. A small class with final fields and one
+/// constructor is exactly what primary-constructors promotes, which would make
+/// another pass touch this trigger and fail the check for the wrong reason.
 const destructureLocalsTrigger = '''
-class Point {
-  const Point(this.x, this.y);
-  final int x;
-  final int y;
-}
+(int, int) pair() => (1, 2);
 
-int sum(Point point) {
-  final p = point;
-  final x = p.x;
-  final y = p.y;
-  return x + y;
+int sum() {
+  final p = pair();
+  final a = p.\$1;
+  final b = p.\$2;
+  return a + b;
 }
 ''';
 

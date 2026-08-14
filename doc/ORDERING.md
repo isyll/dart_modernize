@@ -25,9 +25,9 @@ inline-return,cascades` still runs `cascades` (stage 3) before `inline-return`
 
 | Stage | Passes | Role |
 | ----- | ------ | ---- |
-| 1 | `primary-constructors` | Outermost class rewrite. |
-| 2 | `collection-elements` | Fold an add/addAll run into one literal. |
-| 3 | `switch-expressions`, `cascades`, `super-parameters`, `private-named-parameters` | Fold statement runs, build new constructs. |
+| 1 | `collection-elements` | Fold an add/addAll run into one literal. |
+| 2 | `switch-expressions`, `cascades`, `super-parameters`, `private-named-parameters` | Fold statement runs, build new constructs. |
+| 3 | `primary-constructors` | Promote a class, once its members have settled. |
 | 4 | `inline-return`, `prefer-inferred-types` | Read stage 3. |
 | 5 | `expression-bodies`, `final-locals` | Read stage 4. |
 | 6 | `null-aware-conditionals` | Replace a whole conditional expression. |
@@ -42,18 +42,24 @@ Two rules decide a pass's stage:
 
    ```dart
    Conn build(String t) {
-     var c = Conn();   // stage 2 cascades        -> var c = Conn()..open()..send(t); return c;
-     c.open();         // stage 3 inline-return    -> return Conn()..open()..send(t);
-     c.send(t);        // stage 4 expression-bodies -> Conn build(String t) => Conn()..open()..send(t);
+     var c = Conn();   // stage 2 cascades         -> var c = Conn()..open()..send(t); return c;
+     c.open();         // stage 4 inline-return     -> return Conn()..open()..send(t);
+     c.send(t);        // stage 5 expression-bodies -> Conn build(String t) => Conn()..open()..send(t);
      return c;
    }
    ```
 
 2. **A pass that rewrites a whole span runs before the passes that edit inside
-   it.** `primary-constructors` copies a class's other members, and `cascades`,
-   the switch rewrite, and the partial super-forward copy their inner
-   expressions. Running `dot-shorthands`, `string-interpolation`, and the
-   null-aware passes last lets them edit the final positions.
+   it.** `cascades`, the switch rewrite, and the partial super-forward all copy
+   their inner expressions. Running `dot-shorthands`, `string-interpolation` and
+   the null-aware passes last lets them edit the final positions.
+
+`primary-constructors` sits behind `private-named-parameters` for rule 1.
+`Config({required int r}) : _r = r` is not promotable, but the
+`Config({required this._r})` that private-named-parameters produces is. With the
+promotion first, that class would only collapse on a second run, and the tool
+would not be idempotent. `pass_convergence_test.dart` and `idempotence_test.dart`
+both cover this.
 
 `prefer-inferred-types` (stage 4) runs before `dot-shorthands` (stage 8). When a
 declared type is redundant, prefer-inferred-types drops it, so dot-shorthands

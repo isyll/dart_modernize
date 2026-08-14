@@ -17,7 +17,6 @@ void main() {
           .toList();
 
       expect(stages, [
-        ['primary-constructors'],
         ['collection-elements'],
         [
           'switch-expressions',
@@ -25,6 +24,7 @@ void main() {
           'super-parameters',
           'private-named-parameters',
         ],
+        ['primary-constructors'],
         ['inline-return', 'prefer-inferred-types'],
         ['expression-bodies', 'final-locals'],
         ['null-aware-conditionals'],
@@ -44,8 +44,11 @@ void main() {
 
       // (producer, consumer): producer must be in a strictly earlier stage.
       const edges = [
-        // Container rewrites settle before the inner edits land.
-        ('primary-constructors', 'cascades'),
+        // private-named-parameters produces the `this._field` shape that
+        // primary-constructors promotes, so it has to come first or the
+        // promotion would need a second run.
+        ('private-named-parameters', 'primary-constructors'),
+        // The promoted class settles before the inner edits land.
         ('primary-constructors', 'dot-shorthands'),
         // The longest chain: a folded cascade is returned, arrowed, collapsed.
         ('cascades', 'inline-return'),
