@@ -67,11 +67,10 @@ final class AbstractFinalClasses implements Transformation {
   }
 }
 
-class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
-  _AbstractFinalVisitor(this.source, this.usedClasses);
-  final String source;
-  final Set<InterfaceElement> usedClasses;
-
+class _AbstractFinalVisitor(
+  final String source,
+  final Set<InterfaceElement> usedClasses,
+) extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -177,10 +176,8 @@ class _AbstractFinalVisitor extends RecursiveAstVisitor<void> {
   }
 }
 
-class _CtorFinder extends RecursiveAstVisitor<void> {
-  _CtorFinder(this.target);
-  final ConstructorElement target;
-
+class _CtorFinder(final ConstructorElement target)
+    extends RecursiveAstVisitor<void> {
   ConstructorDeclaration? found;
 
   @override

@@ -4,6 +4,10 @@
 
 **Breaking:** the minimum Dart SDK is now `3.13.0`, up from `3.12.0`. The tool refuses to run on a project whose SDK constraint allows anything older. Primary constructors are stable in 3.13 and the promotion pass emits that syntax, so the floor moved with it rather than leaving one pass silently inert.
 
+- Fixed three bugs in `primary-constructors`, all found by running the tool over its own sources:
+  - Promotion deleted a factory or redirecting constructor, because the retained-member loop skipped every constructor instead of only the one being promoted. This could remove public API from a class and still compile.
+  - A promoted field lost its doc comment, plain comment, and annotations, since only its type and name reach the header. Such a class is now left alone.
+  - Members left in the class body lost the blank lines between them, and any `//` comment written above them.
 - Fixed a convergence bug: `private-named-parameters` rewrites a constructor into the `this._field` form that `primary-constructors` promotes, but promotion ran first, so the class only collapsed on a second run and the pipeline was not idempotent. `primary-constructors` now runs after it. The 3.12 floor had hidden this, because the pass was inert on the test projects.
 - Primary constructors went stable in Dart 3.13. The `primary-constructors` pass now promotes `const` classes too, emitting the constant primary constructor form (`class const Point(final int x, final int y)`), where before it skipped every class with a `const` constructor. This is safe by construction: Dart already requires every instance field of a const-constructor class to be final, so the header never needs `var`, and members left in the class body are copied over unchanged.
 - The pass still gates on the resolved language version as a second line of defence, even though the validator now rejects sub-3.13 projects up front.

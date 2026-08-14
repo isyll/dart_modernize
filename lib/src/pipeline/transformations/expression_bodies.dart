@@ -50,10 +50,8 @@ class _ClosureFinder extends RecursiveAstVisitor<void> {
   }
 }
 
-class _ExpressionBodyVisitor extends RecursiveAstVisitor<void> {
-  _ExpressionBodyVisitor(this.source);
-
-  final String source;
+class _ExpressionBodyVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

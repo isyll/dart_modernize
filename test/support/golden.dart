@@ -70,7 +70,8 @@ void defineGoldenSuite(String feature) {
       final analysisOptions = _featureFile(feature, 'analysis_options.yaml');
       result = await runCli(
         files: {
-          for (final c in cases) c.projectFile: c.input,
+          for (final GoldenCase(:projectFile, :input) in cases)
+            projectFile: input,
           ..._supportFiles(feature),
           'analysis_options.yaml': ?analysisOptions,
         },

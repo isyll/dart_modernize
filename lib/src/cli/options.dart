@@ -361,7 +361,7 @@ final class CliOptions {
 
   factory CliOptions.fromResults(
     ArgResults results, {
-    DartModernizeConfig config = const DartModernizeConfig.empty(),
+    DartModernizeConfig config = const .empty(),
   }) {
     // `--only` is an allow-list, and the config's enabled/disabled lists select
     // passes too. Validate every name against the same allow-list up front so a

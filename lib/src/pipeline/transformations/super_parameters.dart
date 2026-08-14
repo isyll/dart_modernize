@@ -53,11 +53,8 @@ class _Fold {
 }
 
 /// Counts references to a fixed set of parameter elements within a subtree.
-class _ReferenceCounter extends RecursiveAstVisitor<void> {
-  _ReferenceCounter(this.targets);
-
-  final Set<Element> targets;
-
+class _ReferenceCounter(final Set<Element> targets)
+    extends RecursiveAstVisitor<void> {
   final counts = <Element, int>{};
 
   @override
@@ -70,11 +67,8 @@ class _ReferenceCounter extends RecursiveAstVisitor<void> {
   }
 }
 
-class _SuperParameterVisitor extends RecursiveAstVisitor<void> {
-  _SuperParameterVisitor(this.source);
-
-  final String source;
-
+class _SuperParameterVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

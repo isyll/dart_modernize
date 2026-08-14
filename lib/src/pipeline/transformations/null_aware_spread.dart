@@ -31,10 +31,8 @@ final class NullAwareSpread implements Transformation {
   }
 }
 
-class _NullAwareSpreadVisitor extends RecursiveAstVisitor<void> {
-  _NullAwareSpreadVisitor(this.source);
-  final String source;
-
+class _NullAwareSpreadVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

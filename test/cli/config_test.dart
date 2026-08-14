@@ -57,20 +57,14 @@ dart_modernize:
 
   group('config layering in CliOptions', () {
     test('config disabled turns an on-by-default pass off', () {
-      final options = _parse(
-        [],
-        config: const DartModernizeConfig(disabled: {'cascades'}),
-      );
+      final options = _parse([], config: const .new(disabled: {'cascades'}));
       expect(options.cascades, isFalse);
       // Other passes stay at their default.
       expect(options.dotShorthands, isTrue);
     });
 
     test('config enabled turns an off-by-default pass on', () {
-      final options = _parse(
-        [],
-        config: const DartModernizeConfig(enabled: {'sort-members'}),
-      );
+      final options = _parse([], config: const .new(enabled: {'sort-members'}));
       expect(options.sortMembers, isTrue);
     });
 
@@ -81,7 +75,7 @@ dart_modernize:
       final options = _parse([
         '--only',
         'dot-shorthands',
-      ], config: const DartModernizeConfig(disabled: {'dot-shorthands'}));
+      ], config: const .new(disabled: {'dot-shorthands'}));
       expect(options.dotShorthands, isTrue);
       expect(options.cascades, isFalse);
     });
@@ -92,7 +86,7 @@ dart_modernize:
       // The reverse works: config need not enable a pass for --sort-members to.
       final off = _parse([
         '--no-organize-imports',
-      ], config: const DartModernizeConfig(enabled: {'organize-imports'}));
+      ], config: const .new(enabled: {'organize-imports'}));
       expect(off.organizeImports, isFalse, reason: 'CLI --no- beats config');
     });
 
@@ -100,16 +94,13 @@ dart_modernize:
       final options = _parse([
         '--exclude',
         'lib/cli/**',
-      ], config: const DartModernizeConfig(excludes: ['lib/config/**']));
+      ], config: const .new(excludes: ['lib/config/**']));
       expect(options.excludes, ['lib/config/**', 'lib/cli/**']);
     });
 
     test('an unknown config name throws a FormatException', () {
       expect(
-        () => _parse(
-          [],
-          config: const DartModernizeConfig(disabled: {'not-a-pass'}),
-        ),
+        () => _parse([], config: const .new(disabled: {'not-a-pass'})),
         throwsFormatException,
       );
     });
@@ -118,10 +109,7 @@ dart_modernize:
       expect(
         () => _parse(
           [],
-          config: const DartModernizeConfig(
-            enabled: {'cascades'},
-            disabled: {'cascades'},
-          ),
+          config: const .new(enabled: {'cascades'}, disabled: {'cascades'}),
         ),
         throwsFormatException,
       );
@@ -216,5 +204,5 @@ dart_modernize:
 
 CliOptions _parse(
   List<String> args, {
-  DartModernizeConfig config = const DartModernizeConfig.empty(),
+  DartModernizeConfig config = const .empty(),
 }) => .fromResults(buildArgParser().parse(args), config: config);

@@ -50,10 +50,8 @@ final class PreferInferredTypes implements Transformation {
   }
 }
 
-class _PreferInferredTypesVisitor extends RecursiveAstVisitor<void> {
-  _PreferInferredTypesVisitor(this.source);
-  final String source;
-
+class _PreferInferredTypesVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

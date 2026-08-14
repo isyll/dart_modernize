@@ -49,11 +49,10 @@ final class NullAwareConditionals implements Transformation {
   }
 }
 
-class _NullAwareConditionalsVisitor extends RecursiveAstVisitor<void> {
-  _NullAwareConditionalsVisitor(this.source, this.typeSystem);
-  final String source;
-  final TypeSystem typeSystem;
-
+class _NullAwareConditionalsVisitor(
+  final String source,
+  final TypeSystem typeSystem,
+) extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

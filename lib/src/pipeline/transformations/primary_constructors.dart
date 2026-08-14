@@ -50,10 +50,7 @@ final class PrimaryConstructors implements Transformation {
   }
 }
 
-class _Visitor extends RecursiveAstVisitor<void> {
-  _Visitor(this.source);
-  final String source;
-
+class _Visitor(final String source) extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   /// Names of classes that appear in an `extends` clause within this file.

@@ -35,17 +35,12 @@ final class _ExpressionSegment extends _Segment {
   final bool needsBraces;
 }
 
-final class _LiteralSegment extends _Segment {
-  _LiteralSegment(this.value);
-  final String value;
-}
+final class _LiteralSegment(final String value) extends _Segment;
 
 sealed class _Segment {}
 
-class _StringInterpolationVisitor extends RecursiveAstVisitor<void> {
-  _StringInterpolationVisitor(this.source);
-  final String source;
-
+class _StringInterpolationVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

@@ -55,10 +55,8 @@ final class CollectionElements implements Transformation {
   }
 }
 
-class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
-  _CollectionElementsVisitor(this.source);
-  final String source;
-
+class _CollectionElementsVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -201,10 +199,7 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
   String _text(AstNode node) => source.substring(node.offset, node.end);
 }
 
-class _ReferenceFinder extends RecursiveAstVisitor<void> {
-  _ReferenceFinder(this.target);
-  final Element target;
-
+class _ReferenceFinder(final Element target) extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override

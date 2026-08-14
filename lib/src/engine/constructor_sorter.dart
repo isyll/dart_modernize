@@ -109,16 +109,9 @@ class _ConstructorSorter {
   }
 }
 
-final class _Entry {
-  _Entry({
-    required this.isConstructor,
-    required this.offset,
-    required this.end,
-    required this.text,
-  });
-  final bool isConstructor;
-  final int offset;
-  final int end;
-
-  final String text;
-}
+final class _Entry({
+  required final bool isConstructor,
+  required final int offset,
+  required final int end,
+  required final String text,
+});

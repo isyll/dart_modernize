@@ -88,11 +88,11 @@ final class Reporter {
       final nameWidth = passCounts.keys
           .map((k) => k.length)
           .reduce((a, b) => a > b ? a : b);
-      for (final entry in passCounts.entries) {
-        final noun = entry.value == 1 ? 'file' : 'files';
+      for (final MapEntry(:value, :key) in passCounts.entries) {
+        final noun = value == 1 ? 'file' : 'files';
         _out(
-          '  ${entry.key.padRight(nameWidth)}  '
-          '${_green(entry.value.toString().padLeft(4))} $noun',
+          '  ${key.padRight(nameWidth)}  '
+          '${_green(value.toString().padLeft(4))} $noun',
         );
       }
     }
@@ -119,8 +119,8 @@ final class Reporter {
       final nameWidth = passCounts.keys
           .map((k) => k.length)
           .reduce((a, b) => a > b ? a : b);
-      for (final entry in passCounts.entries) {
-        _out('  ${entry.key.padRight(nameWidth)}  ${entry.value} file(s)');
+      for (final MapEntry(:key, :value) in passCounts.entries) {
+        _out('  ${key.padRight(nameWidth)}  $value file(s)');
       }
     }
     _out(_rule());
@@ -181,9 +181,9 @@ final class Reporter {
         'modernization:',
       ),
     );
-    for (final entry in reverted.entries) {
-      _err('  ${_bold(entry.key)}');
-      for (final message in entry.value) {
+    for (final MapEntry(:key, :value) in reverted.entries) {
+      _err('  ${_bold(key)}');
+      for (final message in value) {
         _err('    ${_red('-')} $message');
       }
     }

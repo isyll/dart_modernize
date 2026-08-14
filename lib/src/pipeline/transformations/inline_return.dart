@@ -40,10 +40,8 @@ final class InlineReturn implements Transformation {
   }
 }
 
-class _InlineReturnVisitor extends RecursiveAstVisitor<void> {
-  _InlineReturnVisitor(this.source);
-  final String source;
-
+class _InlineReturnVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -116,10 +114,7 @@ class _InlineReturnVisitor extends RecursiveAstVisitor<void> {
   }
 }
 
-class _TargetFinder extends RecursiveAstVisitor<void> {
-  _TargetFinder(this.target);
-  final Element target;
-
+class _TargetFinder(final Element target) extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override

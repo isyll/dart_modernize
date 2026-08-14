@@ -48,10 +48,8 @@ final class DestructureForIn implements Transformation {
   }
 }
 
-class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
-  _DestructureForInVisitor(this.source);
-  final String source;
-
+class _DestructureForInVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -180,10 +178,8 @@ class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
 typedef _FieldRead = PrefixedIdentifier;
 
 /// Collects the loop variable's field reads and reports any other use.
-class _FieldReadCollector extends RecursiveAstVisitor<void> {
-  _FieldReadCollector(this.target);
-  final Element target;
-
+class _FieldReadCollector(final Element target)
+    extends RecursiveAstVisitor<void> {
   final reads = <_FieldRead>[];
 
   /// False as soon as the variable is used as anything but a field receiver.
@@ -207,11 +203,8 @@ class _FieldReadCollector extends RecursiveAstVisitor<void> {
 }
 
 /// Looks for identifiers that would clash with a new pattern binding.
-class _NameFinder extends RecursiveAstVisitor<void> {
-  _NameFinder(this.names, this.ignored);
-  final Set<String> names;
-  final Set<SimpleIdentifier> ignored;
-
+class _NameFinder(final Set<String> names, final Set<SimpleIdentifier> ignored)
+    extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override

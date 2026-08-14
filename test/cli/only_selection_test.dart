@@ -39,12 +39,12 @@ void main() {
       final enabled = _enabledByName(_parse(['--only', 'dot-shorthands']));
 
       expect(enabled['dot-shorthands'], isTrue);
-      for (final entry in enabled.entries) {
-        if (entry.key == 'dot-shorthands') continue;
+      for (final MapEntry(:key, :value) in enabled.entries) {
+        if (key == 'dot-shorthands') continue;
         expect(
-          entry.value,
+          value,
           isFalse,
-          reason: '${entry.key} must be off when only dot-shorthands is named',
+          reason: '$key must be off when only dot-shorthands is named',
         );
       }
     });
@@ -88,11 +88,11 @@ void main() {
     test('no --only leaves every pass at its default', () {
       // On by default, except the opt-in passes in defaultOffTransformations.
       final enabled = _enabledByName(_parse([]));
-      for (final entry in enabled.entries) {
+      for (final MapEntry(:value, :key) in enabled.entries) {
         expect(
-          entry.value,
-          !defaultOffTransformations.contains(entry.key),
-          reason: '${entry.key} should be at its default',
+          value,
+          !defaultOffTransformations.contains(key),
+          reason: '$key should be at its default',
         );
       }
     });

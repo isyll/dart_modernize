@@ -33,15 +33,13 @@ List<SourceEdit> sortMemberEdits(
   return edit == null ? const [] : [edit];
 }
 
-class _MemberInfo {
-  _MemberInfo(this.item, this.name, this.offset, this.end, this.text);
-  final _PriorityItem item;
-  final String name;
-  final int offset;
-  final int end;
-
-  final String text;
-}
+class _MemberInfo(
+  final _PriorityItem item,
+  final String name,
+  final int offset,
+  final int end,
+  final String text,
+);
 
 enum _MemberKind {
   classAccessor,
@@ -262,15 +260,13 @@ class _MemberSorter {
   }
 }
 
-class _PriorityItem {
-  _PriorityItem(this.isStatic, this.kind, this.isPrivate);
+class _PriorityItem(
+  final bool isStatic,
+  final _MemberKind kind,
+  final bool isPrivate,
+) {
   factory _PriorityItem.forName(bool isStatic, String name, _MemberKind kind) =>
       .new(isStatic, kind, name.startsWith('_'));
-  final _MemberKind kind;
-
-  final bool isPrivate;
-
-  final bool isStatic;
 
   @override
   int get hashCode => Object.hash(kind, isPrivate, isStatic);

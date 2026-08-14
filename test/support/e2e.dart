@@ -72,7 +72,10 @@ void defineCombinedGoldenSuite({
 
     setUpAll(() async {
       project = createProject(
-        files: {for (final c in cases) c.projectFile: c.input},
+        files: {
+          for (final GoldenCase(:projectFile, :input) in cases)
+            projectFile: input,
+        },
         pubspec: pubspec,
       );
       firstRun = await invokeCli(project, args: args);
@@ -111,11 +114,11 @@ void defineCombinedGoldenSuite({
       for (var pass = 2; pass <= 3; pass++) {
         final rerun = await invokeCli(project, args: args);
         expect(rerun.exitCode, 0, reason: rerun.stderr);
-        for (final c in cases) {
+        for (final GoldenCase(:projectFile, :name) in cases) {
           expect(
-            rerun.read(c.projectFile),
-            firstRun.read(c.projectFile),
-            reason: '"${c.name}" changed on run #$pass; not idempotent',
+            rerun.read(projectFile),
+            firstRun.read(projectFile),
+            reason: '"$name" changed on run #$pass; not idempotent',
           );
         }
       }

@@ -95,23 +95,14 @@ enum _DirectiveGroup {
   part,
 }
 
-class _DirectiveInfo implements Comparable<_DirectiveInfo> {
-  _DirectiveInfo(
-    this.directive,
-    this.priority,
-    this.uri,
-    this.offset,
-    this.end,
-    this.text,
-  );
-  final UriBasedDirective directive;
-  final _DirectiveGroup priority;
-  final String uri;
-  final int offset;
-  final int end;
-
-  final String text;
-
+class _DirectiveInfo(
+  final UriBasedDirective directive,
+  final _DirectiveGroup priority,
+  final String uri,
+  final int offset,
+  final int end,
+  final String text,
+) implements Comparable<_DirectiveInfo> {
   @override
   int compareTo(_DirectiveInfo other) {
     if (priority == other.priority) {

@@ -30,12 +30,10 @@ import 'transformations.dart';
 /// Finalize order is fixed: `dart fix --apply` first (its fixes can remove
 /// imports), then organize-imports, sort-members, sort-constructors-first, and
 /// `dart format` last so everything is formatted.
-final class ModernizePipeline {
-  const ModernizePipeline({required this.options, required this.reporter});
-  final CliOptions options;
-
-  final Reporter reporter;
-
+final class const ModernizePipeline({
+  required final CliOptions options,
+  required final Reporter reporter,
+}) {
   Future<void> run() async {
     // 1. Validate: fast-fail before touching the analyzer.
     await validateProject(options.path);
@@ -517,16 +515,16 @@ final class ModernizePipeline {
   /// bytes actually differ, so unchanged files keep their timestamp.
   void _restoreShapes(Map<String, TextShape> shapes) {
     final target = options.lineEndings;
-    for (final entry in shapes.entries) {
-      if (target == .auto && entry.value.isPlainLf) continue;
-      final path = entry.key;
+    for (final MapEntry(:value, :key) in shapes.entries) {
+      if (target == .auto && value.isPlainLf) continue;
+      final path = key;
       final String current;
       try {
         current = File(path).readAsStringSync();
       } on FileSystemException {
         continue;
       }
-      final restored = entry.value.apply(current, target);
+      final restored = value.apply(current, target);
       if (restored != current) File(path).writeAsStringSync(restored);
     }
   }
@@ -594,9 +592,9 @@ final class ModernizePipeline {
         (passesByFile[unit.path] ??= <String>{}).addAll(touched);
       }
 
-      for (final entry in pending.entries) {
-        analyzer.stage(entry.key, entry.value);
-        finalContent[entry.key] = entry.value;
+      for (final MapEntry(:key, :value) in pending.entries) {
+        analyzer.stage(key, value);
+        finalContent[key] = value;
       }
     }
 
@@ -662,8 +660,8 @@ final class ModernizePipeline {
 
   /// Paths in [before] whose on-disk content has since changed.
   static List<String> _changedSince(Map<String, String> before) => [
-    for (final entry in before.entries)
-      if (File(entry.key).readAsStringSync() != entry.value) entry.key,
+    for (final MapEntry(:key, :value) in before.entries)
+      if (File(key).readAsStringSync() != value) key,
   ];
 
   /// The error signatures in [after] not present in [before].
@@ -687,9 +685,9 @@ final class ModernizePipeline {
   /// Rewrites any path in [snapshot] whose on-disk content no longer matches
   /// back to its snapshotted content.
   static void _restore(Map<String, String> snapshot) {
-    for (final entry in snapshot.entries) {
-      if (File(entry.key).readAsStringSync() != entry.value) {
-        File(entry.key).writeAsStringSync(entry.value);
+    for (final MapEntry(:key, :value) in snapshot.entries) {
+      if (File(key).readAsStringSync() != value) {
+        File(key).writeAsStringSync(value);
       }
     }
   }

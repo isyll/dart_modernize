@@ -44,10 +44,8 @@ final class FinalLocals implements Transformation {
   }
 }
 
-class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
-  _FinalLocalsVisitor(this.source);
-  final String source;
-
+class _FinalLocalsVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -128,10 +126,8 @@ class _FinalLocalsVisitor extends RecursiveAstVisitor<void> {
   }
 }
 
-class _ReassignmentFinder extends RecursiveAstVisitor<void> {
-  _ReassignmentFinder(this.target);
-  final Object target;
-
+class _ReassignmentFinder(final Object target)
+    extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override

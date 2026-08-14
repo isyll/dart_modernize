@@ -50,10 +50,8 @@ final class DestructureLocals implements Transformation {
   }
 }
 
-class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
-  _DestructureLocalsVisitor(this.source);
-  final String source;
-
+class _DestructureLocalsVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -132,13 +130,13 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
     if (type.namedFields.isNotEmpty) return null;
 
     final byPosition = <int, String>{};
-    for (final read in reads) {
-      final position = _positionalIndex(read.field);
+    for (final _FieldBinding(:field, :name) in reads) {
+      final position = _positionalIndex(field);
       if (position == null || position > type.positionalFields.length) {
         return null;
       }
       if (byPosition.containsKey(position)) return null;
-      byPosition[position] = read.name;
+      byPosition[position] = name;
     }
 
     final slots = [
@@ -151,7 +149,7 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
   /// Parses `$1` into 1; returns null for anything else.
   int? _positionalIndex(String field) {
     if (!field.startsWith(r'$')) return null;
-    return int.tryParse(field.substring(1));
+    return .tryParse(field.substring(1));
   }
 
   /// Returns the single-variable declaration [statement] holds, or null.
@@ -244,17 +242,14 @@ final class _FieldBinding {
   String get binding => name == field ? ':$name' : '$field: $name';
 }
 
-final class _SingleDeclaration {
-  const _SingleDeclaration({required this.declaration, required this.isFinal});
-  final VariableDeclaration declaration;
-  final bool isFinal;
-}
+final class const _SingleDeclaration({
+  required final VariableDeclaration declaration,
+  required final bool isFinal,
+});
 
 /// Counts references to the intermediate local across the whole function.
-class _ReferenceCounter extends RecursiveAstVisitor<void> {
-  _ReferenceCounter(this.target);
-  final Element target;
-
+class _ReferenceCounter(final Element target)
+    extends RecursiveAstVisitor<void> {
   int count = 0;
 
   @override
