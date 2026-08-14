@@ -94,6 +94,41 @@ class _Visitor extends RecursiveAstVisitor<void> {
     return buf.toString();
   }
 
+  /// Where a retained member starts, counting any `//` comment above it.
+  ///
+  /// A doc comment is already part of the member, but a plain comment is not,
+  /// so copying from `member.offset` would leave it behind.
+  int _startIncludingComments(ClassMember member) =>
+      member.beginToken.precedingComments?.offset ?? member.offset;
+
+  /// True when the source has a blank line just before [offset].
+  ///
+  /// Used to keep the spacing the class was written with; without it every
+  /// retained member ends up on consecutive lines.
+  bool _blankLineBefore(int offset) {
+    var newlines = 0;
+    for (var i = offset - 1; i >= 0; i--) {
+      final ch = source[i];
+      if (ch == '\n') {
+        newlines++;
+        if (newlines >= 2) return true;
+      } else if (ch != ' ' && ch != '\t' && ch != '\r') {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /// True when [field] has a doc comment, a plain comment, or an annotation.
+  ///
+  /// A promoted field keeps only its type and name, so any of those would be
+  /// thrown away. Running the tool over its own sources is what surfaced it:
+  /// the promotion deleted 54 lines of documentation in one go.
+  bool _carriesAttachedText(FieldDeclaration field) =>
+      field.documentationComment != null ||
+      field.metadata.isNotEmpty ||
+      field.beginToken.precedingComments != null;
+
   void _tryRewrite(ClassDeclaration cls) {
     // Already a primary constructor class: skip (idempotence).
     if (cls.namePart is PrimaryConstructorDeclaration) return;
@@ -154,6 +189,11 @@ class _Visitor extends RecursiveAstVisitor<void> {
       final typeAnnotation = fd.fields.type;
       if (typeAnnotation == null) return;
 
+      // Only the type and the name make it into the header, so anything else
+      // attached to the field would be thrown away. Leave the class alone
+      // rather than delete a doc comment or an annotation.
+      if (_carriesAttachedText(fd)) return;
+
       // A const class cannot have a mutable field, so this should not fire.
       // Kept because `class const C(var int x)` would not compile.
       if (isConst && !fd.fields.isFinal) return;
@@ -212,10 +252,14 @@ class _Visitor extends RecursiveAstVisitor<void> {
       body = ';';
     } else {
       final memberIndent = '$classIndent  ';
-      final memberTexts = retained
-          .map((m) => '$memberIndent${source.substring(m.offset, m.end)}')
-          .join('\n');
-      body = ' {\n$memberTexts\n$classIndent}';
+      final lines = <String>[];
+      for (var i = 0; i < retained.length; i++) {
+        final member = retained[i];
+        final start = _startIncludingComments(member);
+        if (i > 0 && _blankLineBefore(start)) lines.add('');
+        lines.add('$memberIndent${source.substring(start, member.end)}');
+      }
+      body = ' {\n${lines.join('\n')}\n$classIndent}';
     }
 
     edits.add(
