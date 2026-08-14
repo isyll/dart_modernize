@@ -208,10 +208,12 @@ class _Visitor extends RecursiveAstVisitor<void> {
       consumedNames.add(fieldName);
     }
 
-    // Retained members: non-consumed fields and any other class members.
+    // Everything stays except the constructor being promoted and the fields it
+    // takes over. Only that one constructor moves into the header: a factory or
+    // a redirecting constructor is part of the class's API and has to survive.
     final retained = <ClassMember>[];
     for (final member in members) {
-      if (member is ConstructorDeclaration) continue;
+      if (identical(member, ctor)) continue;
       if (member is FieldDeclaration &&
           !member.isStatic &&
           consumedNames.contains(member.fields.variables.single.name.lexeme)) {
