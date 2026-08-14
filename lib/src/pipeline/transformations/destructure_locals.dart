@@ -175,19 +175,18 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
 
     // `p.x` parses as a PrefixedIdentifier, `pair.$1` as a PropertyAccess.
     final initializer = single.declaration.initializer;
-    final (
-      SimpleIdentifier? receiver,
-      SimpleIdentifier? property,
-    ) = switch (initializer) {
-      PrefixedIdentifier(:final prefix, :final identifier) => (
-        prefix,
-        identifier,
-      ),
-      PropertyAccess(:final target, :final propertyName)
-          when target is SimpleIdentifier =>
-        (target, propertyName),
-      _ => (null, null),
-    };
+    SimpleIdentifier? receiver;
+    SimpleIdentifier? property;
+    if (initializer is PrefixedIdentifier) {
+      receiver = initializer.prefix;
+      property = initializer.identifier;
+    } else if (initializer is PropertyAccess) {
+      final accessTarget = initializer.target;
+      if (accessTarget is SimpleIdentifier) {
+        receiver = accessTarget;
+        property = initializer.propertyName;
+      }
+    }
     if (receiver == null || property == null) return null;
     if (receiver.element != target) return null;
 
@@ -205,12 +204,13 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
 
   /// True for a final, non-late instance field, the only kind safe to move.
   bool _isFinalInstanceField(Element? element) {
-    final field = switch (element) {
-      FieldElement() => element,
-      GetterElement(:final variable) =>
-        variable is FieldElement ? variable : null,
-      _ => null,
-    };
+    FieldElement? field;
+    if (element is FieldElement) {
+      field = element;
+    } else if (element is GetterElement) {
+      final variable = element.variable;
+      if (variable is FieldElement) field = variable;
+    }
     if (field == null) return false;
     return field.isFinal && !field.isStatic && !field.isLate;
   }

@@ -2,16 +2,11 @@ import 'package:analyzer/dart/analysis/results.dart';
 
 import '../engine/source_edit.dart';
 
-/// Marker for passes that run in the finalize phase, not through [editsFor].
+/// Marks a pass that runs in the finalize phase instead of through [editsFor].
 ///
-/// Fix-all shells out to `dart fix`; organize-imports and sort-members run the
-/// in-process analyzer-based engines over the finalized files rather than the
-/// per-unit AST loop. They implement [Transformation] only to carry the
-/// [enabled] flag through the pipeline; their [editsFor] always returns an
-/// empty list.
-///
-/// The pipeline detects [FinalizeTransformation] instances and routes them to
-/// [ModernizePipeline._finalize] instead of the main AST loop.
+/// Fix-all shells out to `dart fix`; organize-imports and sort-members work over
+/// the finished files. They implement [Transformation] only to carry the
+/// [enabled] flag, and their [editsFor] always returns an empty list.
 abstract interface class FinalizeTransformation implements Transformation {}
 
 /// A single modernization pass over a resolved Dart compilation unit.

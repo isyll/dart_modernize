@@ -115,25 +115,22 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
   }
 
   /// The literal's opening and closing bracket tokens.
-  (Token, Token)? _brackets(Expression literal) => switch (literal) {
-    ListLiteral(:final leftBracket, :final rightBracket) => (
-      leftBracket,
-      rightBracket,
-    ),
-    SetOrMapLiteral(:final leftBracket, :final rightBracket) => (
-      leftBracket,
-      rightBracket,
-    ),
-    _ => null,
-  };
+  (Token, Token)? _brackets(Expression literal) {
+    if (literal is ListLiteral) {
+      return (literal.leftBracket, literal.rightBracket);
+    }
+    if (literal is SetOrMapLiteral) {
+      return (literal.leftBracket, literal.rightBracket);
+    }
+    return null;
+  }
 
   /// True for `[]`, `{}`, `<T>[]`, `<T>{}` with nothing inside.
-  bool _isEmptyCollectionLiteral(Expression? expression) =>
-      switch (expression) {
-        ListLiteral(:final elements) => elements.isEmpty,
-        SetOrMapLiteral(:final elements) => elements.isEmpty,
-        _ => false,
-      };
+  bool _isEmptyCollectionLiteral(Expression? expression) {
+    if (expression is ListLiteral) return expression.elements.isEmpty;
+    if (expression is SetOrMapLiteral) return expression.elements.isEmpty;
+    return false;
+  }
 
   /// Renders [statement] as a collection element, or null when it is not one of
   /// the recognised build steps for [target].
@@ -179,11 +176,10 @@ class _CollectionElementsVisitor extends RecursiveAstVisitor<void> {
     // A literal cannot read the collection it is building.
     if (_mentions(argument, target)) return null;
 
-    return switch (expression.methodName.name) {
-      'add' => _text(argument),
-      'addAll' => '...${_text(argument)}',
-      _ => null,
-    };
+    final method = expression.methodName.name;
+    if (method == 'add') return _text(argument);
+    if (method == 'addAll') return '...${_text(argument)}';
+    return null;
   }
 
   /// The one statement inside [statement], unwrapping a single-statement block.

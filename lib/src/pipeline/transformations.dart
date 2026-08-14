@@ -23,9 +23,8 @@ import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
 import 'transformations/switch_expressions.dart';
 
-/// The finalize passes, in execution order. They run after the structural
-/// stages have settled, over the files on disk rather than through the per-unit
-/// AST loop (see [FinalizeTransformation]).
+/// The finalize passes, in order. They run after the stages have settled, over
+/// the files on disk rather than the per-unit AST loop.
 List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
     [
       FixAll(enabled: options.fixAll),
@@ -34,25 +33,18 @@ List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
       SortConstructorsFirst(enabled: options.sortConstructorsFirst),
     ];
 
-/// Every transformation, flattened across stages and finalize. Used only to
-/// answer "is anything enabled at all?".
+/// Every pass, stages and finalize together. Used to answer "is anything on?".
 List<Transformation> buildTransformations(CliOptions options) => [
   for (final stage in buildTransformationStages(options)) ...stage,
   ...buildFinalizeTransformations(options),
 ];
 
-/// The transform stages, in execution order. Each stage is resolved once and
-/// applied before the next stage runs. See doc/ORDERING.md.
+/// The transform stages, in order. Each one is applied before the next starts.
 ///
-/// Two rules decide which stage a pass belongs to:
-///   * a pass that builds on another pass's output runs in a later stage
-///     (cascades -> inline-return -> expression-bodies -> dot-shorthands is the
-///     longest such chain);
-///   * a pass that rewrites a whole span (primary constructors, cascades, the
-///     switch rewrite) runs before the passes that edit inside that span.
-///
-/// Passes in the same stage touch separate parts of the code, so their order
-/// within a stage does not matter.
+/// Two rules place a pass: one that reads another pass's output goes later, and
+/// one that replaces a whole span goes before the passes that edit inside it.
+/// Passes in the same stage touch different code, so their order there does not
+/// matter. See doc/ORDERING.md.
 List<List<Transformation>> buildTransformationStages(CliOptions options) => [
   // 1. collection-elements must run before cascades, which would otherwise fold
   //    the same statements into `<T>[]..add(a)..add(b)` first.

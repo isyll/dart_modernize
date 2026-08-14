@@ -9,28 +9,18 @@ import '../transformation.dart';
 /// Folds verbose constructor field boilerplate into the private named
 /// parameter form (`this._field`).
 ///
-/// When a constructor parameter's sole purpose is to initialize a private field
-/// via an initializer of the form `_field = param`, the pair collapses into a
-/// single `this._field` parameter:
+///     C({required String name}) : _name = name;  ->  C({required this._name});
 ///
-///   * `C({required String name}) : _name = name;`
-///     becomes `C({required this._name});`
+/// Folded only when:
+///   * the initializer is exactly `_field = param`, with nothing wrapping it;
+///   * the parameter is named, not positional;
+///   * it is used once, in that initializer;
+///   * its name is the field name without the underscore. `this._name` exposes
+///     `name`, so any other parameter name would change the public API;
+///   * its type matches the field's.
 ///
-/// The fold is conservative. A parameter is eligible only when:
-///
-///   * the initializer has the exact form `_field = param` : no expression
-///     wrapping the value;
-///   * the parameter is named (`{...}` form) : positional parameters are out
-///     of scope;
-///   * the parameter is referenced exactly once, in that one initializer;
-///   * the parameter name equals the field name minus the leading underscore
-///     (`this._name` derives the public name `name`, so the named API is
-///     preserved only when the current param is already `name`);
-///   * the parameter's static type equals the field's static type.
-///
-/// When the initializer list becomes empty after folding all eligible
-/// parameters, the entire `: ...` list is removed.  When only some
-/// initializers are folded, the rest are kept verbatim.
+/// If every initializer folds, the whole `: ...` list goes away; otherwise the
+/// rest are kept as written.
 final class PrivateNamedParameters implements Transformation {
   const PrivateNamedParameters({required this.enabled});
 

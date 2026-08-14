@@ -18,18 +18,15 @@
 ///     itself. One file documents intent ("this should stay as-is") with no
 ///     duplicated content to drift out of sync.
 ///
-/// Adding a case is therefore just adding one or two files; no Dart code.
+/// So adding a case means adding one or two files, no Dart code.
 ///
-/// All of a feature's input files are dropped into a single throwaway package
-/// and the real CLI is run **once** with only that feature's pass enabled (see
-/// [onlyFeatureArgs]). Each case then becomes its own `test()` so a failure
-/// names the exact fixture that regressed. Because every case is a separate
-/// library file with no cross-imports, top-level names may safely repeat across
-/// cases.
+/// All of a feature's inputs go into one throwaway package and the CLI runs
+/// once with only that pass on. Each case is its own `test()`, so a failure
+/// names the fixture that regressed. Cases never import each other, so top-level
+/// names can repeat.
 ///
-/// A feature folder may also contain a `pubspec.yaml` or an
-/// `analysis_options.yaml`, used instead of the defaults for that project. The
-/// lint fixes need this to switch specific lints on.
+/// A feature folder may also hold a `pubspec.yaml` or `analysis_options.yaml`,
+/// used instead of the defaults. The lint fixes need that to switch lints on.
 library;
 
 import 'dart:io';
@@ -46,11 +43,8 @@ final String _fixturesRoot = p.join(
   'fixtures',
 );
 
-/// Defines a complete golden-test group for [feature].
-///
-/// Call once per feature from a `_test.dart` file. It discovers the cases,
-/// runs the CLI a single time with only [feature] enabled, and emits one
-/// assertion per case.
+/// Defines the golden group for [feature]: one call per feature, from its
+/// `_test.dart` file.
 void defineGoldenSuite(String feature) {
   group('golden: $feature', () {
     final cases = discoverCases(feature);
@@ -103,9 +97,7 @@ void defineGoldenSuite(String feature) {
   });
 }
 
-/// Discovers every golden case under `test/fixtures/[feature]/`.
-///
-/// Returns them sorted by name for deterministic test ordering.
+/// Every golden case under `test/fixtures/[feature]/`, sorted by name.
 List<GoldenCase> discoverCases(String feature) {
   final dir = Directory(p.join(_fixturesRoot, feature));
   if (!dir.existsSync()) return const [];
@@ -165,10 +157,8 @@ String? _featureFile(String feature, String name) {
   return file.existsSync() ? file.readAsStringSync() : null;
 }
 
-/// Collects support files (`<name>.support.dart`) placed under
-/// `test/fixtures/<feature>/`. These are copied into the project as
-/// `lib/<name>.dart` *verbatim* and are never asserted on. They exist so a case
-/// can `import` a sibling library (e.g. to exercise relative-import grouping).
+/// Support files (`<name>.support.dart`) copied into the project as-is and never
+/// asserted on. They exist so a case can import a sibling library.
 Map<String, String> _supportFiles(String feature) {
   final dir = Directory(p.join(_fixturesRoot, feature));
   if (!dir.existsSync()) return const {};

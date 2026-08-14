@@ -180,6 +180,21 @@ final class _SelectorChain {
     required this.isIndexed,
   });
 
+  /// True when [expression] is a plain read, not a cascade and not already
+  /// null-aware.
+  static bool _isPlainRead(Expression expression) {
+    if (expression is IndexExpression) {
+      return !expression.isCascaded && !expression.isNullAware;
+    }
+    if (expression is MethodInvocation) {
+      return !expression.isCascaded && !expression.isNullAware;
+    }
+    if (expression is PropertyAccess) {
+      return !expression.isCascaded && !expression.isNullAware;
+    }
+    return false;
+  }
+
   /// The chain [expression] forms over [root], or null if it is rooted
   /// elsewhere or is just the bare reference.
   ///
@@ -191,21 +206,17 @@ final class _SelectorChain {
     var current = expression;
     var depth = 0;
     while (true) {
-      final Expression? next = switch (current) {
-        // Cascades and already null-aware reads are left alone.
-        IndexExpression(isCascaded: false, isNullAware: false, :final target) =>
-          target,
-        MethodInvocation(
-          isCascaded: false,
-          isNullAware: false,
-          :final target,
-        ) =>
-          target,
-        PropertyAccess(isCascaded: false, isNullAware: false, :final target) =>
-          target,
-        PrefixedIdentifier(:final prefix) => prefix,
-        _ => null,
-      };
+      // Cascades and reads that are already null-aware are left alone.
+      Expression? next;
+      if (current is IndexExpression && _isPlainRead(current)) {
+        next = current.target;
+      } else if (current is MethodInvocation && _isPlainRead(current)) {
+        next = current.target;
+      } else if (current is PropertyAccess && _isPlainRead(current)) {
+        next = current.target;
+      } else if (current is PrefixedIdentifier) {
+        next = current.prefix;
+      }
       if (next == null) break;
       current = next;
       depth++;

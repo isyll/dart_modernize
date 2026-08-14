@@ -21,21 +21,15 @@ import '../vcs/git_worktree.dart';
 import 'transformation.dart';
 import 'transformations.dart';
 
-/// Orchestrates the full modernization pipeline.
+/// Runs the whole thing: validate, then transform, then finalize.
 ///
-/// Stages: **validate** -> **transform** -> **finalize**.
+/// Transform runs the pass groups from [buildTransformationStages] in order,
+/// applying each group before the next starts, so a pass always sees finished
+/// output. See doc/ORDERING.md.
 ///
-/// The transform stage runs a fixed sequence of pass groups (see
-/// [buildTransformationStages] and doc/ORDERING.md). Each group is resolved once
-/// and applied before the next runs, so a pass sees the finished output of every
-/// group before it.
-///
-/// The finalize order is fixed:
-///   1. `dart fix --apply`       : fixes may remove imports, so it runs first.
-///   2. organize-imports         : sorts/prunes after fixes have settled.
-///   3. sort-members             : reorders class members after imports are clean.
-///   4. sort-constructors-first  : lifts constructors before all other members.
-///   5. `dart format`            : always last so previous edits are formatted.
+/// Finalize order is fixed: `dart fix --apply` first (its fixes can remove
+/// imports), then organize-imports, sort-members, sort-constructors-first, and
+/// `dart format` last so everything is formatted.
 final class ModernizePipeline {
   const ModernizePipeline({required this.options, required this.reporter});
   final CliOptions options;

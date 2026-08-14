@@ -1,19 +1,12 @@
-/// Test harness that drives the **real** `dart_modernize` CLI as a subprocess.
+/// Runs the real CLI as a subprocess against a throwaway project.
 ///
-/// The project's public surface is `bin/dart_modernize.dart` (see AGENTS.md),
-/// so every behavioural test exercises that binary rather than reaching into
-/// `lib/src`. Each call to [runCli]:
+/// The tool's public surface is `bin/dart_modernize.dart`, so the tests go
+/// through it instead of calling into `lib/src`. [runCli] writes a pubspec and
+/// the given files into a temp directory, runs the binary over it, and returns
+/// the exit code, the output, and a way to read the files back.
 ///
-///   1. creates a throwaway pub package in the system temp directory,
-///   2. writes a `pubspec.yaml` and the caller-supplied source files into it,
-///   3. runs `dart run bin/dart_modernize.dart <args> <projectPath>`, and
-///   4. returns a [CliResult] exposing the exit code, captured output, and a
-///      way to read the (possibly rewritten) files back.
-///
-/// Assertions are made on **observable behaviour**: the bytes the tool leaves
-/// on disk and what it prints, never on private methods. This keeps the test
-/// suite a faithful specification of what the tool does, independent of how the
-/// transformations are eventually implemented.
+/// Tests check what the tool leaves on disk and what it prints, never private
+/// methods.
 library;
 
 import 'dart:io';
@@ -55,19 +48,13 @@ environment:
   sdk: ">=3.13.0 <4.0.0"
 ''';
 
-/// The machine-readable CLI flag name for each transformation feature.
+/// Passes that are off by default, by fixture-folder name.
 ///
-/// Keyed by the *fixture folder* name (snake_case, mirroring
-/// `test/fixtures/<feature>/`); the value is the `--<flag>` spelling accepted
-/// by the CLI. Keeping the mapping in one place means a new feature is wired up
-/// by adding a single entry here.
-/// Feature folder names whose pass is off by default (opt-in).
-///
-/// Mirrors `defaultOffTransformations` in `lib/src/cli/options.dart`, keyed by
-/// the fixture-folder name used throughout the harness. A pass named here runs
-/// only when selected with `--only` or switched on with [enableFeatureArgs].
+/// Mirrors `defaultOffTransformations` in `lib/src/cli/options.dart`.
 const defaultOffFeatures = <String>{'sort_members', 'collection_elements'};
 
+/// Fixture-folder name to CLI flag name. One entry per pass, so wiring up a new
+/// one is a single line here.
 const featureFlags = <String, String>{
   'dot_shorthands': 'dot-shorthands',
   'private_named_parameters': 'private-named-parameters',
@@ -99,15 +86,12 @@ const _binPath = 'bin/dart_modernize.dart';
 /// Absolute path to the package under test (the `dart test` working directory).
 final String _packageRoot = Directory.current.absolute.path;
 
-/// Creates a throwaway project containing [files] and a [pubspec].
+/// Creates a throwaway project holding [files], keyed by path relative to the
+/// project root.
 ///
-/// [files] maps a path *relative to the project root* (e.g. `'lib/a.dart'`) to
-/// its contents. The directory is registered for deletion via [addTearDown], so
-/// this must be called from a test body (or `setUp`).
-///
-/// Use this with [invokeCli] when a test needs to run the CLI more than once
-/// against the same project (e.g. idempotence). For the common single-run case,
-/// prefer [runCli].
+/// The directory is deleted on tear-down, so call this from a test or `setUp`.
+/// Pair it with [invokeCli] when a test runs the CLI more than once on the same
+/// project; for a single run, [runCli] does both.
 Directory createProject({
   required Map<String, String> files,
   String pubspec = defaultPubspec,
@@ -127,18 +111,12 @@ Directory createProject({
   return project;
 }
 
-/// Runs the CLI once against an existing [project].
+/// Runs the CLI once against [project]. The project path is appended to [args].
 ///
-/// [args] are CLI flags; the project path is appended automatically, so callers
-/// never pass it.
-///
-/// Verification (`--verify`, on by default in the tool) re-analyzes the whole
-/// project with `dart analyze` twice per run. That is orthogonal to what the
-/// behavioural suites assert (they pin transformation output and separately
-/// check analyze-cleanliness), and doubling the subprocess cost of every run
-/// would make the already subprocess-heavy suite far slower. So unless a caller
-/// opts in with `--verify`/`--no-verify`, this appends `--no-verify`. The
-/// verify feature has its own dedicated suite that opts back in.
+/// Adds `--no-verify` unless the caller passes one of the verify flags itself.
+/// Verification runs `dart analyze` twice more per run, which would roughly
+/// double an already subprocess-heavy suite, and `verify_test.dart` covers it
+/// properly on its own.
 Future<CliResult> invokeCli(
   Directory project, {
   List<String> args = const [],
@@ -161,35 +139,20 @@ Future<CliResult> invokeCli(
   );
 }
 
-/// CLI arguments that run **only** [feature], skipping every other pass.
-///
-/// Produces the `--only` allow-list for that pass, e.g.
-/// `['--only', 'dot-shorthands']` for `dot_shorthands`.
+/// Arguments that run only [feature], e.g. `['--only', 'dot-shorthands']`.
 List<String> onlyFeatureArgs(String feature) => onlyFeaturesArgs({feature});
 
-/// CLI arguments that run **only** the passes named in [features], skipping
-/// every other pass.
+/// Arguments that run only [features], as one comma-separated `--only` flag.
 ///
-/// The multi-feature generalisation of [onlyFeatureArgs]: the features' `--only`
-/// names are emitted as a single comma-separated flag, e.g.
-/// `['--only', 'dot-shorthands,super-parameters']`. Keys are the snake_case
-/// fixture-folder names used throughout the harness (see [featureFlags]).
-///
-/// Use this for cross-feature interaction tests that need a specific subset of
-/// passes active at once. Names not present in [featureFlags] are dropped, so a
-/// typo silently narrows the selection rather than throwing; callers pass
-/// literals drawn from [allFeatures]. An empty [features] emits no flag and so
-/// leaves every pass on (the CLI's default), not off.
+/// Unknown names are dropped rather than throwing, so pass literals from
+/// [allFeatures]. An empty set emits no flag at all, which leaves every pass on
+/// rather than off.
 List<String> onlyFeaturesArgs(Set<String> features) {
   final names = [for (final feature in features) ?featureFlags[feature]];
   return names.isEmpty ? const [] : ['--only', names.join(',')];
 }
 
-/// Creates a throwaway project containing [files] and runs the CLI against it.
-///
-/// Convenience wrapper over [createProject] + [invokeCli] for the common
-/// single-run case. [pubspec] overrides the default pubspec, useful for
-/// features (e.g. primary constructors) that require a higher language version.
+/// Creates a throwaway project and runs the CLI against it, in one call.
 Future<CliResult> runCli({
   required Map<String, String> files,
   List<String> args = const [],
@@ -199,22 +162,15 @@ Future<CliResult> runCli({
   return invokeCli(project, args: args);
 }
 
-/// CLI flags that switch a single off-by-default [feature] on, leaving every
-/// other pass at its default.
-///
-/// For an on-by-default feature this is empty (it already runs); for an
-/// off-by-default feature it is the `--<flag>` switch, e.g. `['--sort-members']`.
+/// The flag that switches an off-by-default [feature] on, or nothing when it
+/// already runs by default.
 List<String> enableFeatureArgs(String feature) =>
     defaultOffFeatures.contains(feature)
     ? ['--${featureFlags[feature]}']
     : const [];
 
-/// CLI flags that leave a single [feature] off while every other pass stays at
-/// its default.
-///
-/// For an on-by-default feature this is its `--no-<flag>` switch. For an
-/// off-by-default feature (e.g. sort_members) it is empty: the pass is already
-/// off in a default run, so no flag is needed to keep it off.
+/// The flag that turns [feature] off, or nothing when it is off by default
+/// anyway.
 List<String> withoutFeatureArgs(String feature) =>
     defaultOffFeatures.contains(feature)
     ? const []
@@ -245,15 +201,12 @@ final class CliResult {
   bool exists(String relativePath) =>
       File(p.join(project.path, relativePath)).existsSync();
 
-  /// Reads back a file by its path relative to the project root.
-  ///
-  /// Decodes as UTF-8, which drops a leading BOM. Use [readBytes] when a test
-  /// needs to see the BOM or the exact line-ending bytes.
+  /// Reads a file back, as UTF-8. That drops any BOM, so use [readBytes] when a
+  /// test cares about the BOM or the exact line endings.
   String read(String relativePath) =>
       File(p.join(project.path, relativePath)).readAsStringSync();
 
-  /// Reads back a file's raw bytes, preserving any BOM and the exact line
-  /// endings, so byte-level details survive the round trip.
+  /// Reads a file back as raw bytes, BOM and line endings included.
   List<int> readBytes(String relativePath) =>
       File(p.join(project.path, relativePath)).readAsBytesSync();
 }

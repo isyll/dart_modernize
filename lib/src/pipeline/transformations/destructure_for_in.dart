@@ -146,12 +146,13 @@ class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
   /// True for a final, non-late instance field, the only kind we can safely
   /// read at a different point.
   bool _isDestructurableField(Element? element) {
-    final field = switch (element) {
-      FieldElement() => element,
-      GetterElement(:final variable) =>
-        variable is FieldElement ? variable : null,
-      _ => null,
-    };
+    FieldElement? field;
+    if (element is FieldElement) {
+      field = element;
+    } else if (element is GetterElement) {
+      final variable = element.variable;
+      if (variable is FieldElement) field = variable;
+    }
     if (field == null) return false;
     return field.isFinal && !field.isStatic && !field.isLate;
   }
