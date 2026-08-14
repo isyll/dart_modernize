@@ -5,37 +5,28 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
-/// Replaces `var` with `final` on local variable declarations whose variables
-/// are never reassigned, incremented, or decremented anywhere in the enclosing
-/// function body (including inside nested closures).
+/// Replaces `var` with `final` on locals that are never written to.
 ///
-/// Before:
-///   var result = compute();   // result never reassigned
+///     var result = compute();    ->  final result = compute();
+///     for (var x in xs)          ->  for (final x in xs)
 ///
-/// After:
-///   final result = compute();
+/// The scan covers the whole enclosing function, so a write from inside a
+/// closure counts.
 ///
-/// The rewrite is applied only when ALL of the following hold:
-///   * the declaration keyword is exactly `var` (not `final`, `const`, `late`);
-///   * every variable in the declaration list has an initializer;
-///   * none of the variables is reassigned, compound-assigned, or incremented/
-///     decremented anywhere reachable from the enclosing function body;
-///   * for a multi-variable list (`var a = .., b = ..;`), all variables must
-///     qualify; if any is reassigned the whole declaration is left unchanged.
+/// Skipped when:
+///   * the keyword is not exactly `var`;
+///   * a variable has no initializer;
+///   * a variable is assigned, compound-assigned, or incremented anywhere;
+///   * one variable in a multi-variable declaration fails: the whole
+///     declaration is left alone.
 ///
-/// Pattern declarations (`var (x, y) = ...`) are a different AST node and
-/// are never visited.
+/// A classic `for (var i = 0; ...; i++)` and pattern declarations
+/// (`var (x, y) = ...`) are different AST nodes and are never touched.
 ///
-/// The same `var` -> `final` rule is applied to for-in loop variables, so
-/// `for (var x in xs)` becomes `for (final x in xs)` when `x` is never
-/// reassigned in the loop. A classic `for (var i = 0; ...; i++)` is a different
-/// AST node and is left alone; its counter is mutated by definition.
-///
-/// The lint `prefer_final_in_for_each` covers the for-in case, so `dart fix`
-/// applies it too, but only for projects that enable that rule (it is not in
-/// `package:lints/recommended.yaml`). This pass does it for every project. The
-/// two cannot collide: this pass runs in the transform stage and fix-all runs
-/// later over the finalized file, where the loop already reads `final`.
+/// The lint `prefer_final_in_for_each` covers the for-in half, but it is not in
+/// `package:lints/recommended.yaml`, so `dart fix` only applies it where a
+/// project opts in. This pass does it everywhere. They cannot collide: this
+/// runs in the transform stage, fix-all runs later on the finished file.
 final class FinalLocals implements Transformation {
   const FinalLocals({required this.enabled});
 

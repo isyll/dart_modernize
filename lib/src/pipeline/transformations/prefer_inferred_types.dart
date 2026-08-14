@@ -6,45 +6,33 @@ import 'package:analyzer/dart/element/type.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
-/// Removes or relocates redundant explicit type annotations.
+/// Removes or moves a type annotation the initializer already implies.
 ///
-/// Rule A (drop): removes the annotation when the initializer's static type
-/// exactly equals the declared type (same element, type arguments, nullability)
-/// *and* that type is obvious from the initializer's own syntax. Bare-typed
-/// locals become `var` so `final_locals` can upgrade them.
+/// Three rules:
 ///
-/// A type is "obvious" in the sense the analyzer uses for its
-/// `omit_obvious_*` / `specify_nonobvious_*` rules: a literal, an
-/// explicitly-typed collection literal, a constructor call whose type is spelled
-/// out (`Foo()`, `Foo<int>()`, `Foo.named()`), a cast, or a cascade/prefix over
-/// one of these. A non-obvious initializer (a method call, property access, bare
-/// identifier, or a generic constructor with inferred type arguments) keeps its
-/// annotation: dropping it would trip `specify_nonobvious_*`, which `dart fix`
-/// (the fix-all pass) then reverts, so the tool would disagree with itself
-/// between a `--no-fix-all` run and a full run.
+/// **Drop.** The annotation goes when the initializer's static type is exactly
+/// the declared type and that type is obvious from the initializer itself: a
+/// literal, a typed collection literal, a spelled-out constructor call, a cast,
+/// or a cascade over one of those. A bare-typed local becomes `var`, which
+/// final-locals then upgrades.
 ///
-/// Rule B (relocate): when the initializer is a bare collection literal without
-/// explicit type arguments and the declared type is exactly `List`, `Set`, or
-/// `Map` from dart:core (non-nullable), the type arguments are moved onto the
-/// literal and the annotation is removed. Also fires when the bare literal is
-/// the cascade target (i.e., after the cascades pass has run).
+/// A method call, property access, bare identifier, or a generic constructor
+/// with inferred type arguments is not obvious, so it keeps its annotation.
+/// Dropping it would trip `specify_nonobvious_*`, which `dart fix` reverts, and
+/// the tool would then disagree with itself between runs.
 ///
-/// Rule C (expand): when the initializer is a dot-shorthand constructor
-/// (`.new(...)` / `.named(...)`) whose static type is exactly the declared type,
-/// the shorthand is expanded to its explicit form and the annotation is removed,
-/// so the type is named once on the initializer instead of twice: a hand-written
-/// `final Foo a = .new(x)` becomes `final a = Foo(x)`, and
-/// `late final Foo a = .named()` becomes `late final a = Foo.named()`. The
-/// `late` modifier and the `final`/`const`/`var` keyword are left as written.
-/// Only a constructor shorthand qualifies; a static-member shorthand (`.zero`,
-/// `.parse(...)`) would expand to a non-obvious property or method access that
-/// `specify_nonobvious_*` (and fix-all) would re-annotate.
+/// **Relocate.** For a bare collection literal declared as `List`, `Set`, or
+/// `Map`, the type arguments move onto the literal:
+/// `List<int> x = []` becomes `var x = <int>[]`.
 ///
-/// Scope: local finals/consts/bare-typed, top-level const, and `final`/`const`
-/// fields (instance or static) that have an initializer. A `final Foo _x = Foo()`
-/// field becomes `final _x = Foo()`, which is preferred over the `.new()`
-/// shorthand dot-shorthands would otherwise emit. Mutable fields and non-const
-/// top-level variables are left untouched.
+/// **Expand.** A dot-shorthand constructor is written out instead, so the type
+/// is named once rather than twice: `final Foo a = .new(x)` becomes
+/// `final a = Foo(x)`. Only constructors; a static-member shorthand like `.zero`
+/// would expand to a non-obvious access that fix-all would re-annotate.
+///
+/// Applies to locals, top-level consts, and `final`/`const` fields with an
+/// initializer. Mutable fields and non-const top-level variables are left
+/// alone.
 final class PreferInferredTypes implements Transformation {
   const PreferInferredTypes({required this.enabled});
 
