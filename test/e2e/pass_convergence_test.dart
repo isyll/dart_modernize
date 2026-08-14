@@ -39,49 +39,46 @@ class Account {
 }
 ''';
 
-    test(
-      'sort-members output already satisfies sort-constructors-first',
-      () async {
-        final project = createProject(files: {'lib/a.dart': scrambled});
+    test('sort-members output already satisfies sort-constructors-first', () async {
+      final project = createProject(files: {'lib/a.dart': scrambled});
 
-        final sorted = await invokeCli(
-          project,
-          args: onlyFeatureArgs('sort_members'),
-        );
-        expect(sorted.exitCode, 0, reason: sorted.stderr);
-        final afterMembers = sorted.read('lib/a.dart');
+      final sorted = await invokeCli(
+        project,
+        args: onlyFeatureArgs('sort_members'),
+      );
+      expect(sorted.exitCode, 0, reason: sorted.stderr);
+      final afterMembers = sorted.read('lib/a.dart');
 
-        // sort-members must place both constructors before every other member.
-        expect(
-          afterMembers,
-          stringContainsInOrder([
-            'Account(this.id);',
-            'Account.empty()',
-            'static int total',
-            'final String id',
-            'int get balance',
-            'void deposit',
-          ]),
-          reason: 'sort-members must emit constructors first',
-        );
+      // sort-members must place both constructors before every other member.
+      expect(
+        afterMembers,
+        stringContainsInOrder([
+          'Account(this.id);',
+          'Account.empty()',
+          'static int total',
+          'final String id',
+          'int get balance',
+          'void deposit',
+        ]),
+        reason: 'sort-members must emit constructors first',
+      );
 
-        // The bug: sort-constructors-first used to lift the constructors above the
-        // fields, undoing sort-members. On the already-sorted output it must now
-        // be a byte-for-byte no-op.
-        final lifted = await invokeCli(
-          project,
-          args: onlyFeatureArgs('sort_constructors_first'),
-        );
-        expect(lifted.exitCode, 0, reason: lifted.stderr);
-        expect(
-          lifted.read('lib/a.dart'),
-          afterMembers,
-          reason:
-              'sort-constructors-first changed sort-members output: the two '
-              'passes disagree and oscillate',
-        );
-      },
-    );
+      // The bug: sort-constructors-first used to lift the constructors above the
+      // fields, undoing sort-members. On the already-sorted output it must now
+      // be a byte-for-byte no-op.
+      final lifted = await invokeCli(
+        project,
+        args: onlyFeatureArgs('sort_constructors_first'),
+      );
+      expect(lifted.exitCode, 0, reason: lifted.stderr);
+      expect(
+        lifted.read('lib/a.dart'),
+        afterMembers,
+        reason:
+            'sort-constructors-first changed sort-members output: the two '
+            'passes disagree and oscillate',
+      );
+    });
 
     test('the two passes reach the same fixed point in either order', () async {
       final project = createProject(files: {'lib/a.dart': scrambled});

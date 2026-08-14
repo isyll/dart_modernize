@@ -161,8 +161,4 @@ List<_Op> _diff(List<String> before, List<String> after) {
 
 enum _Kind { equal, remove, add }
 
-class _Op {
-  const _Op(this.kind, this.text);
-  final _Kind kind;
-  final String text;
-}
+class const _Op(final _Kind kind, final String text);

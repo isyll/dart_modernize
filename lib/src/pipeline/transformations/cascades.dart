@@ -42,10 +42,7 @@ final class Cascades implements Transformation {
   }
 }
 
-class _CascadeVisitor extends RecursiveAstVisitor<void> {
-  _CascadeVisitor(this.source);
-  final String source;
-
+class _CascadeVisitor(final String source) extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -218,10 +215,7 @@ class _CascadeVisitor extends RecursiveAstVisitor<void> {
   }
 }
 
-class _TargetFinder extends RecursiveAstVisitor<void> {
-  _TargetFinder(this.target);
-  final Element target;
-
+class _TargetFinder(final Element target) extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override

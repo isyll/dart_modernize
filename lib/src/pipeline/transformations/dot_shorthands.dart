@@ -7,61 +7,41 @@ import 'package:analyzer/dart/element/type.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
-/// Collapses `TypeName.member`, `TypeName(...)`, and `TypeName.named(...)` to
-/// the Dart 3.10+ dot-shorthand form when the surrounding context type makes
-/// the target unambiguous:
+/// Collapses a redundant type name into a dot shorthand, when the context type
+/// already says what the type is.
 ///
-///   * `final Color c = Color.blue;`      → `final Color c = .blue;`
-///   * `Handler h = Handler.empty();`     → `Handler h = .empty();`
-///   * `Foo f = Foo();`                   → `Foo f = .new();`
-///   * `Foo f = Foo.named();`             → `Foo f = .named();`
+///     final Color c = Color.blue;    ->  final Color c = .blue;
+///     Handler h = Handler.empty();   ->  Handler h = .empty();
+///     Foo f = Foo();                 ->  Foo f = .new();
 ///
-/// A type reached through an import prefix (`p.TypeName.member`,
-/// `p.TypeName(...)`) collapses the same way: the whole `p.TypeName` qualifier
-/// is dropped, leaving `.member` / `.new(...)`.
+/// A type reached through an import prefix (`p.Foo(...)`) collapses the same
+/// way, dropping the whole qualifier.
 ///
-/// A shorthand is emitted only when the context type at the position resolves
-/// to exactly the same type whose member/constructor is referenced, so that
-/// `.member` resolves to the identical element and the static type is
-/// unchanged. The context type is derived position by position (typed variable
-/// or field, default parameter value, plain assignment target, return type
-/// including a factory constructor's, `yield` in a generator, argument slot,
-/// collection element, record field, equality right-hand side, either operand
-/// of `??`, switch case, switch pattern, object/record pattern field). Wherever
-/// the context type cannot be derived precisely, with `var`, `dynamic`,
-/// `Object`, an inferred type variable, a supertype, or the left of `==`, the
-/// code is left untouched.
+/// The rule is always the same: the context type at that position has to be
+/// exactly the type being named, so the shorthand resolves to the same element
+/// and the static type does not change. Context is read per position: typed
+/// variables and fields, default values, assignment targets, return and `yield`
+/// types, argument slots, collection elements, record fields, the right side of
+/// `==`, either side of `??`, switch cases and patterns.
 ///
-/// The head of a selector chain is collapsed too. In `DateTime.now().toUtc()`
-/// or `DateTime.tryParse(s)?.toUtc()` the dot-shorthand head resolves against
-/// the context type of the *whole* chain, not the type the head alone produces,
-/// so the context flows up through the enclosing selectors (`.method(...)`,
-/// `.getter`, `[index]`, `!`) to wherever the chain sits:
+/// Nothing happens where the context is not exact: `var`, `dynamic`, `Object`,
+/// a supertype, an inferred type variable, or the left of `==`.
 ///
-///   * `expiry.difference(DateTime.now().toUtc())` → `.difference(.now()...)`
-///   * `return DateTime.tryParse(s)?.toUtc();`     → `return .tryParse(s)...`
-///   * `Color c = Color.values.first;`             → `Color c = .values.first;`
+/// The head of a chain counts too. In `DateTime.now().toUtc()` the head is
+/// checked against the context of the whole chain, so
+/// `expiry.difference(DateTime.now().toUtc())` becomes `.difference(.now()…)`.
+/// Only the leftmost target inherits that context, and each edit still checks
+/// its own type, so a selector that changes the type blocks the collapse.
 ///
-/// Only the leftmost target inherits the chain's context; the per-edit checks
-/// still require the head's own referenced type to equal that context, so an
-/// intermediate selector that changes the type blocks the collapse.
+/// An explicit `<...>` on a generic call pins its type variables, which gives
+/// the arguments a real context: `sl.registerSingleton<Foo>(Foo())` becomes
+/// `sl.registerSingleton<Foo>(.new())`. The same holds inside a closure passed
+/// to such a call. Without the `<...>` the type is inferred from that very
+/// argument, so collapsing it would leave nothing to infer from.
 ///
-/// A generic call fixes its type variables from an explicit `<...>` rather than
-/// its arguments, so an argument typed by such a variable then has a real
-/// context: `sl.registerSingleton<Foo>(Foo())` collapses to
-/// `sl.registerSingleton<Foo>(.new())`. The body of a factory closure likewise
-/// takes its context from the function type the closure is written against, so
-/// `sl.registerLazySingleton<Foo>(() => Foo(dep: sl()))` becomes
-/// `...(() => .new(dep: sl()))`. Both are skipped when the type variable is
-/// still inferred from that very argument or closure (no explicit `<...>`),
-/// since collapsing would erase the only thing the type could be inferred from.
-///
-/// Record literals are supported too. A positional field takes its context from
-/// the matching positional field of the record's own context type, and a named
-/// field from the same-named field. When a list of records has no element type
-/// to fall back on, the inferred record element type is hoisted onto the literal
-/// (`<(Foo, String)>[...]`) so the field shorthands have a context to resolve
-/// against, but only when every field of that record type is precise.
+/// Records resolve field by field against their own context type. For a list of
+/// records with no element type, the record type is hoisted onto the literal
+/// (`<(Foo, String)>[...]`) so the fields have something to resolve against.
 final class DotShorthands implements Transformation {
   const DotShorthands({required this.enabled});
 
@@ -236,12 +216,11 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   /// type is inferred from the closure, so collapsing `Foo(x)` to `.new(x)`
   /// would leave nothing to infer it from.
   ///
-  /// The check is deliberately identity-free (it does not match the specific
-  /// type variable against the invoked element, whose views differ for methods
-  /// that mix method and class type variables such as `Iterable.map`). Any type
-  /// variable in the factory's own return type, with no explicit `<...>`, is
-  /// treated as inferred-from-here; a receiver-fixed class variable is thus
-  /// skipped too, which is conservative but never unsafe.
+  /// The check does not try to match the exact type variable against the
+  /// invoked element, because the two views differ for methods like
+  /// `Iterable.map`. Any type variable in the return type, with no explicit
+  /// `<...>`, counts. That skips a few cases it could have handled, but never
+  /// rewrites one it should not.
   bool _closureReturnInfersTypeArgument(FunctionExpression closure) {
     final parent = closure.parent;
     final Argument argument;

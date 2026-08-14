@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.11.0
+
+**Breaking:** the minimum Dart SDK is now `3.13.0`, up from `3.12.0`. The tool refuses to run on a project whose SDK constraint allows anything older. Primary constructors are stable in 3.13 and the promotion pass emits that syntax, so the floor moved with it rather than leaving one pass silently inert.
+
+- Fixed three bugs in `primary-constructors`, all found by running the tool over its own sources:
+  - Promotion deleted a factory or redirecting constructor, because the retained-member loop skipped every constructor instead of only the one being promoted. This could remove public API from a class and still compile.
+  - A promoted field lost its doc comment, plain comment, and annotations, since only its type and name reach the header. Such a class is now left alone.
+  - Members left in the class body lost the blank lines between them, and any `//` comment written above them.
+- Fixed a convergence bug: `private-named-parameters` rewrites a constructor into the `this._field` form that `primary-constructors` promotes, but promotion ran first, so the class only collapsed on a second run and the pipeline was not idempotent. `primary-constructors` now runs after it. The 3.12 floor had hidden this, because the pass was inert on the test projects.
+- Primary constructors went stable in Dart 3.13. The `primary-constructors` pass now promotes `const` classes too, emitting the constant primary constructor form (`class const Point(final int x, final int y)`), where before it skipped every class with a `const` constructor. This is safe by construction: Dart already requires every instance field of a const-constructor class to be final, so the header never needs `var`, and members left in the class body are copied over unchanged.
+- The pass still gates on the resolved language version as a second line of defence, even though the validator now rejects sub-3.13 projects up front.
+- Added a semantic test that runs the pass over a 3.13 project and re-analyzes the result. Golden files are compared byte for byte but never compiled, and the semantic suite excluded this pass, so primary-constructor output had no compile check anywhere until now.
+- Documented the Dart 3.13 lints that `fix-all` picks up from a target project, and why `use_primary_constructors` cannot fight the `primary-constructors` pass.
+- Golden expectation files are now named `<case>.expected.dart` instead of `<case>.expected`. They were extensionless to keep Dart tooling away from syntax the package's own SDK could not parse; with the floor at 3.13 that no longer applies, and the analyzer and formatter already skip `test/fixtures/**` by configuration.
+- Dropped the 3.12/3.13 dual-pubspec machinery in the test harness now that every fixture project is on 3.13.
+- The `modern-syntax` robustness suite now runs primary constructors too. It pins no bytes, only that the result still compiles and a second run is a no-op, so there was no reason to keep the pass out once its language version was the floor.
+- Swapped the deprecated `unnecessary_await_in_return` lint, which Dart 3.13 flags, for the new `async_return_with_no_await`.
+
 ## 0.10.0
 
 * [#15](https://github.com/isyll/dart_modernize/issues/15) Turn sort-members off by default

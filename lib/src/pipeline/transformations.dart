@@ -23,9 +23,8 @@ import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
 import 'transformations/switch_expressions.dart';
 
-/// The finalize passes, in execution order. They run after the structural
-/// stages have settled, over the files on disk rather than through the per-unit
-/// AST loop (see [FinalizeTransformation]).
+/// The finalize passes, in order. They run after the stages have settled, over
+/// the files on disk rather than the per-unit AST loop.
 List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
     [
       FixAll(enabled: options.fixAll),
@@ -34,42 +33,36 @@ List<FinalizeTransformation> buildFinalizeTransformations(CliOptions options) =>
       SortConstructorsFirst(enabled: options.sortConstructorsFirst),
     ];
 
-/// Every transformation, flattened across stages and finalize. Used only to
-/// answer "is anything enabled at all?".
+/// Every pass, stages and finalize together. Used to answer "is anything on?".
 List<Transformation> buildTransformations(CliOptions options) => [
   for (final stage in buildTransformationStages(options)) ...stage,
   ...buildFinalizeTransformations(options),
 ];
 
-/// The transform stages, in execution order. Each stage is resolved once and
-/// applied before the next stage runs. See doc/ORDERING.md.
+/// The transform stages, in order. Each one is applied before the next starts.
 ///
-/// Two rules decide which stage a pass belongs to:
-///   * a pass that builds on another pass's output runs in a later stage
-///     (cascades -> inline-return -> expression-bodies -> dot-shorthands is the
-///     longest such chain);
-///   * a pass that rewrites a whole span (primary constructors, cascades, the
-///     switch rewrite) runs before the passes that edit inside that span.
-///
-/// Passes in the same stage touch separate parts of the code, so their order
-/// within a stage does not matter.
+/// Two rules place a pass: one that reads another pass's output goes later, and
+/// one that replaces a whole span goes before the passes that edit inside it.
+/// Passes in the same stage touch different code, so their order there does not
+/// matter. See doc/ORDERING.md.
 List<List<Transformation>> buildTransformationStages(CliOptions options) => [
-  // 1. Primary constructors rewrite a whole class and copy its other members
-  //    verbatim, so they run first; later stages then modernize those members.
-  [PrimaryConstructors(enabled: options.primaryConstructors)],
-
-  // 2. collection-elements folds an add/addAll run into one literal. It has to
-  //    beat cascades to that run: cascades would otherwise fold the same
-  //    statements into `<T>[]..add(a)..add(b)` and leave nothing to collapse.
+  // 1. collection-elements must run before cascades, which would otherwise fold
+  //    the same statements into `<T>[]..add(a)..add(b)` first.
   [CollectionElements(enabled: options.collectionElements)],
 
-  // 3. Fold statement runs and build the new constructs later stages read.
+  // 2. Fold statement runs and build the new constructs later stages read.
   [
     SwitchExpressions(enabled: options.switchExpressions),
     Cascades(enabled: options.cascades),
     SuperParameters(enabled: options.superParameters),
     PrivateNamedParameters(enabled: options.privateNamedParameters),
   ],
+
+  // 3. primary-constructors runs after private-named-parameters, which turns
+  //    `Config({required int r}) : _r = r` into `Config({required this._r})`,
+  //    exactly the shape promotion needs. The other way round the promotion
+  //    would only happen on a second run, so the tool would not be idempotent.
+  [PrimaryConstructors(enabled: options.primaryConstructors)],
 
   // 4. inline-return collapses a folded cascade that is then returned;
   //    prefer-inferred-types drops or relocates a redundant type annotation.
@@ -85,19 +78,14 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
     FinalLocals(enabled: options.finalLocals),
   ],
 
-  // 6. null-aware-conditionals replaces a whole conditional expression, so it
-  //    has to land before the innermost passes edit inside that span (a
-  //    fallback arm such as `Color.red` is a dot-shorthand target), and after
-  //    the passes that rewrite an enclosing statement (inline-return,
-  //    expression-bodies) have already moved the conditional into place.
+  // 6. null-aware-conditionals replaces a whole conditional, so it runs after
+  //    the passes that move statements around and before the ones that edit
+  //    inside it (a fallback like `Color.red` is a dot-shorthand target).
   [NullAwareConditionals(enabled: options.nullAwareConditionals)],
 
-  // 7. The two destructuring passes rewrite a loop header or a run of
-  //    statements plus the reads inside them, so they run after final-locals has
-  //    settled the declaration keyword and after null-aware-conditionals has
-  //    replaced any conditional wrapping one of those reads, and before the
-  //    innermost passes edit the same reads. They target different constructs (a
-  //    for-in header vs a statement run), so they share a stage.
+  // 7. The destructuring passes rewrite a declaration plus the reads that go
+  //    with it, so they run once those reads have settled. They target
+  //    different constructs, so they share a stage.
   [
     DestructureForIn(enabled: options.destructureForIn),
     DestructureLocals(enabled: options.destructureLocals),

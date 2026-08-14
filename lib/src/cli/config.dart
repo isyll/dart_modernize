@@ -52,14 +52,14 @@ final class DartModernizeConfig {
 /// `transformationNames` so a typo fails with the full list.
 DartModernizeConfig readDartModernizeConfig(String projectPath) {
   final file = File(p.join(projectPath, 'analysis_options.yaml'));
-  if (!file.existsSync()) return const DartModernizeConfig.empty();
+  if (!file.existsSync()) return const .empty();
 
   final dynamic yaml = loadYaml(file.readAsStringSync());
-  if (yaml is! YamlMap) return const DartModernizeConfig.empty();
+  if (yaml is! YamlMap) return const .empty();
   final dynamic section = yaml['dart_modernize'];
-  if (section is! YamlMap) return const DartModernizeConfig.empty();
+  if (section is! YamlMap) return const .empty();
 
-  return DartModernizeConfig(
+  return .new(
     enabled: _stringSet(section['enabled']),
     disabled: _stringSet(section['disabled']),
     excludes: _stringList(section['exclude']),

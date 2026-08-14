@@ -138,21 +138,18 @@ class Worker extends Base {
 }
 ''';
 
-/// Every pass but `collection_elements` (fixture-folder names), 21 of the 22.
+/// Every pass but `collection_elements`, 21 of the 22, by fixture-folder name.
 ///
-/// collection_elements is left out deliberately, not by oversight: it and
-/// cascades both target a run of `add` calls on a fresh local, and whichever
-/// runs first wins. Enabling both here would pin that race into this suite's
-/// expectations, where it would read as an accident. The two are covered
-/// against each other in `flag_disables_pass_test.dart` instead.
+/// collection_elements is left out because it and cascades both target a run of
+/// `add` calls, and whichever runs first wins. `flag_disables_pass_test.dart`
+/// covers the two against each other instead.
 ///
-/// primary_constructors and switch_expressions do not fire on the project
-/// fixtures here (SDK is 3.12.0 for the former; no eligible switch statements
-/// for the latter) but are included so the set covers all passes.
+/// primary_constructors and switch_expressions are listed but do not fire on
+/// these files: `Base` is extended in the same file, `Worker` forwards to super,
+/// and there is no eligible switch. They stay in so the set is complete.
 ///
-/// sort_members and sort_constructors_first are both included: they order class
-/// members and must agree, so enabling both keeps the idempotence check honest
-/// (see pass_convergence_test.dart).
+/// sort_members and sort_constructors_first both order members, so running both
+/// is what makes the idempotence check meaningful.
 const _stable = <String>{
   'dot_shorthands',
   'private_named_parameters',

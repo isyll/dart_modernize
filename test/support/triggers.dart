@@ -7,8 +7,6 @@
 /// (every other pass still on) and the trigger must be untouched.
 library;
 
-import 'cli_harness.dart';
-
 const abstractFinalClassesTrigger = '''
 class Constants {
   static const maxRetries = 3;
@@ -121,13 +119,6 @@ class C {
 }
 ''';
 
-/// A pubspec opting into the language version primary constructors require.
-const pubspec313 = '''
-name: fixture_project
-environment:
-  sdk: ">=3.13.0 <4.0.0"
-''';
-
 const sortConstructorsFirstTrigger = '''
 class Marker {
   final int id;
@@ -186,29 +177,23 @@ void report(Map<String, int> scores) {
 }
 ''';
 
-/// The point is taken as a parameter rather than built by a helper. A helper
-/// like `Point getPoint() => const Point(1, 2);` is a dot-shorthand target, so
-/// dot-shorthands would rewrite it to `const .new(1, 2)` and the "only its own
-/// pass may touch this trigger" check would fail for the wrong reason.
+/// Uses a record rather than a class. A small class with final fields and one
+/// constructor is exactly what primary-constructors promotes, which would make
+/// another pass touch this trigger and fail the check for the wrong reason.
 const destructureLocalsTrigger = '''
-class Point {
-  const Point(this.x, this.y);
-  final int x;
-  final int y;
-}
+(int, int) pair() => (1, 2);
 
-int sum(Point point) {
-  final p = point;
-  final x = p.x;
-  final y = p.y;
-  return x + y;
+int sum() {
+  final p = pair();
+  final a = p.\$1;
+  final b = p.\$2;
+  return a + b;
 }
 ''';
 
-/// Deliberately guarded with an `if` rather than a plain run of `add` calls.
-/// A bare run is also exactly what `cascades` folds, so a default run (where
-/// collection-elements is off but cascades is on) would rewrite it anyway and
-/// the "stays off by default" check could never tell the two apart.
+/// Guarded with an `if` rather than a plain run of `add` calls, because a plain
+/// run is also what `cascades` folds. Without the `if`, a default run would
+/// rewrite this anyway and the "stays off by default" check would prove nothing.
 const collectionElementsTrigger = '''
 List<int> build(bool flag) {
   final items = <int>[];
@@ -249,7 +234,3 @@ Map<String, String> triggerFiles(String feature) => {
   'lib/trigger.dart': triggers[feature]!,
   if (feature == 'fix_all') 'analysis_options.yaml': fixAllLints,
 };
-
-/// The pubspec [feature]'s trigger should run under.
-String triggerPubspec(String feature) =>
-    feature == 'primary_constructors' ? pubspec313 : defaultPubspec;

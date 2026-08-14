@@ -36,39 +36,28 @@ final class SwitchExpressions implements Transformation {
   }
 }
 
-final class _Arm {
-  _Arm({required this.patterns, required this.body});
-  final List<_Pattern> patterns;
-  final _ArmBody body;
+final class _Arm({
+  required final List<_Pattern> patterns,
+  required final _ArmBody body,
+}) {
   bool get hasDefault => patterns.any((p) => p is _DefaultPattern);
 }
 
 sealed class _ArmBody {}
 
-final class _AssignBody extends _ArmBody {
-  _AssignBody(this.lhs, this.rhsText);
-  final SimpleIdentifier lhs;
-  final String rhsText;
-}
+final class _AssignBody(final SimpleIdentifier lhs, final String rhsText)
+    extends _ArmBody;
 
-final class _CasePattern extends _Pattern {
-  _CasePattern(this.expr);
-  final Expression expr;
-}
+final class _CasePattern(final Expression expr) extends _Pattern;
 
 final class _DefaultPattern extends _Pattern {}
 
 sealed class _Pattern {}
 
-final class _ReturnBody extends _ArmBody {
-  _ReturnBody(this.exprText);
-  final String exprText;
-}
+final class _ReturnBody(final String exprText) extends _ArmBody;
 
-class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
-  _SwitchExprVisitor(this.source);
-  final String source;
-
+class _SwitchExprVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -94,8 +83,8 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
   }
 
   Element? _assignTarget(List<_Arm> arms) {
-    for (final arm in arms) {
-      if (arm.body case _AssignBody(lhs: final lhs)) {
+    for (final _Arm(:body) in arms) {
+      if (body case _AssignBody(lhs: final lhs)) {
         return lhs.element;
       }
     }
@@ -205,8 +194,8 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
     Element? assignTarget;
     var hasReturn = false;
 
-    for (final arm in arms) {
-      switch (arm.body) {
+    for (final _Arm(:body) in arms) {
+      switch (body) {
         case _AssignBody(lhs: final lhs):
           final el = lhs.element;
           if (el == null) return null;
@@ -270,8 +259,8 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
     final allConstants = element.constants.toSet();
     final covered = <FieldElement>{};
 
-    for (final arm in arms) {
-      for (final pattern in arm.patterns) {
+    for (final _Arm(:patterns) in arms) {
+      for (final pattern in patterns) {
         if (pattern is! _CasePattern) return false;
         final expr = pattern.expr;
         if (expr is! PrefixedIdentifier) return false;
@@ -390,7 +379,4 @@ class _SwitchExprVisitor extends RecursiveAstVisitor<void> {
   };
 }
 
-final class _ThrowBody extends _ArmBody {
-  _ThrowBody(this.throwText);
-  final String throwText;
-}
+final class _ThrowBody(final String throwText) extends _ArmBody;

@@ -3,31 +3,30 @@
 /// A *golden test* pins the exact output of a transformation for a given input.
 /// Cases live under `test/fixtures/<feature>/` and come in two shapes:
 ///
-///   * **A pair**: `<case>.input.dart` plus `<case>.expected`.
-///     The tool is run over the input and the result must equal the expected
-///     file, byte for byte. The expected file deliberately drops the `.dart`
-///     extension so it is treated as plain data: `dart format`/`dart analyze`
-///     never touch it, which lets it hold output that uses language features
-///     newer than this package's own version (e.g. primary constructors).
+///   * **A pair**: `<case>.input.dart` plus `<case>.expected.dart`.
+///     The tool runs over the input and the result must equal the expected
+///     file, byte for byte.
+///
+///     Both keep the `.dart` extension so editors read them as Dart. They are
+///     safe from the toolchain because `analysis_options.yaml` excludes
+///     `test/fixtures/**` and CI formats only
+///     `git ls-files '*.dart' ':!test/fixtures'`. That is what lets an input
+///     hold non-idiomatic code on purpose.
 ///
 ///   * **A negative case**: a single `<case>.unchanged.dart`.
 ///     The transformation must *not* apply, so the expected output is the input
 ///     itself. One file documents intent ("this should stay as-is") with no
 ///     duplicated content to drift out of sync.
 ///
-/// Adding a case is therefore just adding one or two files; no Dart code.
+/// So adding a case means adding one or two files, no Dart code.
 ///
-/// All of a feature's input files are dropped into a single throwaway package
-/// and the real CLI is run **once** with only that feature's pass enabled (see
-/// [onlyFeatureArgs]). Each case then becomes its own `test()` so a failure
-/// names the exact fixture that regressed. Because every case is a separate
-/// library file with no cross-imports, top-level names may safely repeat across
-/// cases.
+/// All of a feature's inputs go into one throwaway package and the CLI runs
+/// once with only that pass on. Each case is its own `test()`, so a failure
+/// names the fixture that regressed. Cases never import each other, so top-level
+/// names can repeat.
 ///
-/// Optionally, a feature folder may contain a `pubspec.yaml` and/or
-/// `analysis_options.yaml`; when present they replace/augment the defaults for
-/// that feature's project (e.g. primary constructors need a higher SDK; import
-/// and lint fixes may need specific lints enabled).
+/// A feature folder may also hold a `pubspec.yaml` or `analysis_options.yaml`,
+/// used instead of the defaults. The lint fixes need that to switch lints on.
 library;
 
 import 'dart:io';
@@ -44,11 +43,8 @@ final String _fixturesRoot = p.join(
   'fixtures',
 );
 
-/// Defines a complete golden-test group for [feature].
-///
-/// Call once per feature from a `_test.dart` file. It discovers the cases,
-/// runs the CLI a single time with only [feature] enabled, and emits one
-/// assertion per case.
+/// Defines the golden group for [feature]: one call per feature, from its
+/// `_test.dart` file.
 void defineGoldenSuite(String feature) {
   group('golden: $feature', () {
     final cases = discoverCases(feature);
@@ -60,7 +56,7 @@ void defineGoldenSuite(String feature) {
         isNotEmpty,
         reason:
             'No fixtures found in test/fixtures/$feature/. Add a '
-            '<case>.input.dart + <case>.expected pair, or a '
+            '<case>.input.dart + <case>.expected.dart pair, or a '
             '<case>.unchanged.dart negative case.',
       ),
     );
@@ -74,7 +70,8 @@ void defineGoldenSuite(String feature) {
       final analysisOptions = _featureFile(feature, 'analysis_options.yaml');
       result = await runCli(
         files: {
-          for (final c in cases) c.projectFile: c.input,
+          for (final GoldenCase(:projectFile, :input) in cases)
+            projectFile: input,
           ..._supportFiles(feature),
           'analysis_options.yaml': ?analysisOptions,
         },
@@ -94,16 +91,14 @@ void defineGoldenSuite(String feature) {
               ? 'Negative case "${c.name}": the transformation fired but the '
                     'context does not support it; output must equal input.'
               : 'Golden case "${c.name}" did not match '
-                    'test/fixtures/$feature/${c.name}.expected.',
+                    'test/fixtures/$feature/${c.name}.expected.dart.',
         ),
       );
     }
   });
 }
 
-/// Discovers every golden case under `test/fixtures/[feature]/`.
-///
-/// Returns them sorted by name for deterministic test ordering.
+/// Every golden case under `test/fixtures/[feature]/`, sorted by name.
 List<GoldenCase> discoverCases(String feature) {
   final dir = Directory(p.join(_fixturesRoot, feature));
   if (!dir.existsSync()) return const [];
@@ -118,11 +113,11 @@ List<GoldenCase> discoverCases(String feature) {
         0,
         fileName.length - '.input.dart'.length,
       );
-      final expectedFile = File(p.join(dir.path, '$stem.expected'));
+      final expectedFile = File(p.join(dir.path, '$stem.expected.dart'));
       if (!expectedFile.existsSync()) {
         throw StateError(
-          'Golden case "$stem" in $feature is missing $stem.expected. '
-          'Every *.input.dart needs a matching *.expected file.',
+          'Golden case "$stem" in $feature is missing $stem.expected.dart. '
+          'Every *.input.dart needs a matching *.expected.dart file.',
         );
       }
       cases.add(
@@ -163,10 +158,8 @@ String? _featureFile(String feature, String name) {
   return file.existsSync() ? file.readAsStringSync() : null;
 }
 
-/// Collects support files (`<name>.support.dart`) placed under
-/// `test/fixtures/<feature>/`. These are copied into the project as
-/// `lib/<name>.dart` *verbatim* and are never asserted on. They exist so a case
-/// can `import` a sibling library (e.g. to exercise relative-import grouping).
+/// Support files (`<name>.support.dart`) copied into the project as-is and never
+/// asserted on. They exist so a case can import a sibling library.
 Map<String, String> _supportFiles(String feature) {
   final dir = Directory(p.join(_fixturesRoot, feature));
   if (!dir.existsSync()) return const {};

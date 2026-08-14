@@ -20,29 +20,17 @@ import '../transformation.dart';
 ///     print('$key = $value');
 ///   }
 ///
-/// Only the fields actually read are destructured, and the binding always takes
-/// the field's own name, so no identifier is ever invented.
+/// Only the fields the body reads are moved, and each binding keeps the field's
+/// own name.
 ///
-/// The rewrite is applied only when ALL of the following hold:
-///   * the loop variable is declared with a bare `var`/`final` and no explicit
-///     type, so the header is a single clean span to replace;
-///   * every reference to it in the loop is the receiver of a field read
-///     (`entry.key`); using it whole, reassigning it, or calling a method on it
-///     all disqualify the loop;
-///   * every field read resolves to a **final, non-late instance field** of the
-///     loop variable's own class. This is the load-bearing guard: destructuring
-///     reads each field exactly once per iteration, where the original read it
-///     once per use and only along the paths it actually took. For a plain final
-///     field that is unobservable, but an arbitrary getter could run code, and a
-///     `late final` field could have its initializer forced on an iteration that
-///     never used it;
-///   * the loop variable's static type is a class with a usable name, which
-///     becomes the pattern's type; and
-///   * no field name collides with another name used anywhere in the enclosing
-///     function, since the binding introduces that bare name into the loop.
-///
-/// Records are left alone. A positional field (`pair.$1`) has no name to bind,
-/// and inventing one is exactly what this pass refuses to do.
+/// Skipped when:
+///   * the loop variable has an explicit type, so the header is not one span;
+///   * the body does anything with the variable other than read a field off it;
+///   * a field is not a final, non-late instance field. The pattern reads every
+///     field once per iteration, where the body read them where they appeared,
+///     so a computed getter could end up running when it did not before;
+///   * a bound name is already used somewhere in the enclosing function;
+///   * the element is a record, since `pair.$1` has no name to bind.
 final class DestructureForIn implements Transformation {
   const DestructureForIn({required this.enabled});
 
@@ -60,10 +48,8 @@ final class DestructureForIn implements Transformation {
   }
 }
 
-class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
-  _DestructureForInVisitor(this.source);
-  final String source;
-
+class _DestructureForInVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -117,13 +103,11 @@ class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
     }
   }
 
-  /// Replaces one `entry.key` read with the bare binding `key`.
+  /// Replaces one `entry.key` read with the bare name `key`.
   ///
-  /// `'${entry.key}'` would otherwise become `'${key}'`, whose braces are now
-  /// pointless (and which `unnecessary_brace_in_string_interps` flags), so the
-  /// whole interpolation collapses to `'$key'` instead. The braces are kept when
-  /// the next character would run into the name, as in `'${entry.key}s'`, where
-  /// dropping them would read as a different identifier.
+  /// Inside a string, `'${entry.key}'` becomes `'$key'`: the braces are no
+  /// longer needed. They stay when the next character would run into the name,
+  /// as in `'${entry.key}s'`.
   SourceEdit _readEdit(_FieldRead read) {
     final name = read.identifier.name;
     final interpolation = read.parent;
@@ -157,25 +141,24 @@ class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
         (code >= 0x61 && code <= 0x7a);
   }
 
-  /// True when [element] is a final, non-late instance field, the only member
-  /// kind whose read count is safe to change.
+  /// True for a final, non-late instance field, the only kind we can safely
+  /// read at a different point.
   bool _isDestructurableField(Element? element) {
-    final field = switch (element) {
-      FieldElement() => element,
-      GetterElement(:final variable) =>
-        variable is FieldElement ? variable : null,
-      _ => null,
-    };
+    FieldElement? field;
+    if (element is FieldElement) {
+      field = element;
+    } else if (element is GetterElement) {
+      final variable = element.variable;
+      if (variable is FieldElement) field = variable;
+    }
     if (field == null) return false;
     return field.isFinal && !field.isStatic && !field.isLate;
   }
 
-  /// True when binding any of [fields] as a bare name would shadow or clash
-  /// with an identifier already used in [body].
+  /// True when one of [fields] is already used as a name in [body].
   ///
-  /// Every identifier in the enclosing function counts, except the property
-  /// names of the reads being replaced (those disappear with the rewrite). This
-  /// is deliberately blunt: a false positive only means a loop is left alone.
+  /// The property names we are about to remove do not count. The check is broad
+  /// on purpose; at worst it leaves a loop alone.
   bool _collides(AstNode body, List<String> fields, List<_FieldRead> reads) {
     final replaced = {for (final read in reads) read.identifier};
     final finder = _NameFinder(fields.toSet(), replaced);
@@ -195,10 +178,8 @@ class _DestructureForInVisitor extends RecursiveAstVisitor<void> {
 typedef _FieldRead = PrefixedIdentifier;
 
 /// Collects the loop variable's field reads and reports any other use.
-class _FieldReadCollector extends RecursiveAstVisitor<void> {
-  _FieldReadCollector(this.target);
-  final Element target;
-
+class _FieldReadCollector(final Element target)
+    extends RecursiveAstVisitor<void> {
   final reads = <_FieldRead>[];
 
   /// False as soon as the variable is used as anything but a field receiver.
@@ -222,11 +203,8 @@ class _FieldReadCollector extends RecursiveAstVisitor<void> {
 }
 
 /// Looks for identifiers that would clash with a new pattern binding.
-class _NameFinder extends RecursiveAstVisitor<void> {
-  _NameFinder(this.names, this.ignored);
-  final Set<String> names;
-  final Set<SimpleIdentifier> ignored;
-
+class _NameFinder(final Set<String> names, final Set<SimpleIdentifier> ignored)
+    extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override

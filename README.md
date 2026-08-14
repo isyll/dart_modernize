@@ -5,7 +5,7 @@
 A type-aware codemod that rewrites Dart and Flutter projects to use modern syntax wherever it is safe.
 
 [![pub package](https://img.shields.io/pub/v/dart_modernize.svg)](https://pub.dev/packages/dart_modernize)
-[![sdk](https://img.shields.io/badge/dart-%3E%3D3.12-0175C2.svg)](https://dart.dev)
+[![sdk](https://img.shields.io/badge/dart-%3E%3D3.13-0175C2.svg)](https://dart.dev)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![style](https://img.shields.io/badge/style-strict-success.svg)](analysis_options.yaml)
 
@@ -147,7 +147,9 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Twenty-two passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except two opt-in ones: **sort members** (`--sort-members`), which only reorders code but can produce a large diff, and **collection elements** (`--collection-elements`), which restructures a run of statements into a single literal.
+Twenty-two passes, in five families. Each one can be turned on or off, and each skips any code where the rewrite is not provably safe.
+
+They all run by default except two: **sort members** (`--sort-members`), which only moves code but produces big diffs, and **collection elements** (`--collection-elements`), which turns a run of statements into one literal.
 
 | Feature | Description |
 |:--|:--|
@@ -165,7 +167,7 @@ Twenty-two passes, grouped into five families. Each is independently toggleable,
 | **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
 | **Destructure locals** | Collapses a local that only exists to read fields off it into one destructuring declaration: `final p = get(); final x = p.x; final y = p.y;` becomes `final Point(:x, :y) = get();`. |
 | **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
-| **Primary constructors** | Promotes eligible classes to the primary constructor form, only when it is provably safe. |
+| **Primary constructors** | Promotes eligible classes to the primary constructor form, including `const` ones, only when it is provably safe. |
 | **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
 | **Organize imports** | Sorts, groups, and prunes unused directives. |
 | **Collection elements** | Folds a run of `add`/`addAll` calls on a freshly declared empty literal into one literal with collection-`if` and collection-`for` elements. **Off by default** (opt in with `--collection-elements`). |
@@ -182,7 +184,7 @@ Twenty-two passes, grouped into five families. Each is independently toggleable,
 
 No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
 
-**Syntax rewrites.** Twenty of the twenty-two passes rewrite a construct in place: dot shorthands, switch expressions, expression bodies, string interpolation, cascades, inline return, final locals, prefer inferred types, null-aware elements, null-aware spread, null-aware conditionals, destructure for-in, destructure locals, collection elements, super parameters, private named parameters, primary constructors, abstract final classes, fix all, and organize imports. Each one edits the code it touches and leaves everything else where it was, so the diff is local: it lands on the lines that actually changed shape.
+**Syntax rewrites.** Twenty of the twenty-two passes rewrite code in place. Each one edits what it touches and leaves the rest alone, so the diff only covers the lines that actually changed.
 
 **Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
 
@@ -190,7 +192,7 @@ Reordering is safe because Dart does not resolve declarations by their position 
 
 The one thing that genuinely does depend on position is **field initialization order**, and it is preserved. Fields move as a group into their slot in the canonical order, but never past one another: within that group they stay in the exact order they were declared, public and private alike. So a field whose initializer reads another field still runs after the one it depends on.
 
-What reordering does cost you is review. A single file can turn into hundreds of moved lines, `git blame` points at the move instead of the original author, and a real change hiding among the moves is easy to miss. That is why **sort members**, the noisiest of the two, is off by default. Turn it on deliberately with `--sort-members`, and prefer landing it in its own commit so the reordering never shares a diff with a behavior change:
+The cost is review, not correctness. A file can turn into hundreds of moved lines, `git blame` points at the move, and a real change is easy to miss in the noise. That is why **sort members** is off by default. Run it on its own commit:
 
 ```sh
 dart_modernize --only sort-members,sort-constructors-first
@@ -459,7 +461,9 @@ for (final item in items) {
 }
 ```
 
-> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures. A classic `for (var i = 0; i < n; i++)` counter is left alone. The for-in case is what the lint `prefer_final_in_for_each` flags, so **fix all** also applies it, but only in projects that enable that rule; this pass does it everywhere. The two never collide, because this pass runs before **fix all** sees the file.
+> Skipped when the variable is written to anywhere in the enclosing body, including inside a closure: assigned, compound-assigned (`+=`), or incremented (`++`). A classic `for (var i = 0; i < n; i++)` counter is left alone.
+>
+> The for-in half is what `prefer_final_in_for_each` flags, so **fix all** applies it too, but only where a project enables that lint. This pass does it everywhere, and the two never clash because this one runs first.
 
 **Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
 
@@ -479,7 +483,11 @@ final _log = Logger();
 final _client = Client();
 ```
 
-> Applies only when the initializer's inferred type is exactly the declared type **and** that type is obvious from the initializer, matching the analyzer's `omit_obvious_*` / `specify_nonobvious_*` rules. A literal, an explicitly-typed collection literal, a spelled-out constructor call, a cast, or a cascade/prefix over one of these is obvious; a method call, property access, bare identifier, or generic constructor with inferred type arguments is not, and keeps its annotation (dropping it would trip `specify_nonobvious_*`, which `dart fix` then reverts). Covers local finals/consts/bare-typed locals, top-level consts, and `final`/`const` fields with an initializer. Dropping the type is preferred over the `.new()` shorthand, so a `final Foo _x = Foo()` field becomes `final _x = Foo()`; a declaration already written with a dot-shorthand constructor (`final Foo _x = .new()`) is expanded to `final _x = Foo()` for the same reason (a static-member shorthand such as `.zero` keeps its annotation, since expanding it would leave a non-obvious property access). Mutable fields and non-const top-level variables are left alone.
+> The type is only dropped when the initializer already says it plainly: a literal, a typed collection literal, a written-out constructor call, or a cast. A method call, a property access or a bare identifier is not plain enough, so those keep their annotation. This matches the analyzer's `omit_obvious_*` and `specify_nonobvious_*` rules, so `dart fix` will not put the type back.
+>
+> Applies to locals, top-level consts, and `final`/`const` fields with an initializer. Mutable fields and non-const top-level variables are left alone.
+>
+> Dropping the type wins over the `.new()` shorthand: `final Foo _x = Foo()` becomes `final _x = Foo()`, and a field already written `final Foo _x = .new()` is expanded back to `final _x = Foo()`.
 
 ### Null-aware collections
 
@@ -519,9 +527,9 @@ int? first(List<int>? xs) => xs?[0];
 String label(Box? box, String fallback) => box?.name ?? fallback;
 ```
 
-> Scope is deliberately narrow. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` are both in `package:lints/recommended.yaml`, so **fix all** already rewrites `x == null ? d : x` and `x == null ? null : x.foo` in either operand order. This pass only handles what those lints miss: the **index** form, which no lint flags, and a chain against an **arbitrary fallback** rather than `null`.
+> Only these two shapes. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` ship in `package:lints/recommended.yaml`, so **fix all** already handles `x == null ? d : x` and `x == null ? null : x.foo`. What is left is the index form, which no lint covers, and a chain with a real fallback instead of `null`.
 >
-> The fallback form applies only when the chain's static type is non-nullable. That guard is load-bearing: if `box.name` could itself be null, then `box != null ? box.name : d` yields null where `box?.name ?? d` would yield `d`. Both forms also require the tested expression to be a stable, side-effect-free reference.
+> The fallback form needs the chain's type to be non-nullable. If `box.name` could itself be null, `box != null ? box.name : d` gives null where `box?.name ?? d` gives `d`. Both forms also need the tested expression to be a plain local or parameter.
 
 **Destructure for-in**: moves a loop variable's field reads into an object pattern in the header.
 
@@ -537,9 +545,9 @@ for (final MapEntry(:key, :value) in scores.entries) {
 }
 ```
 
-> Only the fields actually read are destructured, and each binding takes the field's own name, so no identifier is ever invented. Skipped when the loop variable is used whole, reassigned, or has a method called on it, and when a bound name would clash with something already in the enclosing function.
+> Only the fields the body reads are moved, and each binding keeps the field's own name. Skipped when the loop variable is used whole, reassigned, or has a method called on it, or when a bound name is already taken in the enclosing function.
 >
-> Every field read must resolve to a **final, non-late instance field**. Destructuring reads each field once per iteration where the original read it once per use, so a computed getter (which could run code) or a `late final` field (whose initializer could be forced on an iteration that never used it) is left alone. Positional record fields (`pair.$1`) are skipped too: there is no name to bind.
+> Fields must be final and non-late. The pattern reads every field once per iteration, where the body read them where they appeared, so a computed getter could end up running when it did not before. Positional record fields (`pair.$1`) have no name to bind, so they are skipped.
 
 **Destructure locals**: collapses a local that only exists to read fields off it.
 
@@ -563,9 +571,9 @@ final y = p.y;
 final Point(:x, :y) = getPoint();
 ```
 
-> Binding names come from the locals that already exist, so nothing is invented; a local named differently from its field keeps its own name (`final first = p.x` becomes `Point(x: first)`). Skipped when the intermediate is used for anything else at all, when an unrelated statement interrupts the run, or when a statement in the run carries a comment the single replacement would drop.
+> The names come from the locals you already wrote, so nothing is invented. One named differently from its field keeps its own name: `final first = p.x` gives `Point(x: first)`.
 >
-> The same **final, non-late instance field** rule as destructure for-in applies, and for the same reason: destructuring reads every field up front, where the original read each one at its own declaration. Records with named fields are skipped; the positional form covers the shape this targets.
+> Skipped when the intermediate is used for anything else, when another statement interrupts the run, or when a statement carries a comment the rewrite would drop. Fields must be final and non-late, for the same reason as destructure for-in: the reads all move up to the declaration. Records with named fields are skipped.
 
 **Collection elements** (off by default): folds a step-by-step build into one literal.
 
@@ -586,7 +594,7 @@ final items = <Widget>[
 
 > Opt in with `--collection-elements`. This one turns a run of statements into a single expression, a bigger structural change than any other pass makes, which is why it is off by default.
 >
-> The local must be declared with an **empty** literal, and the run may only contain `add`/`addAll` calls, an `else`-less `if` around one of them, or a `for` around one of them. The run stops at the first statement that is not one of those, so it folds the prefix and leaves the rest; it also stops at a call that reads the collection while building it (`items.add(items.length)`), which no literal can express.
+> The literal has to start out empty, and the statements after it have to be `add`/`addAll` calls, or an `else`-less `if` or a `for` around one. Anything else ends the run, so the part before it is folded and the rest stays. Reading the collection while building it (`items.add(items.length)`) also ends the run, since a literal cannot express that.
 >
 > It runs before **cascades** on purpose. Both passes want the same statements, and cascades would otherwise fold them into `<Widget>[]..add(header)..add(body)` first, leaving nothing to collapse into a literal.
 
@@ -626,7 +634,22 @@ class Point {
 class Point(final int x, final int y);
 ```
 
-> Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter.
+A `const` constructor promotes to a constant primary constructor, with the modifier between `class` and the name:
+
+```dart
+// before
+class Origin {
+  final int x;
+  const Origin(this.x);
+}
+
+// after
+class const Origin(final int x);
+```
+
+> Primary constructors went stable in Dart 3.13, which is also this tool's SDK floor, so nothing extra is needed to opt in. The pass double-checks the resolved language version anyway and stays a no-op if it is somehow not met.
+>
+> Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter. A *named* primary constructor (`class Point.origin(...)`) is valid 3.13 syntax but is never produced, since the pass only promotes an unnamed constructor.
 
 **Super parameters**: forwards a constructor parameter straight to the superclass.
 
@@ -662,7 +685,9 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**Sort members** (off by default; switch it on with `--sort-members`, or run it alone with `--only sort-members`): reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes. It is opt-in because it only reorders code (never changing behavior) yet is the biggest single source of diff noise, which buries the real modernizations under moved lines.
+**Sort members** (off by default, use `--sort-members`): reorders class members into fields, constructors, getters and setters, then methods, sorted by name within each group. Fields keep their declared order, so field initialization order never changes.
+
+It is opt-in because it never changes behaviour but produces the biggest diffs, which bury the real modernizations under moved lines.
 
 ```dart
 // before
@@ -713,6 +738,10 @@ class Dog extends Animal {
 }
 ```
 
+> It applies the lints the *target* project enables, so new SDK lints work without any change here. Dart 3.13 added several: `use_primary_constructors`, `use_declaring_parameters`, `initialize_in_field_declaration`, `unnecessary_primary_constructor_body`, `unnecessary_type_name_in_constructor`, `empty_container_bodies`, `unnecessary_const_in_enum_constructor`, and `async_return_with_no_await`.
+>
+> `use_primary_constructors` does the same job as the **primary constructors** pass. They do not clash: the pass runs first, and by the time `dart fix` sees the file the promotion is already done.
+
 **Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
 
 ```dart
@@ -736,9 +765,11 @@ abstract final class AppColors {
 
 ## 📋 Requirements
 
-Dart SDK `3.12.0` or newer.
+Dart SDK `3.13.0` or newer.
 
 The minimum SDK is fixed per release. When a future Dart version ships new syntax, a new major version of `dart_modernize` adds support for it. Staying on an older SDK? Pin the matching release and it keeps working.
+
+The floor is `3.13.0` because primary constructors became stable there and the promotion pass emits that syntax. The tool refuses to run on a project whose SDK constraint allows anything older, rather than letting a run reach code that cannot compile the result.
 
 <br>
 
@@ -793,7 +824,9 @@ dart_modernize --no-primary-constructors --no-organize-imports
 dart_modernize --sort-members
 ```
 
-Each pass has exactly one switch: an on-by-default pass takes `--no-<name>` (turn it off), an off-by-default pass takes `--<name>` (turn it on). `--only` sets the starting set (the defaults when omitted); `--no-<name>` removes from it and `--<name>` adds to it, so the switches compose with `--only`. Command-line order never matters: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). The pass names are those listed under **What it does** above and printed by `dart_modernize --help`.
+Each pass has one switch: `--no-<name>` turns an on-by-default pass off, `--<name>` turns an off-by-default pass on.
+
+`--only` picks the starting set, and the switches add to or remove from it. The order you type them never matters; passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). `dart_modernize --help` lists every name.
 
 ### Choose where it runs
 
@@ -857,7 +890,9 @@ dart_modernize:
 - **`disabled`** switches passes off.
 - **`exclude`** adds glob patterns on top of `analyzer: exclude:` and any `--exclude` flags.
 
-CLI flags win over the file: `--only` replaces the file's selection entirely, and a pass's own switch (`--no-<name>` or `--<name>`) overrides the file for that pass. Since each pass has exactly one switch, that switch only counters the file in one direction; `--only` is the way to override the file in the other (e.g. to run a pass the file disabled). An unknown pass name, or a name listed under both `enabled` and `disabled`, is reported as an error.
+CLI flags win over the file. `--only` replaces the file's selection entirely, and a pass's own switch overrides the file for that pass.
+
+Each pass has only one switch, so it can only counter the file in one direction. Use `--only` for the other direction, for instance to run a pass the file disabled. An unknown name, or a name in both `enabled` and `disabled`, is an error.
 
 <br>
 

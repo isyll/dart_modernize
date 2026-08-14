@@ -45,7 +45,7 @@ test/
 
 ## Conventions
 
-- Dart 3.12+. Null-safe. No legacy patterns.
+- Dart 3.13+. Null-safe. No legacy patterns.
 - All logic lives in `lib/src/`. `bin/` only delegates.
 - `package:args` for argument parsing, `package:path` for path operations.
 - Strict analyzer: `strict-casts`, `strict-inference`, `strict-raw-types` are all on.

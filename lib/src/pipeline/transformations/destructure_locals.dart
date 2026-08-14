@@ -20,28 +20,19 @@ import '../transformation.dart';
 ///   final x = p.x;
 ///   final y = p.y;
 ///
-/// Binding names come from the locals that already exist, so nothing is
-/// invented. A local whose name differs from the field keeps its own name
-/// (`final x = p.first` becomes `Point(first: x)`).
+/// The names come from the locals that already exist. One named differently
+/// from its field keeps its own name, so `final x = p.first` gives
+/// `Point(first: x)`.
 ///
-/// The rewrite is applied only when ALL of the following hold:
-///   * the intermediate local is declared with an initializer and immediately
-///     followed by a contiguous run of declarations that each read one field off
-///     it, with nothing else in between;
-///   * the intermediate is used nowhere else at all, so removing it is safe: not
-///     read on its own, not reassigned, not captured, not passed whole;
-///   * each field read resolves to a **final, non-late instance field** (for an
-///     object) or a positional record field. Destructuring reads every field
-///     once, up front, where the original read each one where it was declared,
-///     so an arbitrary getter that runs code, or a `late final` whose
-///     initializer would be forced early, is left alone;
-///   * none of the run's statements carries a comment, which the single
-///     replacement span would otherwise drop; and
-///   * for an object, the static type is a class with a usable name.
-///
-/// Records with named fields are skipped: mixing `(:a, b: c)` bindings with
-/// positional arity is easy to get subtly wrong, and the positional form already
-/// covers the shape this pass is aimed at.
+/// Skipped when:
+///   * the field reads are not one unbroken run right after the declaration;
+///   * the intermediate is used anywhere else, since it disappears;
+///   * a field is not a final, non-late instance field, or a positional record
+///     field. All the reads move up to the declaration, so a computed getter
+///     could end up running earlier than it did;
+///   * a statement in the run carries a comment, which the rewrite would drop;
+///   * the type has no usable name;
+///   * the record has named fields. Only the positional form is handled.
 final class DestructureLocals implements Transformation {
   const DestructureLocals({required this.enabled});
 
@@ -59,10 +50,8 @@ final class DestructureLocals implements Transformation {
   }
 }
 
-class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
-  _DestructureLocalsVisitor(this.source);
-  final String source;
-
+class _DestructureLocalsVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -95,7 +84,7 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
     }
     if (reads.isEmpty) return;
 
-    // The intermediate must vanish, so every remaining mention disqualifies it.
+    // The intermediate is removed, so it must have no other use.
     final body = _enclosingFunctionBody(statements[index]);
     if (body == null) return;
     final counter = _ReferenceCounter(target);
@@ -105,7 +94,7 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
     final pattern = _pattern(intermediate.declaration, reads);
     if (pattern == null) return;
 
-    // `var` only when a binding is later reassigned, so `final` stays the norm.
+    // `var` only if one of the bindings was not final.
     final keyword = reads.any((r) => !r.isFinal) ? 'var' : 'final';
     final initializerSource = source.substring(
       initializer.offset,
@@ -134,21 +123,20 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
     return null;
   }
 
-  /// A positional record pattern, with `_` standing in for fields never read.
+  /// A positional record pattern, using `_` for fields the code never reads.
   ///
-  /// Positional patterns must match the record's arity, so the unread slots
-  /// cannot simply be dropped the way an object pattern's can.
+  /// A positional pattern has to list every field, so unread ones need a slot.
   String? _recordPattern(RecordType type, List<_FieldBinding> reads) {
     if (type.namedFields.isNotEmpty) return null;
 
     final byPosition = <int, String>{};
-    for (final read in reads) {
-      final position = _positionalIndex(read.field);
+    for (final _FieldBinding(:field, :name) in reads) {
+      final position = _positionalIndex(field);
       if (position == null || position > type.positionalFields.length) {
         return null;
       }
       if (byPosition.containsKey(position)) return null;
-      byPosition[position] = read.name;
+      byPosition[position] = name;
     }
 
     final slots = [
@@ -161,7 +149,7 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
   /// Parses `$1` into 1; returns null for anything else.
   int? _positionalIndex(String field) {
     if (!field.startsWith(r'$')) return null;
-    return int.tryParse(field.substring(1));
+    return .tryParse(field.substring(1));
   }
 
   /// Returns the single-variable declaration [statement] holds, or null.
@@ -183,27 +171,25 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
     final single = _singleDeclaration(statement);
     if (single == null) return null;
 
-    // `p.x` is a PrefixedIdentifier, but a record read like `pair.$1` comes
-    // through as a PropertyAccess, so both shapes have to be unwrapped.
+    // `p.x` parses as a PrefixedIdentifier, `pair.$1` as a PropertyAccess.
     final initializer = single.declaration.initializer;
-    final (
-      SimpleIdentifier? receiver,
-      SimpleIdentifier? property,
-    ) = switch (initializer) {
-      PrefixedIdentifier(:final prefix, :final identifier) => (
-        prefix,
-        identifier,
-      ),
-      PropertyAccess(:final target, :final propertyName)
-          when target is SimpleIdentifier =>
-        (target, propertyName),
-      _ => (null, null),
-    };
+    SimpleIdentifier? receiver;
+    SimpleIdentifier? property;
+    if (initializer is PrefixedIdentifier) {
+      receiver = initializer.prefix;
+      property = initializer.identifier;
+    } else if (initializer is PropertyAccess) {
+      final accessTarget = initializer.target;
+      if (accessTarget is SimpleIdentifier) {
+        receiver = accessTarget;
+        property = initializer.propertyName;
+      }
+    }
     if (receiver == null || property == null) return null;
     if (receiver.element != target) return null;
 
-    // A record field is immutable and side-effect free by construction, so it
-    // needs no element check; its access does not resolve to a FieldElement.
+    // A record field is always immutable, and does not resolve to a
+    // FieldElement, so it skips the check below.
     final isRecordField = receiver.staticType is RecordType;
     if (!isRecordField && !_isFinalInstanceField(property.element)) return null;
 
@@ -214,15 +200,15 @@ class _DestructureLocalsVisitor extends RecursiveAstVisitor<void> {
     );
   }
 
-  /// True for a final, non-late instance field, the only member kind whose read
-  /// position is safe to move.
+  /// True for a final, non-late instance field, the only kind safe to move.
   bool _isFinalInstanceField(Element? element) {
-    final field = switch (element) {
-      FieldElement() => element,
-      GetterElement(:final variable) =>
-        variable is FieldElement ? variable : null,
-      _ => null,
-    };
+    FieldElement? field;
+    if (element is FieldElement) {
+      field = element;
+    } else if (element is GetterElement) {
+      final variable = element.variable;
+      if (variable is FieldElement) field = variable;
+    }
     if (field == null) return false;
     return field.isFinal && !field.isStatic && !field.isLate;
   }
@@ -256,17 +242,14 @@ final class _FieldBinding {
   String get binding => name == field ? ':$name' : '$field: $name';
 }
 
-final class _SingleDeclaration {
-  const _SingleDeclaration({required this.declaration, required this.isFinal});
-  final VariableDeclaration declaration;
-  final bool isFinal;
-}
+final class const _SingleDeclaration({
+  required final VariableDeclaration declaration,
+  required final bool isFinal,
+});
 
 /// Counts references to the intermediate local across the whole function.
-class _ReferenceCounter extends RecursiveAstVisitor<void> {
-  _ReferenceCounter(this.target);
-  final Element target;
-
+class _ReferenceCounter(final Element target)
+    extends RecursiveAstVisitor<void> {
   int count = 0;
 
   @override

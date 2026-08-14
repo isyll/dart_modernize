@@ -39,12 +39,12 @@ void main() {
       final enabled = _enabledByName(_parse(['--only', 'dot-shorthands']));
 
       expect(enabled['dot-shorthands'], isTrue);
-      for (final entry in enabled.entries) {
-        if (entry.key == 'dot-shorthands') continue;
+      for (final MapEntry(:key, :value) in enabled.entries) {
+        if (key == 'dot-shorthands') continue;
         expect(
-          entry.value,
+          value,
           isFalse,
-          reason: '${entry.key} must be off when only dot-shorthands is named',
+          reason: '$key must be off when only dot-shorthands is named',
         );
       }
     });
@@ -88,11 +88,11 @@ void main() {
     test('no --only leaves every pass at its default', () {
       // On by default, except the opt-in passes in defaultOffTransformations.
       final enabled = _enabledByName(_parse([]));
-      for (final entry in enabled.entries) {
+      for (final MapEntry(:value, :key) in enabled.entries) {
         expect(
-          entry.value,
-          !defaultOffTransformations.contains(entry.key),
-          reason: '${entry.key} should be at its default',
+          value,
+          !defaultOffTransformations.contains(key),
+          reason: '$key should be at its default',
         );
       }
     });
@@ -130,29 +130,23 @@ void main() {
   });
 
   group('--only end-to-end', () {
-    test(
-      'applies only the named pass, leaving other triggers untouched',
-      () async {
-        final result = await runCli(
-          files: {
-            'lib/interp.dart': stringInterpolationTrigger,
-            'lib/dot.dart': dotShorthandsTrigger,
-          },
-          args: ['--only', 'string-interpolation'],
-        );
+    test('applies only the named pass, leaving other triggers untouched', () async {
+      final result = await runCli(
+        files: {
+          'lib/interp.dart': stringInterpolationTrigger,
+          'lib/dot.dart': dotShorthandsTrigger,
+        },
+        args: ['--only', 'string-interpolation'],
+      );
 
-        expect(result.exitCode, 0, reason: result.stderr);
-        // The selected pass fired.
-        expect(
-          result.read('lib/interp.dart'),
-          isNot(stringInterpolationTrigger),
-        );
-        expect(result.read('lib/interp.dart'), contains(r'$name'));
-        // Every other pass (including dot-shorthands and all finalize passes) was
-        // skipped, so its trigger is byte-for-byte unchanged.
-        expect(result.read('lib/dot.dart'), dotShorthandsTrigger);
-      },
-    );
+      expect(result.exitCode, 0, reason: result.stderr);
+      // The selected pass fired.
+      expect(result.read('lib/interp.dart'), isNot(stringInterpolationTrigger));
+      expect(result.read('lib/interp.dart'), contains(r'$name'));
+      // Every other pass (including dot-shorthands and all finalize passes) was
+      // skipped, so its trigger is byte-for-byte unchanged.
+      expect(result.read('lib/dot.dart'), dotShorthandsTrigger);
+    });
 
     test('applies several passes when more than one is named', () async {
       final result = await runCli(

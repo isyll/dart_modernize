@@ -36,10 +36,8 @@ final class NullAwareElements implements Transformation {
   }
 }
 
-class _NullAwareElementsVisitor extends RecursiveAstVisitor<void> {
-  _NullAwareElementsVisitor(this.source);
-  final String source;
-
+class _NullAwareElementsVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override

@@ -181,12 +181,10 @@ final class FileFilter {
 ///
 /// [dir] is the output directory relative to the project root and [baseFile] is
 /// the main localization file name; per-locale siblings are `<stem>_<locale>.dart`.
-final class L10nOutput {
-  const L10nOutput({required this.dir, required this.baseFile});
-
-  final String dir;
-  final String baseFile;
-
+final class const L10nOutput({
+  required final String dir,
+  required final String baseFile,
+}) {
   /// Whether [relativePath] (relative to the project root) is a file this
   /// localization run generates: the main file or one of its per-locale siblings.
   bool matches(String relativePath) {

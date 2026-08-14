@@ -20,9 +20,8 @@ void main() {
         sampleBefore,
         sampleAfter,
       );
-      makeNoColor(
-        out: out,
-      ).renderDiff('foo.dart', <String>['dot-shorthands'], 1, 1, diffText);
+      makeNoColor(out: out)
+          .renderDiff('foo.dart', <String>['dot-shorthands'], 1, 1, diffText);
       expect(out.toString(), isNot(contains('\x1b[')));
     });
 
@@ -108,9 +107,8 @@ void main() {
 
     test('completionSummary: no changes prints an "already modern" line', () {
       final out = StringBuffer();
-      makeNoColor(
-        out: out,
-      ).completionSummary(scanned: 7, changed: 0, passCounts: const {});
+      makeNoColor(out: out)
+          .completionSummary(scanned: 7, changed: 0, passCounts: const {});
       final text = out.toString();
       expect(text, contains('Already modern'));
       expect(text, contains('7 file(s) scanned'));
@@ -144,9 +142,8 @@ void main() {
         sampleBefore,
         sampleAfter,
       );
-      makeWithColor(
-        out: out,
-      ).renderDiff('foo.dart', <String>[], 1, 1, diffText);
+      makeWithColor(out: out)
+          .renderDiff('foo.dart', <String>[], 1, 1, diffText);
       final plain = out.toString().replaceAll(RegExp(r'\x1b\[[0-9;]*m'), '');
       for (final line in diffText.split('\n').where((l) => l.isNotEmpty)) {
         expect(plain, contains(line));

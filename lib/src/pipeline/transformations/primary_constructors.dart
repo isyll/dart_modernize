@@ -7,6 +7,10 @@ import '../transformation.dart';
 
 /// Promotes eligible single-constructor classes to primary constructor form.
 ///
+/// Primary constructors are stable in Dart 3.13, which is also this tool's SDK
+/// floor. The feature check in [editsFor] is a second guard, for a library
+/// pinned to an older language version.
+///
 /// A class is eligible when:
 ///   * it is not abstract;
 ///   * it is not directly extended by another class in the same compilation
@@ -20,6 +24,12 @@ import '../transformation.dart';
 /// Fields that the constructor does not initialise stay in the class body.
 /// Consumed fields move into the header: `final` fields become `final T name`,
 /// mutable fields become `var T name`.
+///
+/// A `const` constructor becomes `class const Point(final int x)`, with the
+/// modifier between `class` and the name. Dart already requires every field of
+/// a const class to be final, so the header never needs `var`.
+///
+/// Named primary constructors (`class Point.origin(...)`) are not produced.
 final class PrimaryConstructors implements Transformation {
   const PrimaryConstructors({required this.enabled});
 
@@ -40,10 +50,7 @@ final class PrimaryConstructors implements Transformation {
   }
 }
 
-class _Visitor extends RecursiveAstVisitor<void> {
-  _Visitor(this.source);
-  final String source;
-
+class _Visitor(final String source) extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   /// Names of classes that appear in an `extends` clause within this file.
@@ -84,6 +91,41 @@ class _Visitor extends RecursiveAstVisitor<void> {
     return buf.toString();
   }
 
+  /// Where a retained member starts, counting any `//` comment above it.
+  ///
+  /// A doc comment is already part of the member, but a plain comment is not,
+  /// so copying from `member.offset` would leave it behind.
+  int _startIncludingComments(ClassMember member) =>
+      member.beginToken.precedingComments?.offset ?? member.offset;
+
+  /// True when the source has a blank line just before [offset].
+  ///
+  /// Used to keep the spacing the class was written with; without it every
+  /// retained member ends up on consecutive lines.
+  bool _blankLineBefore(int offset) {
+    var newlines = 0;
+    for (var i = offset - 1; i >= 0; i--) {
+      final ch = source[i];
+      if (ch == '\n') {
+        newlines++;
+        if (newlines >= 2) return true;
+      } else if (ch != ' ' && ch != '\t' && ch != '\r') {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /// True when [field] has a doc comment, a plain comment, or an annotation.
+  ///
+  /// A promoted field keeps only its type and name, so any of those would be
+  /// thrown away. Running the tool over its own sources is what surfaced it:
+  /// the promotion deleted 54 lines of documentation in one go.
+  bool _carriesAttachedText(FieldDeclaration field) =>
+      field.documentationComment != null ||
+      field.metadata.isNotEmpty ||
+      field.beginToken.precedingComments != null;
+
   void _tryRewrite(ClassDeclaration cls) {
     // Already a primary constructor class: skip (idempotence).
     if (cls.namePart is PrimaryConstructorDeclaration) return;
@@ -110,8 +152,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
     if (ctor.name != null) return;
     if (ctor.body is! EmptyFunctionBody) return;
     if (ctor.initializers.isNotEmpty) return;
-    if (ctor.constKeyword != null) return;
     if (ctor.externalKeyword != null) return;
+    final isConst = ctor.constKeyword != null;
 
     final params = ctor.parameters.parameters;
     if (!params.every((p) => p is FieldFormalParameter)) return;
@@ -144,6 +186,15 @@ class _Visitor extends RecursiveAstVisitor<void> {
       final typeAnnotation = fd.fields.type;
       if (typeAnnotation == null) return;
 
+      // Only the type and the name make it into the header, so anything else
+      // attached to the field would be thrown away. Leave the class alone
+      // rather than delete a doc comment or an annotation.
+      if (_carriesAttachedText(fd)) return;
+
+      // A const class cannot have a mutable field, so this should not fire.
+      // Kept because `class const C(var int x)` would not compile.
+      if (isConst && !fd.fields.isFinal) return;
+
       final modifier = fd.fields.isFinal ? 'final' : 'var';
       final typeText = source.substring(
         typeAnnotation.offset,
@@ -154,10 +205,12 @@ class _Visitor extends RecursiveAstVisitor<void> {
       consumedNames.add(fieldName);
     }
 
-    // Retained members: non-consumed fields and any other class members.
+    // Everything stays except the constructor being promoted and the fields it
+    // takes over. Only that one constructor moves into the header: a factory or
+    // a redirecting constructor is part of the class's API and has to survive.
     final retained = <ClassMember>[];
     for (final member in members) {
-      if (member is ConstructorDeclaration) continue;
+      if (identical(member, ctor)) continue;
       if (member is FieldDeclaration &&
           !member.isStatic &&
           consumedNames.contains(member.fields.variables.single.name.lexeme)) {
@@ -198,10 +251,14 @@ class _Visitor extends RecursiveAstVisitor<void> {
       body = ';';
     } else {
       final memberIndent = '$classIndent  ';
-      final memberTexts = retained
-          .map((m) => '$memberIndent${source.substring(m.offset, m.end)}')
-          .join('\n');
-      body = ' {\n$memberTexts\n$classIndent}';
+      final lines = <String>[];
+      for (var i = 0; i < retained.length; i++) {
+        final member = retained[i];
+        final start = _startIncludingComments(member);
+        if (i > 0 && _blankLineBefore(start)) lines.add('');
+        lines.add('$memberIndent${source.substring(start, member.end)}');
+      }
+      body = ' {\n${lines.join('\n')}\n$classIndent}';
     }
 
     edits.add(
@@ -209,7 +266,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
         offset: cls.offset,
         length: cls.end - cls.offset,
         replacement:
-            '${classModifiers}class ${cls.namePart.typeName.lexeme}'
+            '${classModifiers}class ${isConst ? 'const ' : ''}'
+            '${cls.namePart.typeName.lexeme}'
             '$typeParamsText($paramsText)$extendsText$withText$implementsText$body',
       ),
     );

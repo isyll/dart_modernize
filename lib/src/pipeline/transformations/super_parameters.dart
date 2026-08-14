@@ -8,29 +8,19 @@ import '../transformation.dart';
 
 /// Forwards constructor parameters straight to the superclass with `super.x`.
 ///
-/// When a parameter is passed unchanged to the `super(...)` call and used
-/// nowhere else, the explicit `Type x` declaration plus `super(x: x)` forward
-/// collapse into a single `super.x` parameter:
+///     MyWidget({Key? key}) : super(key: key);  ->  MyWidget({super.key});
 ///
-///   * `MyWidget({Key? key}) : super(key: key);`
-///     becomes `MyWidget({super.key});`
+/// Folded only when:
+///   * the value reaches `super(...)` as a bare identifier, not an expression
+///     like `key ?? const Key()`;
+///   * the parameter is used exactly once, in that forward;
+///   * for a named argument, the names already match, since renaming would
+///     change the constructor's public API;
+///   * there is no local default value, which could differ from the super's.
 ///
-/// The rewrite is deliberately conservative. A parameter is folded only when:
-///
-///   * its value reaches `super(...)` verbatim: a bare identifier, never an
-///     expression like `key ?? const Key()` or `id * 2`;
-///   * it is referenced exactly once in the whole constructor (the forward),
-///     so a parameter that is also read, reassigned, or used in another
-///     initializer is left alone;
-///   * for a named argument, the local name already matches the super
-///     parameter's name: renaming would change the constructor's public API;
-///   * it carries no local default value: a default that differs from the
-///     super's would silently change behaviour.
-///
-/// The explicit type is dropped only when it is provably identical to the super
-/// parameter's type (which `super.x` then infers); otherwise it is kept. When
-/// every argument is forwarded the `: super(...)` initializer is removed
-/// entirely; when only some are, the rest stay in the call.
+/// The type is dropped only when it is identical to the super parameter's, which
+/// `super.x` then infers. If every argument is forwarded the `: super(...)` goes
+/// away; otherwise the rest stay.
 final class SuperParameters implements Transformation {
   const SuperParameters({required this.enabled});
 
@@ -63,11 +53,8 @@ class _Fold {
 }
 
 /// Counts references to a fixed set of parameter elements within a subtree.
-class _ReferenceCounter extends RecursiveAstVisitor<void> {
-  _ReferenceCounter(this.targets);
-
-  final Set<Element> targets;
-
+class _ReferenceCounter(final Set<Element> targets)
+    extends RecursiveAstVisitor<void> {
   final counts = <Element, int>{};
 
   @override
@@ -80,11 +67,8 @@ class _ReferenceCounter extends RecursiveAstVisitor<void> {
   }
 }
 
-class _SuperParameterVisitor extends RecursiveAstVisitor<void> {
-  _SuperParameterVisitor(this.source);
-
-  final String source;
-
+class _SuperParameterVisitor(final String source)
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
