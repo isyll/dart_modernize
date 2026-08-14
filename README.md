@@ -147,7 +147,9 @@ final tags = ['base', ?extra];
 
 ## ⚙️ What it does
 
-Twenty-two passes, grouped into five families. Each is independently toggleable, and each is skipped on any code where the rewrite cannot be proven safe. All run by default except two opt-in ones: **sort members** (`--sort-members`), which only reorders code but can produce a large diff, and **collection elements** (`--collection-elements`), which restructures a run of statements into a single literal.
+Twenty-two passes, in five families. Each one can be turned on or off, and each skips any code where the rewrite is not provably safe.
+
+They all run by default except two: **sort members** (`--sort-members`), which only moves code but produces big diffs, and **collection elements** (`--collection-elements`), which turns a run of statements into one literal.
 
 | Feature | Description |
 |:--|:--|
@@ -459,7 +461,9 @@ for (final item in items) {
 }
 ```
 
-> Skipped when the variable is reassigned, compound-assigned (`+=`, etc.), or incremented/decremented (`++`/`--`) anywhere in the enclosing body, including inside closures. A classic `for (var i = 0; i < n; i++)` counter is left alone. The for-in case is what the lint `prefer_final_in_for_each` flags, so **fix all** also applies it, but only in projects that enable that rule; this pass does it everywhere. The two never collide, because this pass runs before **fix all** sees the file.
+> Skipped when the variable is written to anywhere in the enclosing body, including inside a closure: assigned, compound-assigned (`+=`), or incremented (`++`). A classic `for (var i = 0; i < n; i++)` counter is left alone.
+>
+> The for-in half is what `prefer_final_in_for_each` flags, so **fix all** applies it too, but only where a project enables that lint. This pass does it everywhere, and the two never clash because this one runs first.
 
 **Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
 
@@ -681,7 +685,9 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**Sort members** (off by default; switch it on with `--sort-members`, or run it alone with `--only sort-members`): reorders class members into canonical order (fields, constructors, getters/setters, then methods), sorting by name within each group. Fields keep their declared order, so field initialization order never changes. It is opt-in because it only reorders code (never changing behavior) yet is the biggest single source of diff noise, which buries the real modernizations under moved lines.
+**Sort members** (off by default, use `--sort-members`): reorders class members into fields, constructors, getters and setters, then methods, sorted by name within each group. Fields keep their declared order, so field initialization order never changes.
+
+It is opt-in because it never changes behaviour but produces the biggest diffs, which bury the real modernizations under moved lines.
 
 ```dart
 // before
@@ -818,7 +824,9 @@ dart_modernize --no-primary-constructors --no-organize-imports
 dart_modernize --sort-members
 ```
 
-Each pass has exactly one switch: an on-by-default pass takes `--no-<name>` (turn it off), an off-by-default pass takes `--<name>` (turn it on). `--only` sets the starting set (the defaults when omitted); `--no-<name>` removes from it and `--<name>` adds to it, so the switches compose with `--only`. Command-line order never matters: passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). The pass names are those listed under **What it does** above and printed by `dart_modernize --help`.
+Each pass has one switch: `--no-<name>` turns an on-by-default pass off, `--<name>` turns an off-by-default pass on.
+
+`--only` picks the starting set, and the switches add to or remove from it. The order you type them never matters; passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). `dart_modernize --help` lists every name.
 
 ### Choose where it runs
 
@@ -882,7 +890,9 @@ dart_modernize:
 - **`disabled`** switches passes off.
 - **`exclude`** adds glob patterns on top of `analyzer: exclude:` and any `--exclude` flags.
 
-CLI flags win over the file: `--only` replaces the file's selection entirely, and a pass's own switch (`--no-<name>` or `--<name>`) overrides the file for that pass. Since each pass has exactly one switch, that switch only counters the file in one direction; `--only` is the way to override the file in the other (e.g. to run a pass the file disabled). An unknown pass name, or a name listed under both `enabled` and `disabled`, is reported as an error.
+CLI flags win over the file. `--only` replaces the file's selection entirely, and a pass's own switch overrides the file for that pass.
+
+Each pass has only one switch, so it can only counter the file in one direction. Use `--only` for the other direction, for instance to run a pass the file disabled. An unknown name, or a name in both `enabled` and `disabled`, is an error.
 
 <br>
 
