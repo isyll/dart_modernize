@@ -6,5 +6,6 @@ class Item {
 
   Item(this.kind, this.isPrivate);
 
-  factory Item.named(Kind kind, String name) => Item(kind, name.startsWith('_'));
+  factory Item.named(Kind kind, String name) =>
+      Item(kind, name.startsWith('_'));
 }
