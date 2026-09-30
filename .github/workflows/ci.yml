@@ -29,7 +29,7 @@ jobs:
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-      - uses: dart-lang/setup-dart@v1.8.0
+      - uses: dart-lang/setup-dart@v1.8.1
         with:
           sdk: stable
 
