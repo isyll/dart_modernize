@@ -2,7 +2,7 @@
 
 # ⚡ dart_modernize
 
-A type-aware codemod that rewrites Dart and Flutter projects to use modern syntax wherever it is safe.
+Your Dart code, brought up to date. Safely.
 
 [![pub package](https://img.shields.io/pub/v/dart_modernize.svg)](https://pub.dev/packages/dart_modernize)
 [![sdk](https://img.shields.io/badge/dart-%3E%3D3.13-0175C2.svg)](https://dart.dev)
@@ -13,312 +13,217 @@ A type-aware codemod that rewrites Dart and Flutter projects to use modern synta
 
 ---
 
+Dart keeps getting nicer to write: dot shorthands, switch expressions, patterns, primary constructors. Your old code doesn't get any of it for free.
+
+`dart_modernize` goes through your project and rewrites it the modern way. It understands your types, so it only changes code when the result does exactly the same thing. If it isn't sure, it leaves the line alone.
+
 ```sh
-dart_modernize
+dart pub global activate dart_modernize
+dart_modernize --dry-run
 ```
 
-It resolves the project with full type information and applies each rewrite only where it provably keeps the same behavior, leaving the code shorter and more idiomatic.
+That shows every change as a diff and writes nothing. Happy with it? Run `dart_modernize` and it applies them.
 
 <br>
 
-## 🔍 Before and after
+## 👀 See it work
 
-<table>
-<tr>
-<th align="left">Before</th>
-<th align="left">After</th>
-</tr>
-<tr>
-<td>
+Here is a small file, before and after. This is real output from the test suite, not a mock-up.
+
+**Before**
 
 ```dart
-final Color c = Color.blue;
+enum Shape { circle, square, triangle }
 
-Button(
-  style: ButtonStyle.flat,
-  onTap: Handler.empty(),
-);
+String describe(Shape s) {
+  String label;
+  switch (s) {
+    case Shape.circle:
+      label = 'round';
+      break;
+    case Shape.square:
+    case Shape.triangle:
+      label = 'angular';
+      break;
+  }
+  return label;
+}
 
-class Point {
-  Point(int x, int y)
-      : _x = x,
-        _y = y;
-  final int _x;
-  final int _y;
+String greet(String who) {
+  final msg = 'Hello, ' + who + '!';
+  return msg;
+}
+
+List<int> gather(List<int> base, List<int>? extra) {
+  final all = [...base, if (extra != null) ...extra];
+  return all;
+}
+
+Queue<int> seedQueue(int seed) {
+  var q = Queue<int>();
+  q.add(seed);
+  q.add(seed + 1);
+  return q;
+}
+
+Shape defaultShape() {
+  return Shape.circle;
 }
 ```
 
-</td>
-<td>
+**After**
 
 ```dart
-final c = Color.blue;
+enum Shape { circle, square, triangle }
 
-Button(
-  style: .flat,
-  onTap: .empty(),
-);
-
-class Point(int _x, int _y);
-```
-
-</td>
-</tr>
-<tr>
-<td>
-
-```dart
-const Set<Permission> allowed = {
-  Permission.camera,
-  Permission.microphone,
-  Permission.storage,
+String describe(Shape s) => switch (s) {
+  .circle => 'round',
+  .square || .triangle => 'angular',
 };
+
+String greet(String who) => 'Hello, $who!';
+
+List<int> gather(List<int> base, List<int>? extra) => [...base, ...?extra];
+
+Queue<int> seedQueue(int seed) => Queue<int>()
+  ..add(seed)
+  ..add(seed + 1);
+
+Shape defaultShape() => .circle;
 ```
 
-</td>
-<td>
+Same behavior, about half the lines. A few more, from fields, methods and the kind of setup code every Flutter app has:
 
 ```dart
-const allowed = <Permission>{
-  .camera,
-  .microphone,
-  .storage,
-};
-```
+// before
+Level _level = Level.basic;
 
-</td>
-</tr>
-<tr>
-<td>
-
-```dart
-String label;
-switch (status) {
-  case Status.active:
-    label = 'on';
-    break;
-  default:
-    label = 'off';
+void promote() {
+  _level = Level.premium;
 }
-```
 
-</td>
-<td>
+static Account guest() {
+  return Account(owner: 'guest');
+}
+
+sl
+  ..registerSingleton<CrashReporter>(crashReporter ?? CrashReporter())
+  ..registerLazySingleton<ThemeCubit>(() => ThemeCubit(config: sl()));
+```
 
 ```dart
-final label = switch (status) {
-  .active => 'on',
-  _ => 'off',
-};
+// after
+Level _level = .basic;
+
+void promote() => _level = .premium;
+
+static Account guest() => .new(owner: 'guest');
+
+sl
+  ..registerSingleton<CrashReporter>(crashReporter ?? .new())
+  ..registerLazySingleton<ThemeCubit>(() => .new(config: sl()));
 ```
-
-</td>
-</tr>
-<tr>
-<td>
-
-```dart
-final p = Paint();
-p.color = accent;
-p.strokeWidth = 2.0;
-
-final tags = [
-  'base',
-  if (extra != null) extra,
-];
-```
-
-</td>
-<td>
-
-```dart
-final p = Paint()
-  ..color = accent
-  ..strokeWidth = 2.0;
-
-final tags = ['base', ?extra];
-```
-
-</td>
-</tr>
-</table>
 
 <br>
 
-## ⚙️ What it does
+## 🧰 What it can do
 
-Twenty-two passes, in five families. Each one can be turned on or off, and each skips any code where the rewrite is not provably safe.
+22 small passes. Each one does one job, and you can switch any of them on or off. All run by default except two, which are opt-in because their diffs are bigger: **sort-members** and **collection-elements**.
 
-They all run by default except two: **sort members** (`--sort-members`), which only moves code but produces big diffs, and **collection elements** (`--collection-elements`), which turns a run of statements into one literal.
-
-| Feature | Description |
+| Pass | In plain words |
 |:--|:--|
-| **Dot shorthands** | Collapses `ClassName.member` and `ClassName(...)` to `.member` and `.new(...)` wherever the context type makes the target unambiguous: arguments, return positions, assignments, equality checks, and collection literals, including the head of a selector chain (`DateTime.now().toUtc()` becomes `.now().toUtc()`). |
-| **Switch expressions** | Rewrites eligible statement switches as switch expressions with modern pattern syntax: fall-through cases become `\|\|` patterns and `default` becomes `_`. |
-| **Expression bodies** | Turns single-`return` block bodies into concise `=>` bodies for functions, methods, getters, and closures. |
-| **String interpolation** | Rewrites `'a ' + b + ' c'` concatenation chains into `'a $b c'` interpolation. |
-| **Cascades** | Collapses sequential member writes on a fresh local into a `..` cascade; drops the local when unused after the run. |
-| **Inline return** | Inlines a local that is immediately returned and used nowhere else: `final x = expr; return x;` becomes `return expr;`. |
-| **Final locals** | Replaces `var` with `final` on local variables, and on for-in loop variables, that are never reassigned, incremented, or compound-assigned. |
-| **Prefer inferred types** | Drops a redundant type annotation when the initializer already has exactly that type and that type is obvious from the initializer (locals, top-level consts, and `final`/`const` fields), and moves the type arguments onto a bare collection literal (`List<int> x = []` becomes `var x = <int>[]`). |
-| **Null-aware elements** | Folds `if (x != null) x` inside a collection into the null-aware element `?x`. |
-| **Null-aware spread** | Folds `if (l != null) ...l` into the null-aware spread `...?l`. |
-| **Null-aware conditionals** | Collapses `x == null ? null : x[i]` to `x?[i]` and `x != null ? x.foo : d` to `x?.foo ?? d`. Covers only the forms `dart fix` leaves behind. |
-| **Destructure for-in** | Moves a for-in variable's field reads into an object pattern in the loop header: a loop over `map.entries` reading `.key` and `.value` becomes `for (final MapEntry(:key, :value) in map.entries)`. |
-| **Destructure locals** | Collapses a local that only exists to read fields off it into one destructuring declaration: `final p = get(); final x = p.x; final y = p.y;` becomes `final Point(:x, :y) = get();`. |
-| **Private named parameters** | Folds constructor boilerplate into the private named parameter form (`this._field`). |
-| **Primary constructors** | Promotes eligible classes to the primary constructor form, including `const` ones, only when it is provably safe. |
-| **Super parameters** | Forwards constructor parameters straight to the superclass with `super.x`. |
-| **Organize imports** | Sorts, groups, and prunes unused directives. |
-| **Collection elements** | Folds a run of `add`/`addAll` calls on a freshly declared empty literal into one literal with collection-`if` and collection-`for` elements. **Off by default** (opt in with `--collection-elements`). |
-| **Sort members** | Reorders members into the canonical order. **Off by default** (opt in with `--sort-members`); it only moves code but can produce a large diff. |
-| **Sort constructors first** | Lifts every constructor ahead of the other members in each class, enum, mixin, and extension type. |
-| **Fix all** | Applies the same bulk fixes as `dart fix`, in the same pass. |
-| **Abstract final classes** | Adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the project. |
+| `dot-shorthands` | `Color.blue` becomes `.blue`, `Service()` becomes `.new()`, when Dart can already tell the type. |
+| `switch-expressions` | A `switch` that just picks a value becomes a switch expression. |
+| `expression-bodies` | A function that only returns something gets a `=>`. |
+| `string-interpolation` | `'Hi ' + name` becomes `'Hi $name'`. |
+| `cascades` | `x.a(); x.b();` becomes `x..a()..b()`. |
+| `inline-return` | `final x = f(); return x;` becomes `return f();`. |
+| `final-locals` | `var` becomes `final` when the variable never changes. |
+| `prefer-inferred-types` | `final String name = 'guest'` becomes `final name = 'guest'`. |
+| `null-aware-elements` | `[if (a != null) a]` becomes `[?a]`. |
+| `null-aware-spread` | `[if (l != null) ...l]` becomes `[...?l]`. |
+| `null-aware-conditionals` | `x == null ? null : x[0]` becomes `x?[0]`. |
+| `destructure-for-in` | `entry.key` and `entry.value` in a loop become `:key` and `:value` in the header. |
+| `destructure-locals` | Three lines that unpack a value become one. |
+| `private-named-parameters` | `Foo({required String name}) : _name = name` becomes `Foo({required this._name})`. |
+| `primary-constructors` | A class that only stores its constructor arguments gets a one-line header. |
+| `super-parameters` | `: super(key: key)` becomes `super.key`. |
+| `abstract-final-classes` | A class of only static members becomes `abstract final class`. |
+| `organize-imports` | Sorts, groups and removes unused imports. |
+| `sort-constructors-first` | Moves constructors to the top of the class. |
+| `fix-all` | Runs the same fixes as `dart fix --apply`. |
+| `sort-members` (off) | Puts class members in a standard order. |
+| `collection-elements` (off) | `list.add(a); list.add(b);` becomes one list literal. |
 
-> Every edit is type checked before it lands. The tool does not change the resolved type, the targeted element, the evaluation count, or the runtime behavior of an expression. If it cannot prove a change is safe, it leaves the code as is.
-
-<br>
-
-## 🔀 Rewrites vs reordering
-
-No pass changes what your program does. But they split into two groups that feel very different in review, which is worth knowing before you read a diff.
-
-**Syntax rewrites.** Twenty of the twenty-two passes rewrite code in place. Each one edits what it touches and leaves the rest alone, so the diff only covers the lines that actually changed.
-
-**Layout only.** Two passes move code without editing it: **sort members** and **sort constructors first**. They reorder declarations and change nothing else, so every line in the diff is a line that was cut from one place and pasted, byte for byte, into another.
-
-Reordering is safe because Dart does not resolve declarations by their position in the file. A method can call one declared below it, and a class can reference a top-level function defined later, so moving a declaration cannot change what any name resolves to.
-
-The one thing that genuinely does depend on position is **field initialization order**, and it is preserved. Fields move as a group into their slot in the canonical order, but never past one another: within that group they stay in the exact order they were declared, public and private alike. So a field whose initializer reads another field still runs after the one it depends on.
-
-The cost is review, not correctness. A file can turn into hundreds of moved lines, `git blame` points at the move, and a real change is easy to miss in the noise. That is why **sort members** is off by default. Run it on its own commit:
-
-```sh
-dart_modernize --only sort-members,sort-constructors-first
-```
+Every name above works with `--only` and `--no-<name>`. More on that in Usage below.
 
 <br>
 
-## 🧩 Transformations
+## 🖼️ More before and after
 
-Each pass below has a minimal before/after and the rule that decides when it is skipped.
+Everything below comes from the test suite. Under each example there is a short note on when the pass leaves your code alone.
 
-### Type-aware syntax
+### Less typing
 
-Passes that rely on full type resolution to guarantee the rewrite resolves to the exact same element.
-
-**Dot shorthands**: collapses redundant type names (enum values, static members, named constructors, and unnamed constructors (`.new`)) wherever the context type is unambiguous: arguments, return positions (including a factory constructor's), assignments, equality checks, collection elements, the head of a selector chain, explicitly-typed generic arguments, factory closures, and object/record pattern fields.
+**Dot shorthands.** Drop the type name when the context already says it: arguments, returns, assignments, comparisons, list items, and the start of a chain.
 
 ```dart
 // before
 Service create() => Service();
-Widget child(Event e) => dispatch(Event());
 visibility = Visibility.hidden;
 if (mode == Mode.fast) tick();
-
-// after
-Service create() => .new();
-Widget child(Event e) => dispatch(.new());
-visibility = .hidden;
-if (mode == .fast) tick();
-```
-
-> In a typed declaration whose type the initializer makes obvious, the type is dropped instead (see prefer inferred types); otherwise the annotation stays and supplies the context, so `final Color c = Color.blue` becomes `final Color c = .blue`.
-
-The head of a selector chain collapses too. The context type of the whole chain flows to the leading type name, so a named constructor, static method, or static getter that begins a `.method(...)`, `.getter`, `[index]`, or `!` chain loses its type name while the rest of the chain stays:
-
-```dart
-// before
 Duration remaining(DateTime expiry) => expiry.difference(DateTime.now().toUtc());
-DateTime? parse(String s) => DateTime.tryParse(s)?.toUtc();
 Color first() => Color.values.first;
 
 // after
+Service create() => .new();
+visibility = .hidden;
+if (mode == .fast) tick();
 Duration remaining(DateTime expiry) => expiry.difference(.now().toUtc());
-DateTime? parse(String s) => .tryParse(s)?.toUtc();
 Color first() => .values.first;
 ```
 
-A generic call pins its type from an explicit `<...>` rather than its arguments, so the argument then has a context, and a factory closure takes its context from the function type it is written against. Together these collapse the common service-locator / dependency-injection pattern:
-
-```dart
-// before
-sl
-  ..registerSingleton<CrashReporter>(crashReporter ?? CrashReporter())
-  ..registerLazySingleton<ThemeCubit>(() => ThemeCubit(storage: sl()));
-
-// after
-sl
-  ..registerSingleton<CrashReporter>(crashReporter ?? .new())
-  ..registerLazySingleton<ThemeCubit>(() => .new(storage: sl()));
-```
-
-Both are skipped when the type is still inferred from that very argument or closure (no explicit `<...>`), since collapsing would leave nothing to infer it from.
-
-A factory constructor's body returns the class's own type, so a `return` (or `=>`) that builds it collapses too:
-
-```dart
-// before
-factory AuthTokens.fromJson(Map<String, dynamic> json) {
-  return AuthTokens(token: json['token'] as String);
-}
-
-// after
-factory AuthTokens.fromJson(Map<String, dynamic> json) {
-  return .new(token: json['token'] as String);
-}
-```
-
-A constant inside an object or record pattern field matches that field, so it collapses against the field's type:
-
-```dart
-// before
-final label = switch (exception) {
-  NetworkException(kind: NetworkFailureKind.timeout) => 'timed out',
-  _ => 'unknown',
-};
-
-// after
-final label = switch (exception) {
-  NetworkException(kind: .timeout) => 'timed out',
-  _ => 'unknown',
-};
-```
-
-In collection literals the element type flows down to each element, and an untyped literal is given an explicit type so the shorthand is well defined:
+It works inside collections, records, patterns, and factory constructors too:
 
 ```dart
 // before
 final routes = [Route(home), Route(settings)];
-List<Widget> build() => [Widget(a: a, b: b), Widget(a: 'genial')];
 
-// after
-final routes = <Route>[.new(home), .new(settings)];
-List<Widget> build() => [.new(a: a, b: b), .new(a: 'genial')];
-```
-
-> Refuses to apply when the context type is `dynamic`, `Object`, an inferred `var`, or a type variable, anywhere the shortened form would not resolve to the exact same element.
-
-Record fields collapse too. Each field takes its context from the matching field of the record's type (positional by index, named by name), and an untyped list of records has its inferred element type hoisted so the field shorthands resolve:
-
-```dart
-// before
 final options = [
   (StockReadingType.opening, 'Opening', Icons.sunny),
   (StockReadingType.closing, 'Closing', Icons.night),
 ];
 
+final label = switch (exception) {
+  NetworkException(kind: NetworkFailureKind.timeout) => 'timed out',
+  _ => 'unknown',
+};
+
+factory AuthTokens.fromJson(Map<String, dynamic> json) {
+  return AuthTokens(token: json['token'] as String);
+}
+
 // after
+final routes = <Route>[.new(home), .new(settings)];
+
 final options = <(StockReadingType, String, IconData)>[
   (.opening, 'Opening', Icons.sunny),
   (.closing, 'Closing', Icons.night),
 ];
+
+final label = switch (exception) {
+  NetworkException(kind: .timeout) => 'timed out',
+  _ => 'unknown',
+};
+
+factory AuthTokens.fromJson(Map<String, dynamic> json) {
+  return .new(token: json['token'] as String);
+}
 ```
 
-> The record element type is hoisted only when every field is precise; a field typed `dynamic`, `Object`, `Null`, or an unresolved type variable leaves the record untouched.
+> Skipped whenever the type isn't certain: `dynamic`, `Object`, a `var`, or a generic type parameter. If `final Color c = Color.blue` has a type you wrote yourself, it becomes `final Color c = .blue`. If the type was redundant, it is dropped instead (see prefer-inferred-types).
 
-**Switch expressions**: rewrites an eligible statement `switch` as a switch expression with modern pattern syntax: fall-through cases collapse to `||` patterns, `default` becomes `_`, and a `throw` stays inline.
+**Switch expressions.** A `switch` that only fills in a value becomes a switch expression. Fall-through cases join with `||`, `default` becomes `_`.
 
 ```dart
 // before
@@ -343,13 +248,9 @@ final token = switch (charCode) {
 };
 ```
 
-> Also handles the `return`-per-case form, producing `return switch (…) { … };`. Left untouched when an arm runs more than one statement, branches assign different targets, breaks or continues to a label, has side effects, or is not exhaustive: anything where the expression form would change behavior.
+> Skipped when a case does more than one thing, assigns to different variables, jumps to a label, or doesn't cover every value.
 
-### Concise expressions
-
-Shorter bodies, strings, builder sequences, and type annotations, without changing any value.
-
-**Expression bodies**: turns a single-`return` block body into a `=>` body for functions, methods, getters, and closures.
+**Expression bodies and string interpolation.**
 
 ```dart
 // before
@@ -357,115 +258,86 @@ int square(int x) {
   return x * x;
 }
 
-// after
-int square(int x) => x * x;
-```
-
-> Kept as a block when it holds more than one statement, or a comment the arrow form would silently drop.
-
-**String interpolation**: rewrites `+` concatenation chains into interpolation.
-
-```dart
-// before
-String greet(String name) => 'Hello, ' + name + '!';
 String row(String a, String b) => '| ' + a + ' | ' + b + ' |';
 
 // after
-String greet(String name) => 'Hello, $name!';
+int square(int x) => x * x;
+
 String row(String a, String b) => '| $a | $b |';
 ```
 
-> Only when every piece is a side-effect-free `String`. Arithmetic `+` and method-call operands are left exactly as written.
+> A body with several statements, or with a comment that would get lost, stays a block. Only real strings are interpolated; `1 + 2` is left alone.
 
-**Cascades**: collapses sequential member writes and calls on a freshly declared local into a single cascade. When the local is unused after the run it is dropped entirely.
+**Cascades.** Stop repeating the variable name.
 
 ```dart
-// before: local kept
+// before
 final paint = Paint();
 paint.color = accent;
 paint.strokeWidth = 2.0;
 paint.style = PaintingStyle.stroke;
 
-// after: local kept
+final reporter = Reporter(source);
+reporter.error('not found');
+reporter.errorHint('check spelling');
+
+// after
 final paint = Paint()
   ..color = accent
   ..strokeWidth = 2.0
   ..style = PaintingStyle.stroke;
 
-// before: local unused after run
-final reporter = Reporter(source);
-reporter.error('not found');
-reporter.errorHint('check spelling');
-
-// after: dropped to a bare statement cascade
 Reporter(source)
   ..error('not found')
   ..errorHint('check spelling');
 ```
 
-> Applies only when the target is not reassigned, read between writes, or passed as an argument within the run, and no right-hand side reads the target.
+> Skipped if the variable is reassigned, read in the middle of the run, or passed somewhere.
 
-**Inline return**: inlines a local whose only remaining use is an immediate bare `return`.
+**Inline return.** Passes chain nicely: cascades, then inline-return, then expression-bodies.
 
 ```dart
 // before
-final value = compute();
-return value;
+Connection open(String host, String token) {
+  var conn = Connection(host);
+  conn.open();
+  conn.authenticate(token);
+  return conn;
+}
 
 // after
-return compute();
-```
-
-This also handles the intermediate form produced by the **cascades** pass in a subsequent run:
-
-```dart
-// before (after cascades)
-var conn = Connection(host)
-  ..open()
-  ..authenticate(token);
-return conn;
-
-// after
-return Connection(host)
+Connection open(String host, String token) => Connection(host)
   ..open()
   ..authenticate(token);
 ```
 
-> Skipped when the local has more than one use, carries a comment, is declared alongside other variables in one statement, or the return is not an immediate bare reference to the local.
+> Skipped when the variable is used more than once or carries a comment.
 
-**Final locals**: replaces `var` with `final` on local variables that are never reassigned anywhere in the enclosing function body, and on for-in loop variables that are never reassigned in the loop.
+### Fewer mistakes
+
+**Final locals.** `var` becomes `final` when nothing ever reassigns it.
 
 ```dart
 // before
 var name = user.displayName;
 var multiplier = getMultiplier();
-print(name);
-return multiplier * rate;
 
-// after
-final name = user.displayName;
-final multiplier = getMultiplier();
-print(name);
-return multiplier * rate;
-```
-
-```dart
-// before
 for (var item in items) {
   render(item);
 }
 
 // after
+final name = user.displayName;
+final multiplier = getMultiplier();
+
 for (final item in items) {
   render(item);
 }
 ```
 
-> Skipped when the variable is written to anywhere in the enclosing body, including inside a closure: assigned, compound-assigned (`+=`), or incremented (`++`). A classic `for (var i = 0; i < n; i++)` counter is left alone.
->
-> The for-in half is what `prefer_final_in_for_each` flags, so **fix all** applies it too, but only where a project enables that lint. This pass does it everywhere, and the two never clash because this one runs first.
+> A variable that is changed anywhere, even inside a closure (`+=`, `++`, `=`), stays `var`. So does a classic `for (var i = 0; i < n; i++)`.
 
-**Prefer inferred types**: drops a type annotation the initializer already implies, and moves the type arguments onto a bare collection literal.
+**Prefer inferred types.** If the right-hand side already makes the type obvious, you don't have to repeat it.
 
 ```dart
 // before
@@ -473,65 +345,37 @@ final String name = 'guest';
 const int retries = 3;
 final List<String> tags = [];
 final Logger _log = Logger();
-final Client _client = .new();
 
 // after
 final name = 'guest';
 const retries = 3;
 final tags = <String>[];
 final _log = Logger();
-final _client = Client();
 ```
 
-> The type is only dropped when the initializer already says it plainly: a literal, a typed collection literal, a written-out constructor call, or a cast. A method call, a property access or a bare identifier is not plain enough, so those keep their annotation. This matches the analyzer's `omit_obvious_*` and `specify_nonobvious_*` rules, so `dart fix` will not put the type back.
->
-> Applies to locals, top-level consts, and `final`/`const` fields with an initializer. Mutable fields and non-const top-level variables are left alone.
->
-> Dropping the type wins over the `.new()` shorthand: `final Foo _x = Foo()` becomes `final _x = Foo()`, and a field already written `final Foo _x = .new()` is expanded back to `final _x = Foo()`.
+> The type is kept when the right-hand side isn't obvious, like `final Foo x = compute()`. This follows the analyzer's own `omit_obvious_*` lints, so `dart fix` won't put the type back.
 
-### Null-aware collections
-
-The Dart 3.8 null-aware collection syntax, applied only when the rewrite preserves single evaluation.
-
-**Null-aware elements**: folds a null guard inside a collection into `?x`.
+### Null checks, shorter
 
 ```dart
 // before
 List<int> build(int? a) => [if (a != null) a];
-
-// after
-List<int> build(int? a) => [?a];
-```
-
-**Null-aware spread**: folds a guarded spread into `...?l`.
-
-```dart
-// before
-List<int> build(List<int>? extra) => [0, if (extra != null) ...extra];
-
-// after
-List<int> build(List<int>? extra) => [0, ...?extra];
-```
-
-> `?expr` evaluates the operand **once**, where the old `if`/value form evaluated it twice. So these apply only to a stable, side-effect-free reference (a local or const). Getters, method calls, and index lookups are left alone.
-
-**Null-aware conditionals**: collapses a null-check conditional into `?[]` and `??`.
-
-```dart
-// before
+List<int> extend(List<int>? extra) => [0, if (extra != null) ...extra];
 int? first(List<int>? xs) => xs == null ? null : xs[0];
 String label(Box? box, String fallback) => box != null ? box.name : fallback;
 
 // after
+List<int> build(int? a) => [?a];
+List<int> extend(List<int>? extra) => [0, ...?extra];
 int? first(List<int>? xs) => xs?[0];
 String label(Box? box, String fallback) => box?.name ?? fallback;
 ```
 
-> Only these two shapes. The lints `prefer_if_null_operators` and `prefer_null_aware_operators` ship in `package:lints/recommended.yaml`, so **fix all** already handles `x == null ? d : x` and `x == null ? null : x.foo`. What is left is the index form, which no lint covers, and a chain with a real fallback instead of `null`.
->
-> The fallback form needs the chain's type to be non-nullable. If `box.name` could itself be null, `box != null ? box.name : d` gives null where `box?.name ?? d` gives `d`. Both forms also need the tested expression to be a plain local or parameter.
+> `?x` reads `x` once, where the old code read it twice. So this only applies to plain locals and parameters, never to a getter or a method call. For the `??` form, the value must be non-nullable, otherwise the two versions would give different answers.
 
-**Destructure for-in**: moves a loop variable's field reads into an object pattern in the header.
+### Unpacking values
+
+**Destructure for-in**
 
 ```dart
 // before
@@ -545,11 +389,7 @@ for (final MapEntry(:key, :value) in scores.entries) {
 }
 ```
 
-> Only the fields the body reads are moved, and each binding keeps the field's own name. Skipped when the loop variable is used whole, reassigned, or has a method called on it, or when a bound name is already taken in the enclosing function.
->
-> Fields must be final and non-late. The pattern reads every field once per iteration, where the body read them where they appeared, so a computed getter could end up running when it did not before. Positional record fields (`pair.$1`) have no name to bind, so they are skipped.
-
-**Destructure locals**: collapses a local that only exists to read fields off it.
+**Destructure locals**
 
 ```dart
 // before
@@ -557,52 +397,21 @@ final result = computePair();
 final a = result.$1;
 final b = result.$2;
 
-// after
-final (a, b) = computePair();
-```
-
-```dart
-// before
 final p = getPoint();
 final x = p.x;
 final y = p.y;
 
 // after
+final (a, b) = computePair();
+
 final Point(:x, :y) = getPoint();
 ```
 
-> The names come from the locals you already wrote, so nothing is invented. One named differently from its field keeps its own name: `final first = p.x` gives `Point(x: first)`.
->
-> Skipped when the intermediate is used for anything else, when another statement interrupts the run, or when a statement carries a comment the rewrite would drop. Fields must be final and non-late, for the same reason as destructure for-in: the reads all move up to the declaration. Records with named fields are skipped.
+> Skipped when the variable is used for something else too, or when a comment sits between the lines.
 
-**Collection elements** (off by default): folds a step-by-step build into one literal.
+### Tidier classes
 
-```dart
-// before
-final items = <Widget>[];
-items.add(header);
-if (showBody) items.add(body);
-for (final s in sections) items.add(s);
-
-// after
-final items = <Widget>[
-  header,
-  if (showBody) body,
-  for (final s in sections) s,
-];
-```
-
-> Opt in with `--collection-elements`. This one turns a run of statements into a single expression, a bigger structural change than any other pass makes, which is why it is off by default.
->
-> The literal has to start out empty, and the statements after it have to be `add`/`addAll` calls, or an `else`-less `if` or a `for` around one. Anything else ends the run, so the part before it is folded and the rest stays. Reading the collection while building it (`items.add(items.length)`) also ends the run, since a literal cannot express that.
->
-> It runs before **cascades** on purpose. Both passes want the same statements, and cascades would otherwise fold them into `<Widget>[]..add(header)..add(body)` first, leaving nothing to collapse into a literal.
-
-### Constructor shorthands
-
-Folds constructor boilerplate into the shorthands the language now provides.
-
-**Private named parameters**: folds the "public param, private field" boilerplate into a private named parameter.
+**Private named parameters**
 
 ```dart
 // before
@@ -618,9 +427,7 @@ class User {
 }
 ```
 
-> Left alone when the parameter is transformed, renamed, or reused elsewhere in the initializer list.
-
-**Primary constructors**: promotes a class whose only job is to bind constructor parameters to fields.
+**Primary constructors** (stable since Dart 3.13)
 
 ```dart
 // before
@@ -630,28 +437,31 @@ class Point {
   Point(this.x, this.y);
 }
 
-// after
-class Point(final int x, final int y);
-```
-
-A `const` constructor promotes to a constant primary constructor, with the modifier between `class` and the name:
-
-```dart
-// before
 class Origin {
   final int x;
   const Origin(this.x);
 }
 
+class Record {
+  final String name;
+  final bool active = true;
+
+  Record(this.name);
+}
+
 // after
+class Point(final int x, final int y);
+
 class const Origin(final int x);
+
+class Record(final String name) {
+  final bool active = true;
+}
 ```
 
-> Primary constructors went stable in Dart 3.13, which is also this tool's SDK floor, so nothing extra is needed to opt in. The pass double-checks the resolved language version anyway and stays a no-op if it is somehow not met.
->
-> Skipped when the class has another constructor, a constructor body, an initializer list, or a non-`this.` parameter. A *named* primary constructor (`class Point.origin(...)`) is valid 3.13 syntax but is never produced, since the pass only promotes an unnamed constructor.
+> Skipped when the class is abstract, is extended in the same file, has a second constructor, has a constructor body or an initializer list, or takes a parameter that isn't a plain `this.x`. Factory and redirecting constructors don't count against it and stay in the body. A field with a doc comment or an annotation keeps its class as it is, because the header has nowhere to put them.
 
-**Super parameters**: forwards a constructor parameter straight to the superclass.
+**Super parameters**
 
 ```dart
 // before
@@ -659,90 +469,25 @@ class MyWidget extends Widget {
   const MyWidget({Key? key}) : super(key: key);
 }
 
+class Book extends Item {
+  const Book(String sku, this.cost) : super(sku);
+  final double cost;
+}
+
 // after
 class MyWidget extends Widget {
   const MyWidget({super.key});
 }
-```
 
-> Only when the parameter is passed through unchanged and not otherwise read, renamed, or given a different default.
-
-### Project hygiene
-
-Whole-file cleanup that runs after the structural passes settle.
-
-**Organize imports**: sorts directives into `dart:`, `package:`, then relative groups, separates them with a blank line, and prunes the unused.
-
-```dart
-// before
-import 'models.dart';
-import 'dart:math';
-import 'dart:convert'; // unused
-
-// after
-import 'dart:math';
-
-import 'models.dart';
-```
-
-**Sort members** (off by default, use `--sort-members`): reorders class members into fields, constructors, getters and setters, then methods, sorted by name within each group. Fields keep their declared order, so field initialization order never changes.
-
-It is opt-in because it never changes behaviour but produces the biggest diffs, which bury the real modernizations under moved lines.
-
-```dart
-// before
-class Account {
-  void deposit(int n) {}
-  Account(this.id);
-  final String id;
-}
-
-// after
-class Account {
-  final String id;
-  Account(this.id);
-  void deposit(int n) {}
+class Book extends Item {
+  const Book(super.sku, this.cost);
+  final double cost;
 }
 ```
 
-**Sort constructors first**: lifts every constructor ahead of the other members of a class, enum, mixin, or extension type, satisfying the `sort_constructors_first` lint. It runs after sort members, so the two compose: sort members settles the canonical order, then this pass moves the constructors to the front. Attached doc comments and annotations travel with their constructor.
+> Only when the parameter is handed straight to the parent, unchanged.
 
-```dart
-// before
-class Account {
-  final String id;
-  Account(this.id);
-  void deposit(int n) {}
-}
-
-// after
-class Account {
-  Account(this.id);
-  final String id;
-  void deposit(int n) {}
-}
-```
-
-**Fix all**: applies the same bulk fixes as `dart fix` in the same pass: adding `@override`, dropping `new`, and more.
-
-```dart
-// before
-class Dog extends Animal {
-  String speak() => 'woof';
-}
-
-// after
-class Dog extends Animal {
-  @override
-  String speak() => 'woof';
-}
-```
-
-> It applies the lints the *target* project enables, so new SDK lints work without any change here. Dart 3.13 added several: `use_primary_constructors`, `use_declaring_parameters`, `initialize_in_field_declaration`, `unnecessary_primary_constructor_body`, `unnecessary_type_name_in_constructor`, `empty_container_bodies`, `unnecessary_const_in_enum_constructor`, and `async_return_with_no_await`.
->
-> `use_primary_constructors` does the same job as the **primary constructors** pass. They do not clash: the pass runs first, and by the time `dart fix` sees the file the promotion is already done.
-
-**Abstract final classes**: adds `abstract final` to classes that expose only static members and are never instantiated, extended, implemented, or mixed in anywhere in the analyzed project. A lone private preventing constructor is removed because `abstract final` already prevents external instantiation.
+**Abstract final classes**
 
 ```dart
 // before
@@ -759,33 +504,124 @@ abstract final class AppColors {
 }
 ```
 
-> Pure relocation: constructors keep their relative order, as do the members they move ahead of, and a body that already starts with its constructors is left untouched.
+> Needs the whole project in view: skipped if the class is created, extended, implemented or mixed in anywhere, or already has a class modifier. The empty private constructor goes away, since `abstract final` already blocks instances.
+
+### Housekeeping
+
+**Organize imports**
+
+```dart
+// before
+import 'models.dart';
+import 'dart:math';
+import 'dart:convert'; // unused
+
+// after
+import 'dart:math';
+
+import 'models.dart';
+```
+
+**Sort constructors first** (keeps `sort_constructors_first` happy)
+
+```dart
+// before
+class Account {
+  final String id;
+  Account(this.id);
+  void deposit(int n) {}
+}
+
+// after
+class Account {
+  Account(this.id);
+  final String id;
+  void deposit(int n) {}
+}
+```
+
+**Fix all.** Runs `dart fix --apply`, so it picks up whatever lints your own project turns on, including the ones new Dart versions add.
+
+```dart
+// before
+class Dog extends Animal {
+  String speak() => 'woof';
+}
+
+// after
+class Dog extends Animal {
+  @override
+  String speak() => 'woof';
+}
+```
+
+> The Dart 3.13 lint `use_primary_constructors` does the same job as the primary-constructors pass. They never clash: the pass runs first, so `dart fix` finds nothing left to do.
+
+### Opt-in passes
+
+**Collection elements** (`--collection-elements`). Turns a build-it-step-by-step list into a single literal.
+
+```dart
+// before
+final items = <Widget>[];
+items.add(header);
+if (showBody) items.add(body);
+for (final s in sections) items.add(s);
+
+// after
+final items = <Widget>[
+  header,
+  if (showBody) body,
+  for (final s in sections) s,
+];
+```
+
+> It's off by default because it turns several statements into one expression, which is a bigger change than any other pass makes. It only starts from an empty literal, and stops at the first statement that reads the list while it's being built.
+
+**Sort members** (`--sort-members`). Puts fields first, then constructors, getters and setters, then methods, sorted by name.
+
+```dart
+// before
+class Account {
+  void deposit(int n) {}
+  Account(this.id);
+  final String id;
+}
+
+// after
+class Account {
+  final String id;
+  Account(this.id);
+  void deposit(int n) {}
+}
+```
+
+> It never changes what your code does, but it can move hundreds of lines and make `git blame` point at the move. That's why it's opt-in. Run it on its own commit:
+>
+> ```sh
+> dart_modernize --only sort-members,sort-constructors-first
+> ```
+>
+> Fields keep their relative order, so a field that reads another field during initialization still runs after it.
 
 <br>
 
-## 📋 Requirements
+## 🛡️ Will it break my code?
 
-Dart SDK `3.13.0` or newer.
+It's built so it can't, in four ways.
 
-The minimum SDK is fixed per release. When a future Dart version ships new syntax, a new major version of `dart_modernize` adds support for it. Staying on an older SDK? Pin the matching release and it keeps working.
+* **It checks types, not text.** Every edit comes from fully resolved types, so a rewrite always points at the same thing as before. If it can't prove that, it does nothing.
+* **It keeps your program's behavior.** Expressions run the same number of times as before.
+* **It double-checks itself.** After editing, it analyzes the changed files again and puts back any file that gained a new error. So a run never leaves code that doesn't compile. (`--no-verify` turns that off.)
+* **It won't mix with your work.** It refuses to run on a Git tree with uncommitted changes, so its edits land in their own diff. (`--allow-dirty` overrides that. It doesn't apply under `--dry-run` or `--check`, or outside a Git repo.)
 
-The floor is `3.13.0` because primary constructors became stable there and the promotion pass emits that syntax. The tool refuses to run on a project whose SDK constraint allows anything older, rather than letting a run reach code that cannot compile the result.
+Also good to know:
 
-<br>
+* Generated code is skipped (`*.g.dart`, `*.freezed.dart`, localization output, anything marked `DO NOT EDIT`).
+* Line endings and UTF-8 BOMs are kept, so you only see the lines that really changed (`--line-endings` overrides).
+* Running it twice is safe: the second run changes nothing.
 
-## 📦 Installation
-
-Globally, as a CLI:
-
-```sh
-dart pub global activate dart_modernize
-```
-
-Or per project, as a dev dependency:
-
-```sh
-dart pub add --dev dart_modernize
-```
+The habit that works best: clean tree, `--dry-run`, read the diff, run it, commit.
 
 <br>
 
@@ -795,147 +631,136 @@ dart pub add --dev dart_modernize
 dart_modernize [options] [path]
 ```
 
-`dart_modernize` takes an optional path and a handful of flags. With no path it runs in the current directory; with no flags it runs every pass. Nothing is written until you drop `--dry-run`, so start there and review the diff.
+With no path it works on the current directory. With no options it runs every on-by-default pass.
 
 ### Start here
 
 ```sh
-# Preview every change as a unified diff, writing nothing
+# See what would change, write nothing
 dart_modernize --dry-run
 
-# Apply the changes once the diff looks right
+# Apply it
 dart_modernize
 ```
 
-### Choose which passes run
-
-Every pass runs by default except **sort-members** and **collection-elements**, which are opt-in. Adjust the set three ways, which compose:
+### Pick your passes
 
 ```sh
-# Allow-list: run ONLY the passes you name (comma-separate or repeat --only)
+# Only these passes
 dart_modernize --only cascades
 dart_modernize --only cascades,inline-return
 
-# Deny-list: run everything EXCEPT the passes you switch off
+# Everything except these
 dart_modernize --no-primary-constructors
 dart_modernize --no-primary-constructors --no-organize-imports
 
-# Switch on an off-by-default pass (sort-members and collection-elements)
+# Turn on an opt-in pass
 dart_modernize --sort-members
 dart_modernize --collection-elements
 ```
 
-Each pass has one switch: `--no-<name>` turns an on-by-default pass off, `--<name>` turns an off-by-default pass on.
+Every pass has one switch: `--no-<name>` turns off a pass that's on by default, `--<name>` turns on one that's off. `--only` picks the starting set and the switches adjust it. The order you type them in doesn't matter: passes always run in the same fixed order (see [`doc/ORDERING.md`](doc/ORDERING.md)). `dart_modernize --help` lists every name.
 
-`--only` picks the starting set, and the switches add to or remove from it. The order you type them never matters; passes always run in their fixed pipeline order (see [`doc/ORDERING.md`](doc/ORDERING.md)). `dart_modernize --help` lists every name.
-
-### Choose where it runs
+### Pick your folder
 
 ```sh
-# Modernize one directory instead of the whole project
+# One directory instead of the whole project
 dart_modernize lib/
 
-# A selection and a path together: run only cascades, over lib/
+# A pass selection and a folder together
 dart_modernize --only cascades lib/
 ```
 
-The positional argument is **always a path**, so a directory named after a pass is never mistaken for a selection: `dart_modernize cascades` modernizes the `cascades/` folder, whereas `dart_modernize --only cascades` runs the cascades pass.
+The positional argument is always a path. So `dart_modernize cascades` modernizes a folder called `cascades/`, while `dart_modernize --only cascades` runs the cascades pass.
 
-### Gate CI
+### Use it in CI
 
 ```sh
-# Exit non-zero if any file would change, and write nothing
+# Fail if any file would change, write nothing
 dart_modernize --check
 
-# Same gate, but also print the diff of what would change
+# Same, and print the diff
 dart_modernize --check --dry-run
 ```
 
-### Options
+### All options
 
-| Option | Description |
+| Option | What it does |
 |:--|:--|
 | `-h, --help` | Show usage and exit. |
 | `-v, --version` | Print the version and exit. |
-| `-n, --dry-run` | Preview changes as a unified diff; write nothing. |
-| `--check` | Write nothing and exit non-zero if any file would change, for gating CI (like `dart format --set-exit-if-changed`). Prints only a summary on its own; combine with `--dry-run` to also print the diff. |
-| `--only <name>` | Run **only** the named passes and skip the rest. Comma-separate or repeat the flag to name several (`--only cascades,inline-return`). Names are the passes listed above; without `--only`, every pass runs. |
-| `--no-<name>` | Turn an on-by-default pass off, e.g. `--no-primary-constructors`. Composes with `--only` (removes the pass from the selected set). |
-| `--sort-members` | Switch on sort-members (off by default because it only reorders members but can produce a large diff). Composes with `--only` (adds it to the selected set). |
-| `--collection-elements` | Switch on collection-elements (off by default because it turns a run of statements into one literal). Composes with `--only` (adds it to the selected set). |
-| `--verbose` | Print per-file progress and passes that made no change. |
-| `--[no-]color` | Force ANSI color on or off. Default: auto-detect, so color is on when writing to a terminal and off when piped or when `NO_COLOR` is set. `--color` forces it on (handy when piping to a pager); `--no-color` forces it off. |
-| `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |
-| `--[no-]verify` | Re-analyze changed files after editing and revert any that gain a new error, then exit non-zero. On by default; `--no-verify` skips the extra analysis. |
-| `--allow-dirty` | Run even when the Git working tree has uncommitted changes. By default the tool refuses on a dirty tree, so its edits land in their own reviewable diff. Skipped when the target is not in a Git repository or under `--dry-run`/`--check`. |
-| `--line-endings <auto\|lf\|crlf>` | Line endings for files the tool rewrites. `auto` (default) keeps each file's existing endings; `lf` or `crlf` forces one. A UTF-8 BOM is always preserved. |
-
-Run `dart_modernize --help` for the same reference, always current.
+| `-n, --dry-run` | Show the changes as a diff, write nothing. |
+| `--check` | Write nothing and exit non-zero if any file would change, like `dart format --set-exit-if-changed`. Prints only a summary on its own; add `--dry-run` for the diff too. |
+| `--only <name>` | Run only the named passes. Comma-separate them or repeat the flag. |
+| `--no-<name>` | Turn off a pass that's on by default, e.g. `--no-primary-constructors`. |
+| `--sort-members` | Turn on sort-members. |
+| `--collection-elements` | Turn on collection-elements. |
+| `--verbose` | Print per-file progress and the passes that changed nothing. |
+| `--[no-]color` | Force color on or off. By default it follows the terminal and respects `NO_COLOR`. |
+| `--exclude <glob>` | Skip files matching this glob, relative to the project root. Repeatable. |
+| `--[no-]verify` | Re-analyze changed files and revert any that gain an error, then exit non-zero. On by default. |
+| `--allow-dirty` | Run even with uncommitted changes in Git. |
+| `--line-endings <auto\|lf\|crlf>` | Line endings for rewritten files. `auto` (default) keeps what each file had. |
 
 <br>
 
-## 🗂️ Configuration file
+## 🗂️ Keep settings in your project
 
-Record per-project settings in a `dart_modernize:` section of `analysis_options.yaml`, so they live in the repo instead of being repeated on every run:
+Put your choices in `analysis_options.yaml` so nobody has to retype them:
 
 ```yaml
 dart_modernize:
   enabled:
-    - sort-members        # switch on an off-by-default pass
+    - sort-members        # turn on an opt-in pass
   disabled:
-    - organize-imports    # switch off an on-by-default pass
+    - organize-imports    # turn off a default pass
   exclude:
-    - lib/generated/**    # extra globs, added to analyzer: exclude and --exclude
+    - lib/generated/**    # extra files to skip
 ```
 
-- **`enabled`** switches passes on (use it for opt-in passes like `sort-members`).
-- **`disabled`** switches passes off.
-- **`exclude`** adds glob patterns on top of `analyzer: exclude:` and any `--exclude` flags.
+- **`enabled`** turns passes on (handy for the opt-in ones).
+- **`disabled`** turns passes off.
+- **`exclude`** adds globs on top of `analyzer: exclude:` and any `--exclude` flags.
 
-CLI flags win over the file. `--only` replaces the file's selection entirely, and a pass's own switch overrides the file for that pass.
-
-Each pass has only one switch, so it can only counter the file in one direction. Use `--only` for the other direction, for instance to run a pass the file disabled. An unknown name, or a name in both `enabled` and `disabled`, is an error.
+Command-line flags win over the file. `--only` replaces the file's selection completely. A pass's own switch beats the file for that pass. Since each pass has a switch in one direction only, use `--only` to run something the file turned off. An unknown name, or one listed under both `enabled` and `disabled`, is an error.
 
 <br>
 
-## 🚫 Excluding files
+## 🚫 Skipping files
 
-The tool skips files in five ways, checked in order.
+Some files are never touched, and you can add more.
 
-**Built-in**: always excluded, no configuration required.
+**Always skipped:**
 
-| Pattern | Reason |
+| What | Why |
 |:--|:--|
-| `*.g.dart`, `*.freezed.dart`, `*.gen.dart` | Code-generation outputs |
-| `*.gr.dart`, `*.pb.dart`, `*.pbenum.dart` | Router and protobuf outputs |
-| `build/**` | Build directory |
-| leading `// GENERATED CODE - DO NOT MODIFY`, `// DO NOT EDIT`, `// AUTO-GENERATED` | Generated code that uses a plain file name (e.g. some `build_runner` outputs). The marker is only honored in the file's leading comment block. |
+| `*.g.dart`, `*.freezed.dart`, `*.gen.dart` | Generated code |
+| `*.gr.dart`, `*.pb.dart`, `*.pbenum.dart` | Router and protobuf output |
+| `build/**` | Build output |
+| Files that start with `// GENERATED CODE - DO NOT MODIFY`, `// DO NOT EDIT` or `// AUTO-GENERATED` | Generated code with a plain file name. Only the file's leading comments count. |
 
-**`l10n.yaml`**: honored automatically. When a project declares one, the `flutter gen-l10n` output it points at (`output-dir` and `output-localization-file`, defaulting to `lib/l10n/app_localizations.dart`) and every per-locale sibling (`app_localizations_fr.dart`, …) are skipped, since they are regenerated on the next build. Without an `l10n.yaml`, a hand-written `app_localizations.dart` is treated like any other source.
+**Also skipped, automatically:**
 
-**`analysis_options.yaml`**: honored automatically. Any pattern listed under `analyzer: exclude:` is picked up without any extra flags:
+- **Flutter localizations.** If you have an `l10n.yaml`, the `gen-l10n` output it points to (default `lib/l10n/app_localizations.dart`) and every per-language file (`app_localizations_fr.dart`, …) are skipped. Without an `l10n.yaml`, a hand-written `app_localizations.dart` is treated like any other file.
+- **Your analyzer excludes.** Anything under `analyzer: exclude:` in `analysis_options.yaml`:
 
-```yaml
-analyzer:
-  exclude:
-    - lib/src/proto/**
-    - test/golden/**
-```
+  ```yaml
+  analyzer:
+    exclude:
+      - lib/src/proto/**
+      - test/golden/**
+  ```
 
-**`dart_modernize: exclude:`**: the project config section above takes exclude globs too, merged with the `analyzer: exclude:` list and any `--exclude` flags. Use it for paths you want skipped by this tool but kept in the analyzer's own view.
+**Extra, just for this tool:**
 
-**`--exclude` flag**: for ad-hoc patterns not already in `analysis_options.yaml`. The pattern is matched against the path relative to the project root and the flag can be repeated:
+- **`dart_modernize: exclude:`** in `analysis_options.yaml`, for paths you want this tool to skip but the analyzer to keep seeing.
+- **`--exclude`** on the command line, for one-off cases:
 
-```sh
-# Exclude a single directory
-dart_modernize --exclude "lib/legacy/**"
-
-# Exclude multiple paths
-dart_modernize --exclude "lib/legacy/**" --exclude "test/snapshots/**"
-
-# Combine with a target path
-dart_modernize lib/ --exclude "lib/src/vendor/**"
-```
+  ```sh
+  dart_modernize --exclude "lib/legacy/**"
+  dart_modernize --exclude "lib/legacy/**" --exclude "test/snapshots/**"
+  dart_modernize lib/ --exclude "lib/src/vendor/**"
+  ```
 
 <br>
 
@@ -948,33 +773,42 @@ dart_modernize lib/ --exclude "lib/src/vendor/**"
    check                        ordered passes
 ```
 
-1. **Validate.** Checks that a `pubspec.yaml` exists and declares an SDK constraint that requires Dart `3.13.0` or newer, so the project can be resolved and the result will compile.
-2. **Resolve.** Loads the project with full type resolution, library by library.
-3. **Transform.** Runs a fixed sequence of pass groups. Each group is resolved once and applied before the next runs, so a pass that builds on an earlier one (a shorthand over a switch expression another pass produced, say) reads the finished result. See [`doc/ORDERING.md`](doc/ORDERING.md).
-4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, moves constructors first, and runs `dart format`.
-
-Re-running is safe: the first run does all the work and later runs change nothing. The tool is idempotent by design.
+1. **Validate.** Checks that there's a `pubspec.yaml` with an SDK constraint that requires Dart `3.13.0` or newer.
+2. **Resolve.** Loads your project with full type information.
+3. **Transform.** Runs the passes in groups, in a fixed order. Each group finishes before the next starts, so a pass can build on what an earlier one wrote. The [ordering notes](doc/ORDERING.md) explain why each pass sits where it does.
+4. **Finalize.** Runs `dart fix`, organizes imports, sorts members, moves constructors first, then `dart format`.
 
 <br>
 
-## 🛡️ Safety
+## 📋 Requirements
 
-* **Dry run first.** Produces a full diff before touching any file.
-* **Skips generated code.** Ignores `*.g.dart`, `*.freezed.dart`, and other build outputs, `flutter gen-l10n` localization files, and any file carrying a `DO NOT EDIT` header.
-* **Refuses ambiguity.** Will not apply a shorthand when the context type is too imprecise to guarantee an identical result.
-* **Preserves evaluation.** Keeps the number of times an expression runs identical, so it skips sugar like `?expr` unless the operand is provably stable and side-effect free.
-* **Type-checked edits.** Every rewrite is computed from fully resolved types, so the targeted element and the static type stay identical.
-* **Verifies and rolls back.** After editing, re-analyzes the changed files and restores any that gained a new error, so a run never leaves a file that no longer compiles (`--no-verify` opts out).
-* **Refuses a dirty tree.** Stops before writing if the Git working tree has uncommitted changes, so the modernization stays in its own reviewable diff (`--allow-dirty` opts out; skipped outside a repo and under `--dry-run`/`--check`).
-* **Preserves line endings and BOM.** Each file's original CRLF/LF endings and any UTF-8 BOM are restored after formatting, so an edit shows only the lines that changed instead of a whole-file whitespace diff (`--line-endings` overrides).
+Dart SDK `3.13.0` or newer.
 
-Run on a clean working tree, review the diff, then commit.
+The floor is 3.13 because that's where primary constructors became stable, and one of the passes writes them. The tool refuses to run on a project whose SDK constraint allows anything older, instead of producing code that can't compile.
+
+Stuck on an older SDK? Pin an older release of `dart_modernize`. It keeps working. New language features arrive with new releases of the tool.
+
+<br>
+
+## 📦 Installation
+
+As a global command:
+
+```sh
+dart pub global activate dart_modernize
+```
+
+Or as a dev dependency:
+
+```sh
+dart pub add --dev dart_modernize
+```
 
 <br>
 
 ## 🤝 Contributing
 
-Contributions are welcome. Read `CONTRIBUTING.md`, then make sure your change passes `dart format`, `dart analyze`, and `dart test` before opening a pull request.
+Contributions are welcome. Read `CONTRIBUTING.md`, then make sure your change passes `dart format`, `dart analyze` and `dart test` before you open a pull request.
 
 <br>
 
@@ -982,6 +816,6 @@ Contributions are welcome. Read `CONTRIBUTING.md`, then make sure your change pa
 
 Released under the **MIT License**.
 
-<sub>Built with the official Dart analyzer. Type aware, behavior preserving, idempotent.</sub>
+<sub>Built on the official Dart analyzer. It knows your types, keeps your behavior, and is safe to run twice.</sub>
 
 </div>

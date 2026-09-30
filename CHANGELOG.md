@@ -5,8 +5,7 @@
 No behavior change. Dependency updates and a documentation pass.
 
 - Updated `analyzer` to 14.3.0, `test` to 1.32.0, `glob` to 2.2.0, `pub_semver` to 2.2.1, `yaml` to 3.1.4, and `dart-lang/setup-dart` to 1.8.1.
-- Fixed the README, which still called `sort-members` the only opt-in pass. `collection-elements` is off by default too, and its `--collection-elements` switch was missing from the options table.
-- Fixed the README note on `sort-constructors-first`, which described skip conditions that belong to `abstract-final-classes`. The pass is purely syntactic and only relocates constructors.
+- Rewrote the README in plainer language, with many more real before and after examples taken from the test suite. It also fixes what it used to get wrong: `sort-members` was called the only opt-in pass, when `collection-elements` is off by default too, and its `--collection-elements` switch was missing from the options table.
 - Fixed `doc/ORDERING.md`: `cascades` runs in stage 2, not stage 3, and the finalize section now lists `sort-constructors-first` and the real order of the steps.
 - Fixed `test/fixtures/README.md`, which counted seventeen passes, listed CLI flags that no longer exist, and omitted five passes. It now lists all twenty-two with their `--only` names.
 - Brought `AGENTS.md` in line with the source tree, and pointed its format command and the pull request template at the same fixture-sparing command CI uses, since a bare `dart format .` rewrites the deliberately unformatted golden fixtures.
