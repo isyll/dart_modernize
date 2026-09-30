@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.1
+
+No behavior change. Dependency updates and a documentation pass.
+
+- Updated `analyzer` to 14.3.0, `test` to 1.32.0, `glob` to 2.2.0, `pub_semver` to 2.2.1, `yaml` to 3.1.4, and `dart-lang/setup-dart` to 1.8.1.
+- Fixed the README, which still called `sort-members` the only opt-in pass. `collection-elements` is off by default too, and its `--collection-elements` switch was missing from the options table.
+- Fixed the README note on `sort-constructors-first`, which described skip conditions that belong to `abstract-final-classes`. The pass is purely syntactic and only relocates constructors.
+- Fixed `doc/ORDERING.md`: `cascades` runs in stage 2, not stage 3, and the finalize section now lists `sort-constructors-first` and the real order of the steps.
+- Fixed `test/fixtures/README.md`, which counted seventeen passes, listed CLI flags that no longer exist, and omitted five passes. It now lists all twenty-two with their `--only` names.
+- Brought `AGENTS.md` in line with the source tree, and pointed its format command and the pull request template at the same fixture-sparing command CI uses, since a bare `dart format .` rewrites the deliberately unformatted golden fixtures.
+- Updated the `defaultOffTransformations` and `FinalizeTransformation` doc comments, which predated `collection-elements` and `sort-constructors-first`.
+- Added `test/cli/version_sync_test.dart`, which fails when the `pubspec.yaml` version, the `--version` constant in `runner.dart`, and the top `CHANGELOG.md` heading disagree. Nothing enforced that before.
+
 ## 0.11.0
 
 **Breaking:** the minimum Dart SDK is now `3.13.0`, up from `3.12.0`. The tool refuses to run on a project whose SDK constraint allows anything older. Primary constructors are stable in 3.13 and the promotion pass emits that syntax, so the floor moved with it rather than leaving one pass silently inert.

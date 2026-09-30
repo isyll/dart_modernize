@@ -7,29 +7,41 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 
 ## Folder = feature
 
-All seventeen transformation passes have a fixtures folder and a CLI flag.
-Each pass has full visitor logic; running the tool with only that flag enabled
-rewrites positive fixtures as expected and leaves negative (`.unchanged.dart`)
-fixtures byte-for-byte identical.
+All twenty-two transformation passes have a fixtures folder. The folder name is
+the pass name with underscores in place of hyphens, and the harness selects the
+pass with `--only <name>`. Running the tool with only that pass enabled rewrites
+positive fixtures as expected and leaves negative (`.unchanged.dart`) fixtures
+byte-for-byte identical.
 
-| Folder                        | CLI flag                       |
+| Folder                        | Pass (`--only`)                |
 | ----------------------------- | ------------------------------ |
-| `dot_shorthands/`             | `--dot-shorthands`             |
-| `private_named_parameters/`   | `--private-named-parameters`   |
-| `primary_constructors/`       | `--primary-constructors`       |
-| `super_parameters/`           | `--super-parameters`           |
-| `switch_expressions/`         | `--switch-expressions`         |
-| `cascades/`                   | `--cascades`                   |
-| `inline_return/`              | `--inline-return`              |
-| `final_locals/`               | `--final-locals`               |
-| `expression_bodies/`          | `--expression-bodies`          |
-| `string_interpolation/`       | `--string-interpolation`       |
-| `null_aware_spread/`          | `--null-aware-spread`          |
-| `null_aware_elements/`        | `--null-aware-elements`        |
-| `organize_imports/`           | `--organize-imports`           |
-| `sort_members/`               | `--sort-members`               |
-| `fix_all/`                    | `--fix-all`                    |
-| `abstract_final_classes/`     | `--abstract-final-classes`     |
+| `dot_shorthands/`             | `dot-shorthands`               |
+| `private_named_parameters/`   | `private-named-parameters`     |
+| `primary_constructors/`       | `primary-constructors`         |
+| `super_parameters/`           | `super-parameters`             |
+| `switch_expressions/`         | `switch-expressions`           |
+| `expression_bodies/`          | `expression-bodies`            |
+| `organize_imports/`           | `organize-imports`             |
+| `sort_members/`               | `sort-members`                 |
+| `fix_all/`                    | `fix-all`                      |
+| `cascades/`                   | `cascades`                     |
+| `string_interpolation/`       | `string-interpolation`         |
+| `null_aware_spread/`          | `null-aware-spread`            |
+| `null_aware_elements/`        | `null-aware-elements`          |
+| `null_aware_conditionals/`    | `null-aware-conditionals`      |
+| `destructure_for_in/`         | `destructure-for-in`           |
+| `destructure_locals/`         | `destructure-locals`           |
+| `collection_elements/`        | `collection-elements`          |
+| `inline_return/`              | `inline-return`                |
+| `final_locals/`               | `final-locals`                 |
+| `abstract_final_classes/`     | `abstract-final-classes`       |
+| `prefer_inferred_types/`      | `prefer-inferred-types`        |
+| `sort_constructors_first/`    | `sort-constructors-first`      |
+
+Two more folders are not tied to one pass. `combined/` holds cases that run
+several passes together and pin the interactions between them. `modern_syntax/`
+holds code that is already modern, which must survive every pass: the tool runs
+cleanly, the result still analyzes, and a second run changes nothing.
 
 ## Adding a case = adding files (no code)
 
@@ -61,8 +73,7 @@ may repeat freely between cases.
 
 If a feature folder contains a `pubspec.yaml` or `analysis_options.yaml`, it is
 used for that feature's throwaway project instead of the defaults. This is how
-`primary_constructors/` opts into a higher SDK language version, and how
-lint-driven passes enable the lints they fix.
+lint-driven passes such as `fix_all/` enable the lints they fix.
 
 ## What "expected" encodes
 

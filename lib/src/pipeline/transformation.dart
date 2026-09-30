@@ -4,9 +4,10 @@ import '../engine/source_edit.dart';
 
 /// Marks a pass that runs in the finalize phase instead of through [editsFor].
 ///
-/// Fix-all shells out to `dart fix`; organize-imports and sort-members work over
-/// the finished files. They implement [Transformation] only to carry the
-/// [enabled] flag, and their [editsFor] always returns an empty list.
+/// Fix-all shells out to `dart fix`; organize-imports, sort-members and
+/// sort-constructors-first work over the finished files. They implement
+/// [Transformation] only to carry the [enabled] flag, and their [editsFor]
+/// always returns an empty list.
 abstract interface class FinalizeTransformation implements Transformation {}
 
 /// A single modernization pass over a resolved Dart compilation unit.

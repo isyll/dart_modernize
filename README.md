@@ -759,7 +759,7 @@ abstract final class AppColors {
 }
 ```
 
-> Skipped when the class is extended, implemented, or instantiated anywhere in the analyzed project, or already carries any class modifier. Requires full project analysis, so it runs as the final pass after all structural rewrites have settled.
+> Pure relocation: constructors keep their relative order, as do the members they move ahead of, and a body that already starts with its constructors is left untouched.
 
 <br>
 
@@ -809,7 +809,7 @@ dart_modernize
 
 ### Choose which passes run
 
-Every pass runs by default except **sort-members**, which is opt-in. Adjust the set three ways, which compose:
+Every pass runs by default except **sort-members** and **collection-elements**, which are opt-in. Adjust the set three ways, which compose:
 
 ```sh
 # Allow-list: run ONLY the passes you name (comma-separate or repeat --only)
@@ -820,8 +820,9 @@ dart_modernize --only cascades,inline-return
 dart_modernize --no-primary-constructors
 dart_modernize --no-primary-constructors --no-organize-imports
 
-# Switch on an off-by-default pass (currently just sort-members)
+# Switch on an off-by-default pass (sort-members and collection-elements)
 dart_modernize --sort-members
+dart_modernize --collection-elements
 ```
 
 Each pass has one switch: `--no-<name>` turns an on-by-default pass off, `--<name>` turns an off-by-default pass on.
@@ -860,7 +861,8 @@ dart_modernize --check --dry-run
 | `--check` | Write nothing and exit non-zero if any file would change, for gating CI (like `dart format --set-exit-if-changed`). Prints only a summary on its own; combine with `--dry-run` to also print the diff. |
 | `--only <name>` | Run **only** the named passes and skip the rest. Comma-separate or repeat the flag to name several (`--only cascades,inline-return`). Names are the passes listed above; without `--only`, every pass runs. |
 | `--no-<name>` | Turn an on-by-default pass off, e.g. `--no-primary-constructors`. Composes with `--only` (removes the pass from the selected set). |
-| `--sort-members` | Switch on sort-members, the one opt-in pass (off by default because it only reorders members but can produce a large diff). Composes with `--only` (adds it to the selected set). |
+| `--sort-members` | Switch on sort-members (off by default because it only reorders members but can produce a large diff). Composes with `--only` (adds it to the selected set). |
+| `--collection-elements` | Switch on collection-elements (off by default because it turns a run of statements into one literal). Composes with `--only` (adds it to the selected set). |
 | `--verbose` | Print per-file progress and passes that made no change. |
 | `--[no-]color` | Force ANSI color on or off. Default: auto-detect, so color is on when writing to a terminal and off when piped or when `NO_COLOR` is set. `--color` forces it on (handy when piping to a pager); `--no-color` forces it off. |
 | `--exclude <glob>` | Extra glob pattern to skip, relative to the project root. Repeatable. |
@@ -946,10 +948,10 @@ dart_modernize lib/ --exclude "lib/src/vendor/**"
    check                        ordered passes
 ```
 
-1. **Validate.** Checks that a `pubspec.yaml` exists and declares an SDK constraint, so the project can be resolved.
+1. **Validate.** Checks that a `pubspec.yaml` exists and declares an SDK constraint that requires Dart `3.13.0` or newer, so the project can be resolved and the result will compile.
 2. **Resolve.** Loads the project with full type resolution, library by library.
 3. **Transform.** Runs a fixed sequence of pass groups. Each group is resolved once and applied before the next runs, so a pass that builds on an earlier one (a shorthand over a switch expression another pass produced, say) reads the finished result. See [`doc/ORDERING.md`](doc/ORDERING.md).
-4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, and runs `dart format`.
+4. **Finalize.** Applies `dart fix`, organizes imports, sorts members, moves constructors first, and runs `dart format`.
 
 Re-running is safe: the first run does all the work and later runs change nothing. The tool is idempotent by design.
 

@@ -26,20 +26,32 @@ lib/
       edit_diff.dart                 reduces a rewritten file to one SourceEdit
       file_filter.dart               generated-file exclusion (*.g.dart etc.)
       node_range.dart                declaration range incl. attached comments
+      text_shape.dart                line endings and BOM, captured and restored
       import_organizer.dart          sort / group / prune directives
       member_sorter.dart             reorder unit and class members
+      constructor_sorter.dart        lift constructors ahead of other members
       unified_diff.dart              dry-run diff formatter
+    output/
+      reporter.dart                  terminal output and color
+    vcs/
+      git_worktree.dart              dirty working tree check
     pipeline/
       pipeline.dart                  ModernizePipeline orchestrator
       transformation.dart            Transformation interface
-      transformations.dart           buildTransformations()
+      transformations.dart           buildTransformationStages(), finalize list
       safe_reference.dart            shared helper for the null-aware passes
       transformations/               one file per pass
+doc/
+  ORDERING.md                        pass stages and finalize order
 test/
   cli/                               unit tests: options, flags, dry-run, idempotence
   e2e/                               end-to-end combined and robustness tests
+  engine/                            unit tests for the edit engine
   golden/                            one golden suite per transformation pass
   fixtures/                          fixture files consumed by golden suites
+  output/                            reporter tests
+  semantic/                          re-analyzes the tool's output for errors
+  vcs/                               git working tree tests
   support/                           shared harness (cli_harness, golden, triggers)
 ```
 
@@ -68,7 +80,7 @@ Bad: `fix: quote help wanted label color to prevent YAML integer parsing` + `Co-
 dart pub get                                  # install deps
 dart run bin/dart_modernize.dart --help       # run locally
 dart test                                     # run tests
-dart format .                                 # format
+dart format $(git ls-files '*.dart' ':!test/fixtures')   # format, sparing the golden fixtures
 dart analyze --fatal-infos                    # lint
 ```
 
@@ -77,8 +89,8 @@ dart analyze --fatal-infos                    # lint
 Pushing a `vX.Y.Z` tag triggers `.github/workflows/release.yml`. It reuses
 `ci.yml` through `workflow_call` to run the full test suite on the tagged
 commit, and publishes to pub.dev only if that job passes. Before tagging, bump
-the version in **all three** places and keep them identical (there is no test
-that enforces this, so it is easy to miss):
+the version in **all three** places and keep them identical (`test/cli/version_sync_test.dart`
+fails when they drift):
 
 1. `pubspec.yaml` `version:`
 2. `lib/src/runner.dart` `_version` (what `--version` prints)
