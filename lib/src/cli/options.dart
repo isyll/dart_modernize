@@ -41,8 +41,9 @@ const transformationNames = <String>[
 /// Every other pass in [transformationNames] runs unless turned off; a pass
 /// named here runs only when selected with `--only` or switched on with its
 /// `--<name>` flag. sort-members only reorders declarations and never changes
-/// behavior, but it is the single biggest source of diff noise, so it is
-/// opt-in.
+/// behavior, but it is the biggest source of diff noise, and
+/// collection-elements turns a run of statements into one expression, a larger
+/// structural change than any other pass makes, so both are opt-in.
 const defaultOffTransformations = <String>{
   'sort-members',
   'collection-elements',

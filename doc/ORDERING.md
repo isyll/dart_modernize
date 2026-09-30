@@ -20,7 +20,7 @@ Selecting a subset of passes (with `--only`, or turning some off with
 `--no-<name>`) only flips each pass's `enabled` flag. The stage sequence is
 unchanged, so a selected pass always runs in its stage's position no matter the
 order it is named on the command line: `dart_modernize --only
-inline-return,cascades` still runs `cascades` (stage 3) before `inline-return`
+inline-return,cascades` still runs `cascades` (stage 2) before `inline-return`
 (stage 4).
 
 | Stage | Passes | Role |
@@ -107,11 +107,13 @@ the passes in a stage target separate regions, no overlap is dropped in practice
 After the structural stages, the finalize passes run over the files on disk, in
 a fixed order (`buildFinalizeTransformations`):
 
-1. `dart fix --apply` first, because its fixes may remove imports.
-2. `organize-imports` (merged with `sort-members` when it is on, computed on
-   one source; `sort-members` is off by default, so usually only
-   `organize-imports` runs here).
-3. `dart format` last, over the same filtered file list the rest of the pipeline
+1. `fix-all` (`dart fix --apply`) first, because its fixes may remove imports.
+2. `organize-imports`, merged with `sort-members` when that is on so both are
+   computed on one source. `sort-members` is off by default, so usually only
+   `organize-imports` runs here. With `organize-imports` off, `sort-members`
+   still runs on its own.
+3. `sort-constructors-first`, over the files as the previous steps left them.
+4. `dart format` last, over the same filtered file list the rest of the pipeline
    uses, since it does not read `analyzer: exclude:` or `--exclude` itself.
 
 ## Rewrites vs reordering
