@@ -89,9 +89,9 @@ class _NullAwareConditionalsVisitor(
     final chain = _SelectorChain.from(nonNullBranch, test.element);
     if (chain == null) return null;
 
-    // A `?` right after the root reference turns `x.name` into `x?.name` and
+    // A `?` right before the first selector turns `x.name` into `x?.name` and
     // `x[0]` into `x?[0]`.
-    final rewritten = _render(chain.expression, insertAt: chain.rootEnd);
+    final rewritten = _render(chain.expression, insertAt: chain.selectorStart);
 
     if (nullBranch is NullLiteral) {
       // prefer_null_aware_operators handles property and method chains here.
@@ -175,7 +175,7 @@ final class _NullTest {
 final class _SelectorChain {
   const _SelectorChain({
     required this.expression,
-    required this.rootEnd,
+    required this.selectorStart,
     required this.isIndexed,
   });
 
@@ -204,31 +204,39 @@ final class _SelectorChain {
 
     var current = expression;
     var depth = 0;
+    // The token that opens the selector applied directly to the root.
+    int? selectorStart;
     while (true) {
       // Cascades and reads that are already null-aware are left alone.
       Expression? next;
+      int? start;
       if (current is IndexExpression && _isPlainRead(current)) {
         next = current.target;
+        start = current.leftBracket.offset;
       } else if (current is MethodInvocation && _isPlainRead(current)) {
         next = current.target;
+        start = current.operator?.offset;
       } else if (current is PropertyAccess && _isPlainRead(current)) {
         next = current.target;
+        start = current.operator.offset;
       } else if (current is PrefixedIdentifier) {
         next = current.prefix;
+        start = current.period.offset;
       }
-      if (next == null) break;
+      if (next == null || start == null) break;
       current = next;
+      selectorStart = start;
       depth++;
     }
 
     // The root has to be the reference the null test checked.
     if (current is! SimpleIdentifier || current.element != root) return null;
     // A bare `x` is `x ?? d`, which prefer_if_null_operators handles.
-    if (depth == 0) return null;
+    if (depth == 0 || selectorStart == null) return null;
 
     return .new(
       expression: expression,
-      rootEnd: current.end,
+      selectorStart: selectorStart,
       isIndexed: isIndexed,
     );
   }
@@ -236,8 +244,10 @@ final class _SelectorChain {
   /// The full chain expression, e.g. `x.items.length`.
   final Expression expression;
 
-  /// Source offset just past the root reference, where the `?` is spliced in.
-  final int rootEnd;
+  /// Source offset of the `.` or `[` right after the root reference, where
+  /// the `?` is spliced in. Inserting it there rather than at the end of the
+  /// root keeps `?.` together when the chain breaks the line before the `.`.
+  final int selectorStart;
 
   /// True when the outermost selector is an index read, the form no lint fixes.
   final bool isIndexed;

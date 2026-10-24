@@ -18,21 +18,21 @@ void configureDependencies(AppConfig config, {CrashReporter? crashReporter}) {
 typedef FactoryFunc<T> = T Function();
 
 class AppConfig {
-  const AppConfig({required this.baseUrl});
+  const new({required this.baseUrl});
 
   final String baseUrl;
 }
 
-abstract class AuthApi {}
+abstract class AuthApi;
 
-class CrashReporter {}
+class CrashReporter;
 
 class FakeAuthApi implements AuthApi {
-  const FakeAuthApi();
+  const new();
 }
 
 class HttpAuthApi implements AuthApi {
-  HttpAuthApi({required this.config});
+  new({required this.config});
 
   final AppConfig config;
 }
@@ -49,7 +49,7 @@ class ServiceLocator {
 }
 
 class ThemeCubit {
-  ThemeCubit({required this.config});
+  new({required this.config});
 
   final AppConfig config;
 

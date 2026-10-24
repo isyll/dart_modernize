@@ -2,10 +2,12 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
+import '../type_reference.dart';
 
 /// Moves a for-in loop variable's field reads into an object pattern in the
 /// loop header.
@@ -30,7 +32,11 @@ import '../transformation.dart';
 ///     field once per iteration, where the body read them where they appeared,
 ///     so a computed getter could end up running when it did not before;
 ///   * a bound name is already used somewhere in the enclosing function;
-///   * the element is a record, since `pair.$1` has no name to bind.
+///   * the element is a record, since `pair.$1` has no name to bind;
+///   * the element type is nullable, since an object pattern would throw on
+///     a null element where the body read it as null;
+///   * the type's name does not reach it from this file (not imported, or
+///     hidden); an import prefix is written out (`dap.Scope(...)`).
 final class DestructureForIn implements Transformation {
   const DestructureForIn({required this.enabled});
 
@@ -42,15 +48,17 @@ final class DestructureForIn implements Transformation {
 
   @override
   Future<List<SourceEdit>> editsFor(ResolvedUnitResult unit) async {
-    final visitor = _DestructureForInVisitor(unit.content);
+    final visitor = _DestructureForInVisitor(unit);
     unit.unit.accept(visitor);
     return visitor.edits;
   }
 }
 
-class _DestructureForInVisitor(final String source)
+class _DestructureForInVisitor(final ResolvedUnitResult unit)
     extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
+
+  String get source => unit.content;
 
   @override
   void visitForEachPartsWithDeclaration(ForEachPartsWithDeclaration node) {
@@ -70,8 +78,9 @@ class _DestructureForInVisitor(final String source)
 
     final type = loopVariable.declaredFragment?.element.type;
     if (type is! InterfaceType) return;
-    final typeName = type.element.name;
-    if (typeName == null || typeName.isEmpty) return;
+    if (type.nullabilitySuffix != NullabilitySuffix.none) return;
+    final typeName = typeNameInScope(unit, type.element);
+    if (typeName == null) return;
 
     final scope = node.parent;
     final uses = _FieldReadCollector(element);

@@ -14,7 +14,7 @@ Queue<int> seedQueue(int seed) => Queue<int>()
   ..add(seed + 1);
 
 class Renderer {
-  Renderer({required this._name});
+  new({required this._name});
 
   final String _name;
 

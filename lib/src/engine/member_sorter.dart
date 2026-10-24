@@ -155,6 +155,10 @@ class _MemberSorter {
       if (member is ConstructorDeclaration) {
         kind = .classConstructor;
         name = member.name?.lexeme ?? '';
+      } else if (member is PrimaryConstructorBody) {
+        // `this : ...;`, the body of the class's primary constructor.
+        kind = .classConstructor;
+        name = '';
       } else if (member is FieldDeclaration) {
         final fields = member.fields.variables;
         if (fields.isEmpty) return;

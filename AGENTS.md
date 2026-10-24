@@ -18,12 +18,17 @@ lib/
       options.dart                   ArgParser + CliOptions
       config.dart                    dart_modernize: analysis_options section
     analysis/
-      project_analyzer.dart          full type resolution
+      project_analyzer.dart          full type resolution, staged overlays, cached errors
       validator.dart                 pubspec / SDK validation
+      dart_sdk.dart                  locates the Dart SDK (also from a compiled exe)
+      sdk_analysis.dart              runs and parses `dart analyze --format=machine`
+      sdk_upgrade.dart               --upgrade-sdk: raises the pubspec SDK constraint
+      lint_rules.dart                lints enabled in analysis_options.yaml
     engine/
       source_edit.dart               SourceEdit record (offset, length, replacement)
       edit_collector.dart            collects + applies edits, detects conflicts
       edit_diff.dart                 reduces a rewritten file to one SourceEdit
+      import_graph.dart              which project files each file depends on
       file_filter.dart               generated-file exclusion (*.g.dart etc.)
       node_range.dart                declaration range incl. attached comments
       text_shape.dart                line endings and BOM, captured and restored
@@ -36,13 +41,18 @@ lib/
     vcs/
       git_worktree.dart              dirty working tree check
     pipeline/
-      pipeline.dart                  ModernizePipeline orchestrator
+      pipeline.dart                  ModernizePipeline orchestrator: preview, write, finalize, verify
+      stage_runner.dart              runs the stages in memory, checks each one for new errors
+      run_backup.dart                copies of the files a run may rewrite, for --restore
+      type_reference.dart            how a type can be named from a given file
       transformation.dart            Transformation interface
       transformations.dart           buildTransformationStages(), finalize list
       safe_reference.dart            shared helper for the null-aware passes
       transformations/               one file per pass
 doc/
   ORDERING.md                        pass stages and finalize order
+tool/
+  campaign.dart                      runs the tool over a real project, fails on breakage
 test/
   cli/                               unit tests: options, flags, dry-run, idempotence
   e2e/                               end-to-end combined and robustness tests
@@ -82,15 +92,21 @@ dart run bin/dart_modernize.dart --help       # run locally
 dart test                                     # run tests
 dart format $(git ls-files '*.dart' ':!test/fixtures')   # format, sparing the golden fixtures
 dart analyze --fatal-infos                    # lint
+dart run tool/campaign.dart --name app --local ../app --tests   # run over a copy of a real project
 ```
+
+The `Real-project campaign` workflow runs `tool/campaign.dart` over pinned
+public projects. It is manual only (`workflow_dispatch`): run it before a
+release or after a risky change to a pass.
 
 ## Releasing
 
 Pushing a `vX.Y.Z` tag triggers `.github/workflows/release.yml`. It reuses
 `ci.yml` through `workflow_call` to run the full test suite on the tagged
-commit, and publishes to pub.dev only if that job passes. Before tagging, bump
-the version in **all three** places and keep them identical (`test/cli/version_sync_test.dart`
-fails when they drift):
+commit, and publishes to pub.dev only if that job passes, then attaches
+standalone executables for Linux, macOS and Windows to the GitHub Release.
+Before tagging, bump the version in **all three** places and keep them
+identical (`test/cli/version_sync_test.dart` fails when they drift):
 
 1. `pubspec.yaml` `version:`
 2. `lib/src/runner.dart` `_version` (what `--version` prints)

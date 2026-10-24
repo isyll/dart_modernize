@@ -16,7 +16,9 @@ import '../transformation.dart';
 /// Skipped when:
 ///   * the keyword is not exactly `var`;
 ///   * a variable has no initializer;
-///   * a variable is assigned, compound-assigned, or incremented anywhere;
+///   * a variable is assigned, compound-assigned, or incremented anywhere,
+///     including as the target of a pattern assignment (`(a, b) = pair`) or
+///     the variable of a `for (x in xs)` loop;
 ///   * one variable in a multi-variable declaration fails: the whole
 ///     declaration is left alone.
 ///
@@ -134,6 +136,18 @@ class _ReassignmentFinder(final Object target)
   void visitAssignmentExpression(AssignmentExpression node) {
     if (_isRef(node.leftHandSide)) found = true;
     super.visitAssignmentExpression(node);
+  }
+
+  @override
+  void visitAssignedVariablePattern(AssignedVariablePattern node) {
+    if (node.element == target) found = true;
+    super.visitAssignedVariablePattern(node);
+  }
+
+  @override
+  void visitForEachPartsWithIdentifier(ForEachPartsWithIdentifier node) {
+    if (_isRef(node.identifier)) found = true;
+    super.visitForEachPartsWithIdentifier(node);
   }
 
   @override

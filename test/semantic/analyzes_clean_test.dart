@@ -45,7 +45,10 @@ void main() {
 
   test('promoted primary constructors still analyze without errors', () async {
     final project = createProject(
-      files: {'lib/models.dart': _primaryConstructorSample},
+      files: {
+        'lib/models.dart': _primaryConstructorSample,
+        'lib/callers.dart': _primaryConstructorCallers,
+      },
     );
 
     final before = await analyzeProject(project);
@@ -78,6 +81,17 @@ void main() {
       contains('class const Origin('),
       reason: 'const promotion',
     );
+    for (final header in [
+      'class Pair(',
+      'class Config({',
+      'class const CartState(',
+      'class Range(',
+      'class Scaled(',
+      'class const Vec._(',
+      'enum Planet(',
+    ]) {
+      expect(produced, contains(header), reason: header);
+    }
   });
 }
 
@@ -106,6 +120,80 @@ class Counter {
 void use() {
   const origin = Origin(0);
   print([Point(1, 2), origin, Counter(3)]);
+}
+
+class Pair {
+  final int a;
+  final int b;
+
+  Pair(this.a, [this.b = 2]);
+}
+
+class Config {
+  final String host;
+  final int port;
+  final Duration? timeout;
+
+  Config({required this.host, this.port = 8080, this.timeout = const Duration(seconds: 5)});
+}
+
+class CartState {
+  final List<String> items;
+  final int total;
+
+  const CartState(this.total, {this.items = const []});
+}
+
+class Range {
+  final int min;
+  final int max;
+
+  Range(this.min, this.max) : assert(min <= max);
+}
+
+class Scaled {
+  final int _value;
+
+  Scaled(int raw) : _value = raw * 2;
+
+  int get value => _value;
+}
+
+class Vec {
+  final int x;
+  final int y;
+
+  const Vec._(this.x, this.y);
+
+  factory Vec.zero() => const Vec._(0, 0);
+  Vec.unit() : this._(1, 1);
+}
+
+enum Planet {
+  mercury(3.3),
+  venus(4.8);
+
+  const Planet(this.mass);
+
+  final double mass;
+}
+''';
+
+/// Callers in another file, which break when a promotion changes a
+/// constructor's signature (a dropped default or `[...]`) even though the
+/// promoted file itself still compiles.
+const _primaryConstructorCallers = '''
+import 'models.dart';
+
+void callers() {
+  print(Pair(1).b);
+  print(Config(host: 'x').port);
+  print(Config(host: 'x').timeout?.inSeconds);
+  print(const CartState(0).items);
+  print(Range(1, 2).max);
+  print(Scaled(3).value);
+  print([Vec.zero(), Vec.unit()]);
+  print(Planet.venus.mass);
 }
 ''';
 

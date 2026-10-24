@@ -34,6 +34,12 @@ const transformationNames = <String>[
   'abstract-final-classes',
   'prefer-inferred-types',
   'sort-constructors-first',
+  'constructor-shorthands',
+  'empty-bodies',
+  'future-pause',
+  'wildcard-parameters',
+  'null-aware-calls',
+  'unmodifiable-of',
 ];
 
 /// Transformations that are off by default.
@@ -44,10 +50,29 @@ const transformationNames = <String>[
 /// behavior, but it is the biggest source of diff noise, and
 /// collection-elements turns a run of statements into one expression, a larger
 /// structural change than any other pass makes, so both are opt-in.
+/// unmodifiable-of changes how a constructor call infers its type arguments,
+/// so it only runs when asked for.
 const defaultOffTransformations = <String>{
   'sort-members',
   'collection-elements',
+  'unmodifiable-of',
 };
+
+/// The settings each pass accepts under `options:` in the `dart_modernize:`
+/// section of `analysis_options.yaml`, with their defaults.
+///
+/// They tune a pass without switching it off: `dot-shorthands` with
+/// `constructors: false` keeps `InputDecoration(...)` written out while still
+/// shortening `.center` and `.zero`, and `primary-constructors` with
+/// `super-parameters: true` also promotes classes that forward `super.key`.
+const passSettings = <String, Map<String, bool>>{
+  'dot-shorthands': {'constructors': true},
+  'primary-constructors': {'super-parameters': false},
+};
+
+/// The name `--no-format` and the config's `disabled:` list use for the final
+/// `dart format` step. It is not a pass: `--only` never selects or drops it.
+const formatStepName = 'format';
 
 /// Builds the [ArgParser] for the `dart_modernize` CLI.
 ArgParser buildArgParser() => .new()
@@ -75,7 +100,8 @@ ArgParser buildArgParser() => .new()
     defaultsTo: false,
     help:
         'Exit non-zero if any file would change and write nothing, for gating '
-        'CI. On its own it prints just a summary line; combine it with '
+        'CI. It counts every step a real run takes, dart fix and dart format '
+        'included. On its own it prints just a summary line; combine it with '
         '--dry-run to also print the diff.',
   )
   ..addFlag(
@@ -102,9 +128,10 @@ ArgParser buildArgParser() => .new()
     'verify',
     defaultsTo: true,
     help:
-        'After editing, re-analyze the changed files and revert any that gain '
-        'a new error, then exit non-zero. On by default; --no-verify skips the '
-        'extra analysis.',
+        'Check that the result still compiles: after each stage in memory, then '
+        'with dart analyze over the whole project once files are written. A '
+        'change behind a new error is undone, and the run exits with code 2 '
+        'when it had to undo any. On by default; --no-verify skips the checks.',
   )
   ..addFlag(
     'allow-dirty',
@@ -125,6 +152,37 @@ ArgParser buildArgParser() => .new()
         'existing endings (the default); lf or crlf forces one. A UTF-8 BOM is '
         'always preserved.',
   )
+  ..addFlag(
+    'format',
+    defaultsTo: true,
+    help:
+        'Run dart format over the files the tool changed. Files it did not '
+        'touch are never reformatted. --no-format leaves formatting alone.',
+  )
+  ..addOption(
+    'line-length',
+    valueHelp: 'columns',
+    help:
+        'Page width for dart format. Default: the formatter: page_width of '
+        'analysis_options.yaml, else 80.',
+  )
+  ..addFlag(
+    'upgrade-sdk',
+    negatable: false,
+    defaultsTo: false,
+    help:
+        'Raise the pubspec.yaml SDK constraint to ^3.13.0 first, run pub get, '
+        'and remove the final and var modifiers Dart 3.13 no longer allows on '
+        'ordinary parameters, then modernize. Requires a clean Git tree.',
+  )
+  ..addFlag(
+    'restore',
+    negatable: false,
+    defaultsTo: false,
+    help:
+        'Put back the files saved by a run that was interrupted (a crash or a '
+        'kill) before it could finish, then exit.',
+  )
   ..addMultiOption(
     'only',
     valueHelp: 'name',
@@ -135,9 +193,10 @@ ArgParser buildArgParser() => .new()
         '--only, every pass runs.',
   )
   ..addSeparator(
-    'Transformations. All run by default except sort-members and '
-    'collection-elements, which are off (switch them on with --sort-members '
-    'and --collection-elements). Narrow the run to a subset with '
+    'Transformations. All run by default except sort-members, '
+    'collection-elements and unmodifiable-of, which are off (switch them on '
+    'with --sort-members, --collection-elements and --unmodifiable-of). '
+    'Narrow the run to a subset with '
     '--only, or turn an on-by-default pass off with its --no-<name> switch '
     'below. Order never matters: passes always run in their fixed pipeline '
     'order.',
@@ -303,6 +362,50 @@ ArgParser buildArgParser() => .new()
         'Skip sort-constructors-first: move constructor declarations before '
         'all other class members, satisfying the sort_constructors_first lint '
         'rule.',
+  )
+  ..addFlag(
+    'no-constructor-shorthands',
+    negatable: false,
+    help:
+        'Skip constructor-shorthands: declare constructors without repeating '
+        'the class name, so `Point(...)` becomes `new(...)` and `factory '
+        'Point.fromJson` becomes `factory fromJson` (Dart 3.13).',
+  )
+  ..addFlag(
+    'no-empty-bodies',
+    negatable: false,
+    help:
+        'Skip empty-bodies: end a class, mixin, extension type, or extension '
+        'with an empty body in `;` instead of `{}` (Dart 3.13).',
+  )
+  ..addFlag(
+    'no-future-pause',
+    negatable: false,
+    help:
+        'Skip future-pause: write an awaited `Future.delayed(d)` with no '
+        'callback as `Future.pause(d)` (Dart 3.13).',
+  )
+  ..addFlag(
+    'no-wildcard-parameters',
+    negatable: false,
+    help:
+        'Skip wildcard-parameters: rename unused `__` and `___` parameters to '
+        '`_`, which can repeat since Dart 3.7.',
+  )
+  ..addFlag(
+    'no-null-aware-calls',
+    negatable: false,
+    help:
+        'Skip null-aware-calls: collapse `if (x != null) x.f()` into '
+        '`x?.f()`, and `if (cb != null) cb!()` into `cb?.call()`.',
+  )
+  ..addFlag(
+    'unmodifiable-of',
+    negatable: false,
+    help:
+        'Switch on unmodifiable-of (off by default): write '
+        '`List.unmodifiable(x)` as `List.unmodifiableOf(x)` (and the same for '
+        'Set and Map) when the result keeps its static type.',
   );
 
 /// The single target path from the positional arguments, absolute and
@@ -358,6 +461,19 @@ final class CliOptions {
     required this.abstractFinalClasses,
     required this.preferInferredTypes,
     required this.sortConstructorsFirst,
+    this.constructorShorthands = true,
+    this.emptyBodies = true,
+    this.futurePause = true,
+    this.wildcardParameters = true,
+    this.nullAwareCalls = true,
+    this.unmodifiableOf = false,
+    this.format = true,
+    this.lineLength,
+    this.upgradeSdk = false,
+    this.restore = false,
+    this.dotShorthandConstructors = true,
+    this.promoteSuperParameters = false,
+    this.lintFixes = const [],
   });
 
   factory CliOptions.fromResults(
@@ -368,7 +484,11 @@ final class CliOptions {
     // passes too. Validate every name against the same allow-list up front so a
     // typo fails fast with the full list instead of silently doing nothing.
     final only = results['only'] as List<String>;
-    for (final name in [...only, ...config.enabled, ...config.disabled]) {
+    final configNames = {
+      ...config.enabled,
+      ...config.disabled,
+    }.where((name) => name != formatStepName);
+    for (final name in [...only, ...configNames]) {
       if (!transformationNames.contains(name)) {
         throw FormatException(
           '"$name" is not a known transformation. '
@@ -384,6 +504,21 @@ final class CliOptions {
       );
     }
     final selected = only.toSet();
+    final settings = _passSettings(config);
+
+    final lineLengthText = results['line-length'] as String?;
+    final int? lineLength;
+    if (lineLengthText == null) {
+      lineLength = config.lineLength;
+    } else {
+      lineLength = int.tryParse(lineLengthText);
+      if (lineLength == null || lineLength <= 0) {
+        throw FormatException(
+          '--line-length expects a positive number of columns, got '
+          '"$lineLengthText".',
+        );
+      }
+    }
 
     // Each pass is resolved in layers, later layers winning:
     //   1. its built-in default (on, or off for defaultOffTransformations);
@@ -448,7 +583,62 @@ final class CliOptions {
       abstractFinalClasses: enabled('abstract-final-classes'),
       preferInferredTypes: enabled('prefer-inferred-types'),
       sortConstructorsFirst: enabled('sort-constructors-first'),
+      constructorShorthands: enabled('constructor-shorthands'),
+      emptyBodies: enabled('empty-bodies'),
+      futurePause: enabled('future-pause'),
+      wildcardParameters: enabled('wildcard-parameters'),
+      nullAwareCalls: enabled('null-aware-calls'),
+      unmodifiableOf: enabled('unmodifiable-of'),
+      format:
+          (results['format'] as bool) &&
+          !config.disabled.contains(formatStepName),
+      lineLength: lineLength,
+      upgradeSdk: results['upgrade-sdk'] as bool,
+      restore: results['restore'] as bool,
+      dotShorthandConstructors: settings['dot-shorthands']!['constructors']!,
+      promoteSuperParameters:
+          settings['primary-constructors']!['super-parameters']!,
+      lintFixes: config.lintFixes,
     );
+  }
+
+  /// [passSettings] with the config's `options:` applied over the defaults.
+  ///
+  /// An unknown pass, an unknown setting, or a value of the wrong type fails
+  /// with the accepted names, like an unknown pass name does.
+  static Map<String, Map<String, bool>> _passSettings(
+    DartModernizeConfig config,
+  ) {
+    final resolved = {
+      for (final MapEntry(:key, :value) in passSettings.entries)
+        key: Map.of(value),
+    };
+    for (final MapEntry(key: pass, value: values)
+        in config.passOptions.entries) {
+      final known = resolved[pass];
+      if (known == null) {
+        throw FormatException(
+          'analysis_options.yaml dart_modernize: "$pass" has no options. '
+          'Passes with options: ${passSettings.keys.join(', ')}.',
+        );
+      }
+      for (final MapEntry(:key, :value) in values.entries) {
+        if (!known.containsKey(key)) {
+          throw FormatException(
+            'analysis_options.yaml dart_modernize: "$key" is not an option of '
+            '$pass. Its options: ${known.keys.join(', ')}.',
+          );
+        }
+        if (value is! bool) {
+          throw FormatException(
+            'analysis_options.yaml dart_modernize: $pass $key must be true or '
+            'false.',
+          );
+        }
+        known[key] = value;
+      }
+    }
+    return resolved;
   }
 
   /// Absolute path to the project root to modernize.
@@ -505,6 +695,36 @@ final class CliOptions {
   final bool abstractFinalClasses;
 
   final bool preferInferredTypes;
-
   final bool sortConstructorsFirst;
+  final bool constructorShorthands;
+  final bool emptyBodies;
+  final bool futurePause;
+  final bool wildcardParameters;
+  final bool nullAwareCalls;
+  final bool unmodifiableOf;
+
+  /// When true, `dart format` runs over the files the tool changed.
+  final bool format;
+
+  /// Page width for `dart format`, or null to use the project's own.
+  final int? lineLength;
+
+  /// When true, raise the project's SDK constraint to the tool's floor before
+  /// modernizing.
+  final bool upgradeSdk;
+
+  /// When true, put back the files an interrupted run saved, then stop.
+  final bool restore;
+
+  /// dot-shorthands `constructors:` setting: whether `Foo(...)` may become
+  /// `.new(...)`. Static members and enum values collapse either way.
+  final bool dotShorthandConstructors;
+
+  /// primary-constructors `super-parameters:` setting: whether a class whose
+  /// constructor forwards `super.` parameters is promoted too.
+  final bool promoteSuperParameters;
+
+  /// Lints whose `dart fix` corrections run even when the project does not
+  /// enable them.
+  final List<String> lintFixes;
 }

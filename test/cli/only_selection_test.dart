@@ -187,7 +187,7 @@ void main() {
 /// The enabled state of every transformation, keyed by its CLI flag name.
 ///
 /// Lets a test assert over [transformationNames] without hard-coding each of
-/// the twenty-two boolean getters.
+/// the twenty-eight boolean getters.
 Map<String, bool> _enabledByName(CliOptions o) => {
   'dot-shorthands': o.dotShorthands,
   'private-named-parameters': o.privateNamedParameters,
@@ -211,6 +211,12 @@ Map<String, bool> _enabledByName(CliOptions o) => {
   'abstract-final-classes': o.abstractFinalClasses,
   'prefer-inferred-types': o.preferInferredTypes,
   'sort-constructors-first': o.sortConstructorsFirst,
+  'constructor-shorthands': o.constructorShorthands,
+  'empty-bodies': o.emptyBodies,
+  'future-pause': o.futurePause,
+  'wildcard-parameters': o.wildcardParameters,
+  'null-aware-calls': o.nullAwareCalls,
+  'unmodifiable-of': o.unmodifiableOf,
 };
 
 CliOptions _parse(List<String> args) =>

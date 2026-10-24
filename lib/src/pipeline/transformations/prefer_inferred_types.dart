@@ -32,7 +32,9 @@ import '../transformation.dart';
 ///
 /// Applies to locals, top-level consts, and `final`/`const` fields with an
 /// initializer. Mutable fields and non-const top-level variables are left
-/// alone.
+/// alone, and so is an instance field that overrides an inherited member:
+/// without a type it would take the inherited member's type, not the
+/// initializer's.
 final class PreferInferredTypes implements Transformation {
   const PreferInferredTypes({required this.enabled});
 
@@ -56,7 +58,8 @@ class _PreferInferredTypesVisitor(final String source)
 
   @override
   void visitFieldDeclaration(FieldDeclaration node) {
-    if (node.fields.isConst || node.fields.isFinal) {
+    if ((node.fields.isConst || node.fields.isFinal) &&
+        !_overridesInheritedMember(node)) {
       _collect(node.fields, isLocal: false);
     }
     super.visitFieldDeclaration(node);
@@ -224,6 +227,9 @@ class _PreferInferredTypesVisitor(final String source)
   /// the inferred type. Rule B handles bare collection literals by relocating
   /// the type arguments instead of dropping the annotation.
   bool _isUnsafeInitializer(Expression expr, DartType declaredType) {
+    // An integer literal in a `double` context is a double: `double x = -1` and
+    // `double x = (1)` would become ints without the annotation.
+    if (_integerLiteralIn(expr) && !declaredType.isDartCoreInt) return true;
     if (expr is ListLiteral && expr.typeArguments == null) return true;
     if (expr is SetOrMapLiteral && expr.typeArguments == null) return true;
     if (expr is NullLiteral) return true;
@@ -236,15 +242,51 @@ class _PreferInferredTypesVisitor(final String source)
         expr is DotShorthandPropertyAccess) {
       return true;
     }
-    if (expr is IntegerLiteral && declaredType is InterfaceType) {
-      if (declaredType.element.name != 'int') return true;
-    }
     // A cascade whose target is a bare collection literal is unsafe for Rule A.
     if (expr is CascadeExpression) {
       final target = expr.target;
       if (target is ListLiteral && target.typeArguments == null) return true;
       if (target is SetOrMapLiteral && target.typeArguments == null) {
         return true;
+      }
+    }
+    return false;
+  }
+
+  /// Whether [expr] is an integer literal, possibly negated, inverted or
+  /// parenthesized, whose type the declared type could turn into a double.
+  bool _integerLiteralIn(Expression expr) => switch (expr) {
+    IntegerLiteral() => true,
+    ParenthesizedExpression(:final expression) => _integerLiteralIn(expression),
+    PrefixExpression(:final operand) => _integerLiteralIn(operand),
+    _ => false,
+  };
+
+  /// Whether [node] declares an instance field that overrides a member of a
+  /// supertype, through `@override` or a same-named member found there.
+  ///
+  /// Dart infers such a field's type from the member it overrides, not from
+  /// its initializer, so dropping the type could change it (an `ObjectSet`
+  /// field becoming the inherited `ObjectSetStats`).
+  bool _overridesInheritedMember(FieldDeclaration node) {
+    if (node.isStatic) return false;
+    if (node.metadata.any((a) => a.name.name == 'override')) return true;
+    final owner = node.parent?.parent;
+    final element = switch (owner) {
+      ClassDeclaration() => owner.declaredFragment?.element,
+      MixinDeclaration() => owner.declaredFragment?.element,
+      EnumDeclaration() => owner.declaredFragment?.element,
+      _ => null,
+    };
+    if (element == null) return false;
+    for (final variable in node.fields.variables) {
+      final name = variable.name.lexeme;
+      for (final supertype in element.allSupertypes) {
+        if (supertype.getGetter(name) != null ||
+            supertype.getSetter(name) != null ||
+            supertype.getMethod(name) != null) {
+          return true;
+        }
       }
     }
     return false;
@@ -341,9 +383,18 @@ class _PreferInferredTypesVisitor(final String source)
 
     final typeArgsText = source.substring(typeArgs.offset, typeArgs.end);
 
+    // The type arguments go right before the bracket: a `const` literal starts
+    // at its keyword, and `<T>const [...]` would not parse.
+    final bracket = switch (literal) {
+      ListLiteral(:final leftBracket) => leftBracket,
+      SetOrMapLiteral(:final leftBracket) => leftBracket,
+      _ => null,
+    };
+    if (bracket == null) return;
+
     _applyEdit(vars);
     edits.add(
-      .new(offset: literal.offset, length: 0, replacement: typeArgsText),
+      .new(offset: bracket.offset, length: 0, replacement: typeArgsText),
     );
   }
 }

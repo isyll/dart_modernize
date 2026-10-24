@@ -27,12 +27,12 @@ inline-return,cascades` still runs `cascades` (stage 2) before `inline-return`
 | ----- | ------ | ---- |
 | 1 | `collection-elements` | Fold an add/addAll run into one literal. |
 | 2 | `switch-expressions`, `cascades`, `super-parameters`, `private-named-parameters` | Fold statement runs, build new constructs. |
-| 3 | `primary-constructors` | Promote a class, once its members have settled. |
-| 4 | `inline-return`, `prefer-inferred-types` | Read stage 3. |
+| 3 | `primary-constructors` | Promote a class or an enum, once its members have settled. |
+| 4 | `inline-return`, `prefer-inferred-types`, `future-pause`, `null-aware-calls`, `unmodifiable-of` | Read stage 3, rewrite statements stage 5 arrows. |
 | 5 | `expression-bodies`, `final-locals` | Read stage 4. |
 | 6 | `null-aware-conditionals` | Replace a whole conditional expression. |
 | 7 | `destructure-for-in`, `destructure-locals` | Move field reads into a pattern. |
-| 8 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes` | Innermost edits and the project-wide seal. |
+| 8 | `dot-shorthands`, `string-interpolation`, `null-aware-spread`, `null-aware-elements`, `abstract-final-classes`, `constructor-shorthands`, `empty-bodies`, `wildcard-parameters` | Innermost edits, declaration headers, and the project-wide seal. |
 
 Two rules decide a pass's stage:
 
@@ -61,6 +61,21 @@ promotion first, that class would only collapse on a second run, and the tool
 would not be idempotent. `pass_convergence_test.dart` and `idempotence_test.dart`
 both cover this.
 
+`constructor-shorthands` and `empty-bodies` sit in stage 8, after
+`primary-constructors`. The promotion copies the members it keeps as written,
+factories included, so the shorthand rewrite of a retained `factory C.parse`
+has to come later; and a class the promotion empties already ends in `;`.
+Neither touches what the other passes in stage 8 edit: one rewrites a
+constructor's name, the other the braces of an empty body.
+
+`future-pause` and `null-aware-calls` join stage 4 so that `expression-bodies`
+(stage 5) can arrow what they produce, as in `void dispose() =>
+controller?.dispose();`. `null-aware-calls` also has to come before
+`null-aware-conditionals` (stage 6): both can edit inside the same `if`, and
+overlapping edits in one stage would be dropped. `future-pause` comes before
+`dot-shorthands`, which would otherwise shorten the same call to
+`.delayed(...)` first.
+
 `prefer-inferred-types` (stage 4) runs before `dot-shorthands` (stage 8). When a
 declared type is redundant, prefer-inferred-types drops it, so dot-shorthands
 sees no context type and leaves the value alone: `final c = Color.blue` and
@@ -83,17 +98,25 @@ a stage does not matter.
 
 ```
 for each stage:
-    apply the previous stage's edits, re-resolving changed files
-    for each non-generated file:
-        collector = EditCollector()
+    apply the previous stage's edits
+    for each library, resolved once with all of its parts:
+        record each unit's errors
+        skip it if it is generated, excluded, or pinned below Dart 3.13
         for each enabled pass in this stage:
-            collector.addAll(pass.editsFor(unit))
-        stage collector.apply(original) in memory
+            keep the pass's edits for that unit
+        stage the edits of every pass in memory
+    with --verify: compare every file's errors with the recorded ones, and
+        take back the edits behind any new error (see below)
 write the final in-memory content to disk
 ```
 
-Every stage re-resolves the project, but the analyzer serves unchanged files
-from cache, so only files an earlier stage touched are re-analyzed.
+A library is resolved once per stage and all of its units are visited
+together, so a model with generated `part` files is not resolved again for
+each part. A library pinned to an older language version (`// @dart = 2.12`)
+is left as it is: the passes write Dart 3.13 syntax it cannot use. A library
+whose resolution overflows the stack (a generated `operator ==` chaining
+hundreds of `&&` can do it under the JIT) is skipped and reported, instead of
+taking the run down.
 
 Within a stage, every pass computes its edits against the same source, and
 nothing is written until all passes in the stage have contributed. `EditCollector`
@@ -102,19 +125,64 @@ left-to-right walk
 ([`engine/edit_collector.dart`](../lib/src/engine/edit_collector.dart)). Because
 the passes in a stage target separate regions, no overlap is dropped in practice.
 
+### Checking each stage
+
+With `--verify` (the default), the errors of every file are compared before and
+after each stage, in memory, using the analyzer's cache so a file whose
+dependencies did not change is not analyzed again
+([`pipeline/stage_runner.dart`](../lib/src/pipeline/stage_runner.dart)). When a
+stage adds an error:
+
+1. If the broken file was edited in this stage, its edits are taken back.
+2. Otherwise the error is in a caller, so the edits of the changed files it
+   depends on are taken back: the ones it imports directly (following
+   re-exports) first, then the ones it reaches through other files
+   ([`engine/import_graph.dart`](../lib/src/engine/import_graph.dart)).
+3. The check repeats, up to four rounds.
+4. A file several passes edited then gets its passes back one at a time, and
+   keeps the ones that leave the project error-free.
+
+The passes taken back are reported as held back. This catches a broken caller
+before anything is written, where checking the changed files alone would not
+(a promotion that drops a default value breaks `Pair(1)` in another file, not
+the class itself).
+
 ## Finalize
 
 After the structural stages, the finalize passes run over the files on disk, in
 a fixed order (`buildFinalizeTransformations`):
 
 1. `fix-all` (`dart fix --apply`) first, because its fixes may remove imports.
+   The lints listed under `lint_fixes:` in the config are fixed in the same
+   step, with `dart fix --code=...`.
 2. `organize-imports`, merged with `sort-members` when that is on so both are
    computed on one source. `sort-members` is off by default, so usually only
    `organize-imports` runs here. With `organize-imports` off, `sort-members`
-   still runs on its own.
-3. `sort-constructors-first`, over the files as the previous steps left them.
-4. `dart format` last, over the same filtered file list the rest of the pipeline
-   uses, since it does not read `analyzer: exclude:` or `--exclude` itself.
+   still runs on its own. It reuses the analyzer of the stages, with the files
+   `dart fix` touched staged again, instead of starting a cold one.
+3. `sort-constructors-first`, over the files as the previous steps left them. A
+   class with a `// ignore: sort_constructors_first` comment keeps its order.
+4. `dart format` last, over the files the run changed and nothing else, so a
+   project formatted to another width keeps its layout everywhere the tool did
+   not edit. `--no-format` (or `format` under `disabled:`) skips it, and
+   `--line-length` sets the page width.
+
+Then `--verify` runs `dart analyze` over the whole project, unchanged files
+included. A new error in a changed file reverts that file; a new error in an
+unchanged file reverts the changed files it depends on. Each revert can expose
+another error, so the check repeats until the project is clean. The run then
+reports what it kept, lists the reverted files with the passes behind them, and
+exits with code 2. New warnings and infos are listed too, without reverting
+anything, for projects that run `dart analyze --fatal-infos` in CI.
+
+Copies of every file the run may rewrite go to `.dart_tool/dart_modernize/backup`
+before the first write. A failure in any later step puts them back; a hard
+crash leaves them for `dart_modernize --restore`.
+
+`--dry-run` and `--check` take the same finalize steps in memory: organize
+imports, sorting, and `dart format` on a scratch copy, so the diff and the
+verdict cover what a real run would write. `dart fix` works only on files on
+disk, so a preview lists the files it would change instead.
 
 ## Rewrites vs reordering
 

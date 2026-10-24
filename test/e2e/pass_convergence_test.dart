@@ -164,13 +164,14 @@ class Store {
             'the baseline must be transformed for the no-op checks to mean '
             'anything',
       );
-      // Constructors first, imports pruned: the canonical, settled shape.
+      // Constructors first and in their short form, imports pruned: the
+      // canonical, settled shape.
       expect(modernized, isNot(contains("import 'dart:math';")));
       expect(
         modernized,
         stringContainsInOrder([
-          'Store(this.items);',
-          'Store.empty()',
+          'new(this.items);',
+          'new empty()',
           'final List<int> items',
           'int get size',
         ]),

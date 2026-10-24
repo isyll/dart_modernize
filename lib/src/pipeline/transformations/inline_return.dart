@@ -2,6 +2,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
@@ -22,7 +23,19 @@ import '../transformation.dart';
 ///     return of the local, not `return f(x);` or `return x + 1;`;
 ///   * the local is used nowhere else in the enclosing block;
 ///   * no comment is attached to the declaration or sits between it and the
-///     return that would be lost by removing the declaration line.
+///     return that would be lost by removing the declaration line;
+///   * the initializer infers the same type in the `return`. Moving it there
+///     changes its context type, from none (or the declared type) to the
+///     return type, `FutureOr<T>` in an `async` body. An initializer whose
+///     inference reads that context (a generic call without `<...>`, a
+///     collection literal without type arguments, a closure, an integer
+///     literal, a dot shorthand, a switch expression) is only moved when the
+///     local's type is exactly the function's declared return type, or `T`
+///     for an `async` function returning `Future<T>`. In an `async` body a
+///     generic call or a closure is never moved: inference can pick
+///     `FutureOr<T>` for its type argument there;
+///   * the initializer is not `dynamic` assigned to a typed local, whose
+///     implicit cast the move would drop.
 final class InlineReturn implements Transformation {
   const InlineReturn({required this.enabled});
 
@@ -72,6 +85,7 @@ class _InlineReturnVisitor(final String source)
 
       if (_isReferencedElsewhere(element, statements, i)) continue;
       if (_hasComment(decl, next)) continue;
+      if (!_keepsItsType(vars, varDecl, next)) continue;
 
       edits.add(
         .new(
@@ -83,6 +97,113 @@ class _InlineReturnVisitor(final String source)
       );
     }
   }
+
+  /// Whether [initializer] infers the same type as the value of [returnStmt]
+  /// as it did as the initializer of [vars]. See the class comment.
+  bool _keepsItsType(
+    VariableDeclarationList vars,
+    VariableDeclaration variable,
+    ReturnStatement returnStmt,
+  ) {
+    final initializer = variable.initializer!;
+    final declared = vars.type?.type;
+    if (declared != null &&
+        declared is! DynamicType &&
+        initializer.staticType is DynamicType) {
+      return false;
+    }
+    if (!_dependsOnContext(initializer)) return true;
+
+    final localType = variable.declaredFragment?.element.type;
+    final body = returnStmt.thisOrAncestorOfType<FunctionBody>();
+    if (localType == null || body == null || body.isGenerator) return false;
+    final owner = body.parent;
+    final DartType? returnType = switch (owner) {
+      MethodDeclaration() => owner.returnType?.type,
+      FunctionExpression() => switch (owner.parent) {
+        FunctionDeclaration(:final returnType) => returnType?.type,
+        _ => null,
+      },
+      _ => null,
+    };
+    if (returnType == null) return false;
+    if (!body.isAsynchronous) return returnType == localType;
+
+    // The context of an async return value is `FutureOr<T>`.
+    return returnType is InterfaceType &&
+        returnType.isDartAsyncFuture &&
+        returnType.typeArguments.length == 1 &&
+        returnType.typeArguments.single == localType &&
+        !_infersFromFutureOr(initializer);
+  }
+
+  /// Whether a generic call without `<...>` or a closure takes its type from
+  /// the context of [expression], where a `FutureOr<T>` context can make it
+  /// infer `FutureOr<T>` instead of `T`. Collection literals and dot
+  /// shorthands look through `FutureOr`, so they are fine.
+  bool _infersFromFutureOr(Expression expression) => switch (expression) {
+    FunctionExpression() => true,
+    ParenthesizedExpression(:final expression) => _infersFromFutureOr(
+      expression,
+    ),
+    AwaitExpression(:final expression) => _infersFromFutureOr(expression),
+    CascadeExpression(:final target) => _infersFromFutureOr(target),
+    ConditionalExpression(:final thenExpression, :final elseExpression) =>
+      _infersFromFutureOr(thenExpression) ||
+          _infersFromFutureOr(elseExpression),
+    BinaryExpression(:final operator, :final leftOperand, :final rightOperand)
+        when operator.lexeme == '??' =>
+      _infersFromFutureOr(leftOperand) || _infersFromFutureOr(rightOperand),
+    SwitchExpression(:final cases) => cases.any(
+      (c) => _infersFromFutureOr(c.expression),
+    ),
+    InstanceCreationExpression() ||
+    MethodInvocation() ||
+    FunctionExpressionInvocation() => _dependsOnContext(expression),
+    _ => false,
+  };
+
+  /// Whether inferring [expression] reads its context type.
+  bool _dependsOnContext(Expression expression) => switch (expression) {
+    IntegerLiteral() => true,
+    TypedLiteral(:final typeArguments) => typeArguments == null,
+    RecordLiteral(:final fields) => fields.any(
+      (field) => _dependsOnContext(field.fieldExpression),
+    ),
+    FunctionExpression() => true,
+    DotShorthandInvocation() ||
+    DotShorthandPropertyAccess() ||
+    DotShorthandConstructorInvocation() => true,
+    ParenthesizedExpression(:final expression) => _dependsOnContext(expression),
+    PrefixExpression(:final operand) => _dependsOnContext(operand),
+    AwaitExpression(:final expression) => _dependsOnContext(expression),
+    CascadeExpression(:final target) => _dependsOnContext(target),
+    ConditionalExpression(:final thenExpression, :final elseExpression) =>
+      _dependsOnContext(thenExpression) || _dependsOnContext(elseExpression),
+    BinaryExpression(:final operator, :final leftOperand, :final rightOperand)
+        when operator.lexeme == '??' =>
+      _dependsOnContext(leftOperand) || _dependsOnContext(rightOperand),
+    SwitchExpression() => true,
+    InstanceCreationExpression(:final constructorName) =>
+      constructorName.type.typeArguments == null &&
+          (constructorName
+                  .element
+                  ?.enclosingElement
+                  .typeParameters
+                  .isNotEmpty ??
+              false),
+    MethodInvocation(:final typeArguments, :final methodName) =>
+      typeArguments == null &&
+          switch (methodName.element) {
+            ExecutableElement(:final typeParameters) =>
+              typeParameters.isNotEmpty,
+            _ => false,
+          },
+    FunctionExpressionInvocation(:final typeArguments, :final element) =>
+      typeArguments == null &&
+          (element == null || element.typeParameters.isNotEmpty),
+    _ => false,
+  };
 
   bool _hasComment(
     VariableDeclarationStatement stmt,

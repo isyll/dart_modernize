@@ -14,7 +14,7 @@ import '../modernize_exception.dart';
 /// 3.13 is the floor because primary constructors became stable there, and the
 /// promotion pass emits that syntax. Refusing up front is better than letting a
 /// run reach a project that cannot compile the result.
-final Version _minimumSdk = .new(3, 13, 0);
+final Version minimumSdk = .new(3, 13, 0);
 
 /// Validates that the project at [projectPath] is ready for modernization.
 ///
@@ -55,12 +55,12 @@ void _checkPubspec(String projectPath) {
     );
   }
 
-  final atLeastMinimum = VersionRange(min: _minimumSdk, includeMin: true);
+  final atLeastMinimum = VersionRange(min: minimumSdk, includeMin: true);
   if (!atLeastMinimum.allowsAll(constraint)) {
     throw ModernizeException(
-      'This tool targets Dart $_minimumSdk or newer, but the project SDK '
+      'This tool targets Dart $minimumSdk or newer, but the project SDK '
       'constraint "$sdk" allows an older version. Raise the pubspec.yaml SDK '
-      'constraint to ">=$_minimumSdk <4.0.0" before modernizing.',
+      'constraint to ">=$minimumSdk <4.0.0" before modernizing.',
     );
   }
 }

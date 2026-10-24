@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
 
+import '../../analysis/lint_rules.dart';
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
 
@@ -19,11 +24,15 @@ import '../transformation.dart';
 ///
 /// If the class has a single private unnamed constructor `ClassName._()` used
 /// solely to prevent instantiation, that constructor is removed because
-/// `abstract final` already prevents external instantiation.
+/// `abstract final` already prevents external instantiation. It stays when the
+/// project enables `avoid_classes_with_only_static_members`, which that
+/// constructor was keeping quiet.
 ///
-/// This is an app-oriented transform: a public class in a published library
-/// could be subclassed by downstream consumers not visible to the analyzer.
-/// The guard checks only the project under analysis.
+/// Usage is checked across the project under analysis only, which is the whole
+/// story for an app. A package published to pub.dev has users the analyzer
+/// cannot see, who may extend or instantiate any class of its public API, so
+/// for a package (a pubspec without `publish_to: none`) a class the package
+/// exports from a library outside `lib/src/` is left alone.
 final class AbstractFinalClasses implements Transformation {
   AbstractFinalClasses({required this.enabled});
 
@@ -33,6 +42,13 @@ final class AbstractFinalClasses implements Transformation {
 
   Set<InterfaceElement>? _usedClasses;
 
+  /// The elements a published package exports to its users, or empty for an
+  /// app.
+  Set<Element> _publicApi = const {};
+
+  /// Whether the project enables `avoid_classes_with_only_static_members`.
+  bool _keepPrivateConstructor = false;
+
   @override
   String get name => 'abstract-final-classes';
 
@@ -41,7 +57,12 @@ final class AbstractFinalClasses implements Transformation {
     if (!_analyzed) {
       await _analyzeProject(unit);
     }
-    final visitor = _AbstractFinalVisitor(unit.content, _usedClasses!);
+    final visitor = _AbstractFinalVisitor(
+      unit.content,
+      _usedClasses!,
+      _publicApi,
+      keepPrivateConstructor: _keepPrivateConstructor,
+    );
     unit.unit.accept(visitor);
     return visitor.edits;
   }
@@ -51,26 +72,65 @@ final class AbstractFinalClasses implements Transformation {
     final used = <InterfaceElement>{};
 
     final session = seedUnit.session;
+    final root = session.analysisContext.contextRoot.root.path;
+    final published = _isPublished(root);
+    final publicLib = p.join(root, 'lib');
+    final privateLib = p.join(publicLib, 'src');
+    final publicApi = <Element>{};
     final files = session.analysisContext.contextRoot.analyzedFiles().where(
       (f) => f.endsWith('.dart'),
     );
 
     for (final filePath in files) {
-      final result = await session.getResolvedUnit(filePath);
+      final SomeResolvedUnitResult result;
+      try {
+        result = await session.getResolvedUnit(filePath);
+        // ignore: avoid_catching_errors, the analyzer's own recursion limit.
+      } on StackOverflowError {
+        continue;
+      }
       if (result is! ResolvedUnitResult) continue;
       final collector = _UsageCollector();
       result.unit.accept(collector);
       used.addAll(collector.usedClasses);
+      if (published &&
+          p.isWithin(publicLib, filePath) &&
+          !p.isWithin(privateLib, filePath)) {
+        publicApi.addAll(
+          result.libraryElement.exportNamespace.definedNames2.values,
+        );
+      }
     }
 
     _usedClasses = used;
+    _publicApi = publicApi;
+    _keepPrivateConstructor =
+        seedUnit.analysisOptions.isLintEnabled(_staticMembersLint) ||
+        enabledLintRules(root).contains(_staticMembersLint);
+  }
+
+  static const _staticMembersLint = 'avoid_classes_with_only_static_members';
+
+  /// Whether the package at [root] can be published: its pubspec does not say
+  /// `publish_to: none`.
+  static bool _isPublished(String root) {
+    final file = File(p.join(root, 'pubspec.yaml'));
+    if (!file.existsSync()) return false;
+    try {
+      final yaml = loadYaml(file.readAsStringSync());
+      return yaml is YamlMap && '${yaml['publish_to']}' != 'none';
+    } on YamlException {
+      return false;
+    }
   }
 }
 
 class _AbstractFinalVisitor(
   final String source,
   final Set<InterfaceElement> usedClasses,
-) extends RecursiveAstVisitor<void> {
+  final Set<Element> publicApi, {
+  required final bool keepPrivateConstructor,
+}) extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -97,6 +157,7 @@ class _AbstractFinalVisitor(
     final element = node.declaredFragment?.element;
     if (element == null) return;
     if (usedClasses.contains(element)) return;
+    if (publicApi.contains(element)) return;
 
     // Use the element model to check that every member is static.
     for (final field in element.fields) {
@@ -142,7 +203,7 @@ class _AbstractFinalVisitor(
       ),
     );
 
-    if (privateCtorAst != null) {
+    if (privateCtorAst != null && !keepPrivateConstructor) {
       final lineStart = _startOfContainingLine(privateCtorAst.offset);
       final lineEnd = _endOfContainingLine(privateCtorAst.end);
       edits.add(

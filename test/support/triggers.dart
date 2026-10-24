@@ -100,18 +100,23 @@ const preferInferredTypesTrigger = '''
 const int timeout = 30;
 ''';
 
+/// Already in the `new(...)` form, so constructor-shorthands has nothing to
+/// do here.
 const primaryConstructorsTrigger = '''
 class P {
-  P(this.x, this.y);
+  new(this.x, this.y);
 
   final int x;
   final int y;
 }
 ''';
 
+/// The doc comment keeps primary-constructors away: it would otherwise move
+/// `_x = x` onto the field itself.
 const privateNamedParametersTrigger = '''
 class C {
-  C({required int x}) : _x = x;
+  /// Creates a C.
+  new({required int x}) : _x = x;
 
   final int _x;
 
@@ -119,11 +124,14 @@ class C {
 }
 ''';
 
+/// The doc comment keeps primary-constructors away: it would otherwise move
+/// `this.id = id` onto the field and promote the class.
 const sortConstructorsFirstTrigger = '''
 class Marker {
   final int id;
 
-  Marker(int id) : this.id = id;
+  /// Creates a marker.
+  new(int id) : this.id = id;
 }
 ''';
 
@@ -141,13 +149,13 @@ String greet(String name) => 'Hello, ' + name + '!';
 
 const superParametersTrigger = '''
 class Base {
-  Base({required this.id});
+  new({required this.id});
 
   final int id;
 }
 
 class Derived extends Base {
-  Derived({required int id}) : super(id: id);
+  new({required int id}) : super(id: id);
 }
 ''';
 
@@ -202,6 +210,46 @@ List<int> build(bool flag) {
 }
 ''';
 
+/// Two generative constructors, so primary-constructors leaves the class.
+const constructorShorthandsTrigger = '''
+class Point {
+  Point(this.x);
+  Point.origin() : x = 0;
+
+  final int x;
+}
+''';
+
+/// `implements` keeps abstract-final-classes away from the empty class.
+const emptyBodiesTrigger = '''
+class NetworkException implements Exception {}
+''';
+
+/// Two statements, so expression-bodies has nothing to collapse, and a
+/// duration from a parameter, which dot-shorthands has nothing to shorten in.
+const futurePauseTrigger = '''
+Future<void> settle(Duration delay) async {
+  await Future.delayed(delay);
+  print('settled');
+}
+''';
+
+const wildcardParametersTrigger = '''
+String separator(int _, String __) => '-';
+''';
+
+const nullAwareCallsTrigger = '''
+void notify(void Function(int)? onChanged) {
+  if (onChanged != null) onChanged(1);
+}
+''';
+
+/// No context type, so dot-shorthands leaves the constructor call alone.
+const unmodifiableOfTrigger = '''
+final ids = <int>[1, 2];
+final frozen = List<int>.unmodifiable(ids);
+''';
+
 /// Trigger source keyed by feature folder name.
 const triggers = <String, String>{
   'dot_shorthands': dotShorthandsTrigger,
@@ -226,6 +274,12 @@ const triggers = <String, String>{
   'sort_constructors_first': sortConstructorsFirstTrigger,
   'fix_all': fixAllTrigger,
   'abstract_final_classes': abstractFinalClassesTrigger,
+  'constructor_shorthands': constructorShorthandsTrigger,
+  'empty_bodies': emptyBodiesTrigger,
+  'future_pause': futurePauseTrigger,
+  'wildcard_parameters': wildcardParametersTrigger,
+  'null_aware_calls': nullAwareCallsTrigger,
+  'unmodifiable_of': unmodifiableOfTrigger,
 };
 
 /// Project files for [feature]'s isolated trigger (source plus any extra config

@@ -42,24 +42,38 @@ import '../transformation.dart';
 /// Records resolve field by field against their own context type. For a list of
 /// records with no element type, the record type is hoisted onto the literal
 /// (`<(Foo, String)>[...]`) so the fields have something to resolve against.
+/// A record returned from an `async` function is the exception: its context is
+/// `FutureOr<(...)>`, which gives its fields no context at all.
+///
+/// The elements of a collection passed to a generic call without `<...>`
+/// (`ISetConst({Speed.bullet})`) have no context either, since the call infers
+/// its type arguments from them.
+///
+/// With [constructors] off (the `constructors: false` setting), constructor
+/// calls stay written out (`InputDecoration(...)`), while static members and
+/// enum values still collapse.
 final class DotShorthands implements Transformation {
-  const DotShorthands({required this.enabled});
+  const DotShorthands({required this.enabled, this.constructors = true});
 
   @override
   final bool enabled;
+
+  /// Whether `Foo(...)` may become `.new(...)`.
+  final bool constructors;
 
   @override
   String get name => 'dot-shorthands';
 
   @override
   Future<List<SourceEdit>> editsFor(ResolvedUnitResult unit) async {
-    final visitor = _DotShorthandsVisitor();
+    final visitor = _DotShorthandsVisitor(constructors: constructors);
     unit.unit.accept(visitor);
     return visitor.edits;
   }
 }
 
-class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
+class _DotShorthandsVisitor({required final bool constructors})
+    extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
 
   @override
@@ -197,13 +211,16 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     final parameter = argument.correspondingParameter;
     if (parameter == null) return null;
 
-    final declared = parameter.baseElement.type;
-    if (declared is TypeParameterType) {
-      // A type variable of the invoked generic itself is solved *from* the
-      // arguments, so it offers no downward context. A type variable of the
-      // enclosing class is already fixed by the receiver, so keep going.
-      final typeParameters = _invokedTypeParameters(argument);
-      if (typeParameters.contains(declared.element)) return null;
+    // A type variable of the invoked generic itself is solved *from* the
+    // arguments, so it offers no downward context, not even nested in the
+    // parameter type: `ISetConst<T>(Set<T> set)` called as `ISetConst({...})`
+    // infers `T` from the set's elements, so they have nothing to resolve
+    // against. A type variable of the enclosing class is already fixed by the
+    // receiver, so keep going.
+    final typeParameters = _invokedTypeParameters(argument);
+    if (typeParameters.isNotEmpty &&
+        _mentionsAny(parameter.baseElement.type, typeParameters.toSet())) {
+      return null;
     }
     return parameter.type;
   }
@@ -258,6 +275,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
     InstanceCreationExpression node,
     DartType context,
   ) {
+    if (!constructors) return null;
     final written = node.staticType;
     if (written == null || !_sameType(context, written)) return null;
 
@@ -732,6 +750,7 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
   /// context type is not a precise record type, so an imprecise record neither
   /// shortens its fields nor is hoisted (see [_annotateInferredList]).
   DartType? _recordFieldContext(RecordLiteral record, Expression node) {
+    if (_isAsyncReturnValue(record)) return null;
     final recordType = _contextType(record);
     if (recordType is! RecordType || !_isPreciseRecordType(recordType)) {
       return null;
@@ -748,6 +767,53 @@ class _DotShorthandsVisitor extends RecursiveAstVisitor<void> {
       if (!isNamed) index++;
     }
     return null;
+  }
+
+  /// Whether [expression] is the value of a `return` or `=>` in an `async`
+  /// body, directly or as a branch of `?:` or an operand of `??`.
+  ///
+  /// The language gives such a value the context `FutureOr<T>`. A dot
+  /// shorthand right there still resolves, because the shorthand rule unwraps
+  /// `FutureOr`, but inference does not push `FutureOr<(A, B)>` into the
+  /// fields of a record literal: they get no context at all.
+  bool _isAsyncReturnValue(Expression expression) {
+    AstNode node = expression;
+    var parent = node.parent;
+    while (parent is ParenthesizedExpression ||
+        (parent is ConditionalExpression &&
+            !identical(parent.condition, node)) ||
+        (parent is BinaryExpression && parent.operator.lexeme == '??')) {
+      node = parent!;
+      parent = node.parent;
+    }
+    final FunctionBody? body;
+    if (parent is ReturnStatement) {
+      body = parent.thisOrAncestorOfType<FunctionBody>();
+    } else if (parent is ExpressionFunctionBody) {
+      body = parent;
+    } else {
+      return false;
+    }
+    return body != null && body.isAsynchronous && !body.isGenerator;
+  }
+
+  /// Whether [type] mentions any of [parameters], anywhere in its structure.
+  bool _mentionsAny(DartType type, Set<TypeParameterElement> parameters) {
+    if (type is TypeParameterType) return parameters.contains(type.element);
+    if (type is InterfaceType) {
+      return type.typeArguments.any((t) => _mentionsAny(t, parameters));
+    }
+    if (type is FunctionType) {
+      return _mentionsAny(type.returnType, parameters) ||
+          type.formalParameters.any((p) => _mentionsAny(p.type, parameters));
+    }
+    if (type is RecordType) {
+      return type.positionalFields.any(
+            (f) => _mentionsAny(f.type, parameters),
+          ) ||
+          type.namedFields.any((f) => _mentionsAny(f.type, parameters));
+    }
+    return false;
   }
 
   /// Whether two record types are the same: equal record nullability, the same

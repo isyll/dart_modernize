@@ -8,12 +8,14 @@ import 'modernize_exception.dart';
 import 'output/reporter.dart';
 import 'pipeline/pipeline.dart';
 
-const _version = '0.11.1';
+const _version = '0.12.0';
 
 /// Entry point for the `dart_modernize` CLI.
 ///
 /// Parses [arguments], builds the pipeline, and runs it. All errors are
-/// caught here and converted to a non-zero exit code.
+/// caught here and converted to a non-zero exit code: 1 for a failure or a
+/// `--check` that found work, 2 for a run that kept its changes but reverted
+/// some files, 64 for bad usage.
 Future<void> run(List<String> arguments) async {
   final parser = buildArgParser();
 
@@ -67,6 +69,9 @@ Future<void> run(List<String> arguments) async {
     // --check found files that would change. The summary is already printed;
     // exit non-zero so CI fails, with no error output.
     exit(1);
+  } on PartialSuccessException {
+    // The summary and the reverted files are already printed.
+    exit(2);
   } on ModernizeException catch (e) {
     reporter.error(e.message);
     exit(1);

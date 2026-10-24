@@ -2,9 +2,9 @@ import 'dart:collection';
 import 'dart:math';
 
 class Account {
-  Account({required this.owner}) : id = _nextId++;
+  new({required this.owner}) : id = _nextId++;
 
-  Account.named(String owner) : this(owner: owner);
+  new named(String owner) : this(owner: owner);
 
   static int _nextId = 0;
 

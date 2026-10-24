@@ -54,3 +54,43 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes-file release_notes.md
+
+  # Standalone executables attached to the GitHub Release. Compiled ahead of
+  # time, the analyzer uses far smaller stack frames than under the JIT of
+  # `dart pub global activate`, so a deeply nested generated expression that
+  # can crash the JIT build resolves fine. They still need a Dart SDK on the
+  # machine (found through DART_SDK, FLUTTER_ROOT, or dart on the PATH): the
+  # tool analyzes against it and runs dart format, fix and analyze from it.
+  # Runs only on a release tag, after the package is published.
+  binaries:
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: dart_modernize-linux-x64
+          - os: windows-latest
+            asset: dart_modernize-windows-x64.exe
+          - os: macos-latest
+            asset: dart_modernize-macos-arm64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # required to upload to the GitHub Release
+    steps:
+      - uses: actions/checkout@v7
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: stable
+
+      - run: dart pub get
+      - run: dart compile exe bin/dart_modernize.dart -o ${{ matrix.asset }}
+
+      - name: Attach to the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --clobber

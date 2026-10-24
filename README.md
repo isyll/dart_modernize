@@ -128,7 +128,7 @@ sl
 
 ## 🧰 What it can do
 
-22 small passes. Each one does one job, and you can switch any of them on or off. All run by default except two, which are opt-in because their diffs are bigger: **sort-members** and **collection-elements**.
+28 small passes. Each one does one job, and you can switch any of them on or off. All run by default except three, which are opt-in: **sort-members** and **collection-elements** because their diffs are bigger, and **unmodifiable-of** because the SDK hasn't deprecated the old form yet.
 
 | Pass | In plain words |
 |:--|:--|
@@ -146,14 +146,20 @@ sl
 | `destructure-for-in` | `entry.key` and `entry.value` in a loop become `:key` and `:value` in the header. |
 | `destructure-locals` | Three lines that unpack a value become one. |
 | `private-named-parameters` | `Foo({required String name}) : _name = name` becomes `Foo({required this._name})`. |
-| `primary-constructors` | A class that only stores its constructor arguments gets a one-line header. |
+| `primary-constructors` | A class or enum that only stores its constructor arguments gets a one-line header. |
+| `constructor-shorthands` | `Point(this.x)` becomes `new(this.x)`, `factory Point.fromJson` becomes `factory fromJson`. |
+| `empty-bodies` | `class AuthLoading extends AuthState {}` becomes `class AuthLoading extends AuthState;`. |
 | `super-parameters` | `: super(key: key)` becomes `super.key`. |
+| `null-aware-calls` | `if (cb != null) cb!(x);` becomes `cb?.call(x);`. |
+| `future-pause` | `await Future.delayed(d)` becomes `await Future.pause(d)`. |
+| `wildcard-parameters` | `(_, __) => ...` becomes `(_, _) => ...`. |
 | `abstract-final-classes` | A class of only static members becomes `abstract final class`. |
 | `organize-imports` | Sorts, groups and removes unused imports. |
 | `sort-constructors-first` | Moves constructors to the top of the class. |
 | `fix-all` | Runs the same fixes as `dart fix --apply`. |
 | `sort-members` (off) | Puts class members in a standard order. |
 | `collection-elements` (off) | `list.add(a); list.add(b);` becomes one list literal. |
+| `unmodifiable-of` (off) | `List.unmodifiable(xs)` becomes `List.unmodifiableOf(xs)`, when the type stays the same. |
 
 Every name above works with `--only` and `--no-<name>`. More on that in Usage below.
 
@@ -373,6 +379,54 @@ String label(Box? box, String fallback) => box?.name ?? fallback;
 
 > `?x` reads `x` once, where the old code read it twice. So this only applies to plain locals and parameters, never to a getter or a method call. For the `??` form, the value must be non-nullable, otherwise the two versions would give different answers.
 
+**Null-aware calls.**
+
+```dart
+// before
+if (onChanged != null) onChanged!(value);
+if (widget.onTap != null) {
+  widget.onTap!();
+}
+if (controller != null) controller.dispose();
+
+// after
+onChanged?.call(value);
+widget.onTap?.call();
+controller?.dispose();
+```
+
+> Only an `if` with no `else` around a single call on exactly the checked value. That value has to be stable (a local, a parameter, or a final field), and the arguments may not mention it, since it is no longer promoted inside them.
+
+### Small wins
+
+**Future.pause** (Dart 3.13)
+
+```dart
+// before
+await Future.delayed(const Duration(milliseconds: 300));
+await Future.delayed(Duration.zero);
+
+// after
+await Future.pause(const Duration(milliseconds: 300));
+await Future.pause();
+```
+
+> Only when nobody reads the result and there is no callback.
+
+**Wildcard parameters.** Since Dart 3.7, `_` can repeat, so the `__` and `___` written to get around the old rule aren't needed.
+
+```dart
+// before
+separatorBuilder: (_, __) => const Divider(),
+errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+
+// after
+separatorBuilder: (_, _) => const Divider(),
+errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
+```
+
+> Named parameters keep their name, which is part of the function's API, and so does a parameter the body reads.
+
 ### Unpacking values
 
 **Destructure for-in**
@@ -437,29 +491,122 @@ class Point {
   Point(this.x, this.y);
 }
 
-class Origin {
-  final int x;
-  const Origin(this.x);
+class Config {
+  final String host;
+  final int port;
+  const Config({required this.host, this.port = 8080});
 }
 
-class Record {
-  final String name;
-  final bool active = true;
+class Range {
+  final int min;
+  final int max;
+  Range(this.min, this.max) : assert(min <= max);
+}
 
-  Record(this.name);
+class Scaled {
+  final int _value;
+  Scaled(int raw) : _value = raw * 2;
+}
+
+class Vec {
+  final int x;
+  final int y;
+  const Vec._(this.x, this.y);
+  factory Vec.zero() => const Vec._(0, 0);
+}
+
+enum Planet {
+  mercury(3.3),
+  venus(4.8);
+
+  const Planet(this.mass);
+  final double mass;
 }
 
 // after
 class Point(final int x, final int y);
 
-class const Origin(final int x);
+class const Config({required final String host, final int port = 8080});
 
-class Record(final String name) {
-  final bool active = true;
+class Range(final int min, final int max) {
+  this : assert(min <= max);
+}
+
+class Scaled(int raw) {
+  final int _value = raw * 2;
+}
+
+class const Vec._(final int x, final int y) {
+  factory Vec.zero() => const Vec._(0, 0);
+}
+
+enum Planet(final double mass) {
+  mercury(3.3),
+  venus(4.8),
 }
 ```
 
-> Skipped when the class is abstract, is extended in the same file, has a second constructor, has a constructor body or an initializer list, or takes a parameter that isn't a plain `this.x`. Factory and redirecting constructors don't count against it and stay in the body. A field with a doc comment or an annotation keeps its class as it is, because the header has nowhere to put them.
+Default values, optional `[...]` parameters and `required` are kept as they were. An `assert` moves to the constructor's own body (`this : ...`), and a field set in the initializer list gets its value where it's declared.
+
+> Skipped when the class is abstract, is extended in the same file, has a second generative constructor, or a constructor body or `super(...)` call. Also skipped when the constructor has a doc comment, an annotation or any comment, or a field it would move has one, because the header has nowhere to put them. Factory and redirecting constructors stay in the body. A Flutter widget that forwards `super.key` is left alone unless you opt in (see the `super-parameters` setting under [Keep settings in your project](#%EF%B8%8F-keep-settings-in-your-project)), because that rewrites nearly every widget. A non-const `@immutable` class that keeps an initialized field in its body is skipped too, to dodge a Dart 3.13 lint bug that would make `dart fix` add an invalid `const`.
+
+**Constructor shorthands** (Dart 3.13). Inside the class, a constructor no longer repeats the class name. Calls don't change.
+
+```dart
+// before
+class Point {
+  const Point(this.x, this.y);
+  const Point.origin() : x = 0, y = 0;
+  factory Point.fromJson(Map<String, Object?> json) => Point(json['x'] as int, json['y'] as int);
+  final int x;
+  final int y;
+}
+
+enum Level {
+  low(1),
+  high(2);
+
+  const Level(this.value);
+  final int value;
+}
+
+// after
+class Point {
+  const new(this.x, this.y);
+  const new origin() : x = 0, y = 0;
+  factory fromJson(Map<String, Object?> json) => Point(json['x'] as int, json['y'] as int);
+  final int x;
+  final int y;
+}
+
+enum Level {
+  low(1),
+  high(2);
+
+  new(this.value);
+  final int value;
+}
+```
+
+> An enum constructor is always constant, so its `const` goes too. A comment between the class name and the parameters keeps the old form.
+
+**Empty bodies** (Dart 3.13). Very common in sealed hierarchies and exceptions.
+
+```dart
+// before
+sealed class AuthState {}
+final class AuthInitial extends AuthState {}
+class NetworkException implements Exception {}
+mixin Loggable {}
+
+// after
+sealed class AuthState;
+final class AuthInitial extends AuthState;
+class NetworkException implements Exception;
+mixin Loggable;
+```
+
+> A body with a comment inside stays as it is. Enums always have a body.
 
 **Super parameters**
 
@@ -504,7 +651,7 @@ abstract final class AppColors {
 }
 ```
 
-> Needs the whole project in view: skipped if the class is created, extended, implemented or mixed in anywhere, or already has a class modifier. The empty private constructor goes away, since `abstract final` already blocks instances.
+> Needs the whole project in view: skipped if the class is created, extended, implemented or mixed in anywhere, or already has a class modifier. The empty private constructor goes away, since `abstract final` already blocks instances, unless your project turns on `avoid_classes_with_only_static_members`, which that constructor keeps quiet. In a package you publish (no `publish_to: none`), the classes it exports to its users are left alone: their code could extend or create them, and the tool can't see it.
 
 ### Housekeeping
 
@@ -522,7 +669,7 @@ import 'dart:math';
 import 'models.dart';
 ```
 
-**Sort constructors first** (keeps `sort_constructors_first` happy)
+**Sort constructors first** (keeps `sort_constructors_first` happy). A class with a `// ignore: sort_constructors_first` comment keeps the order you chose.
 
 ```dart
 // before
@@ -604,21 +751,41 @@ class Account {
 >
 > Fields keep their relative order, so a field that reads another field during initialization still runs after it.
 
+**Unmodifiable of** (`--unmodifiable-of`). The SDK is preparing to deprecate `List.unmodifiable` and `Map.unmodifiable`, which take an untyped argument.
+
+```dart
+// before
+final List<int> ids = List.unmodifiable(<int>[1, 2]);
+Map<String, int> freeze(Map<String, int> m) => Map.unmodifiable(m);
+
+// after
+final List<int> ids = List.unmodifiableOf(<int>[1, 2]);
+Map<String, int> freeze(Map<String, int> m) => Map.unmodifiableOf(m);
+```
+
+> Only when the result keeps exactly the same type. `List.unmodifiable([1, 2])` with no context is a `List<dynamic>`, while `List.unmodifiableOf` would make it a `List<int>`, so it stays.
+
 <br>
 
 ## 🛡️ Will it break my code?
 
-It's built so it can't, in four ways.
+It's built so it can't, in five ways.
 
 * **It checks types, not text.** Every edit comes from fully resolved types, so a rewrite always points at the same thing as before. If it can't prove that, it does nothing.
-* **It keeps your program's behavior.** Expressions run the same number of times as before.
-* **It double-checks itself.** After editing, it analyzes the changed files again and puts back any file that gained a new error. So a run never leaves code that doesn't compile. (`--no-verify` turns that off.)
+* **It keeps your program's behavior.** Expressions run the same number of times as before, and default values, doc comments and annotations are never dropped.
+* **It double-checks itself.** After each group of passes it compares the errors of every file in memory, before anything is written, and takes back the change behind any new one, even when the error shows up in another file (a caller of a constructor whose signature moved). Once the files are written, `dart analyze` checks the whole project again and reverts whatever still broke. A run never leaves code that doesn't compile. (`--no-verify` turns both checks off.)
+* **It can't leave a half-done job.** Before writing, it saves a copy of every file it may touch in `.dart_tool/dart_modernize/backup`. If anything fails, the files are put back. If the process is killed, `dart_modernize --restore` puts them back.
 * **It won't mix with your work.** It refuses to run on a Git tree with uncommitted changes, so its edits land in their own diff. (`--allow-dirty` overrides that. It doesn't apply under `--dry-run` or `--check`, or outside a Git repo.)
+
+When the final check has to revert a file, the run still keeps every other change. It prints the usual summary, then the reverted files with the passes that touched them and the `--no-<name>` switches that would skip those passes, and exits with code 2.
 
 Also good to know:
 
 * Generated code is skipped (`*.g.dart`, `*.freezed.dart`, localization output, anything marked `DO NOT EDIT`).
+* A file pinned to an older Dart with `// @dart = 2.x` is left alone, since the new syntax wouldn't compile there.
+* Only the files the tool changed are formatted. A project formatted to another width, or not formatted at all, keeps its layout everywhere else (`--no-format` turns formatting off, `--line-length` sets the width).
 * Line endings and UTF-8 BOMs are kept, so you only see the lines that really changed (`--line-endings` overrides).
+* New warnings and infos are listed at the end, without undoing anything, so you know before CI does if you run `dart analyze --fatal-infos`.
 * Running it twice is safe: the second run changes nothing.
 
 The habit that works best: clean tree, `--dry-run`, read the diff, run it, commit.
@@ -683,6 +850,26 @@ dart_modernize --check
 dart_modernize --check --dry-run
 ```
 
+`--check` and `--dry-run` take every step a real run takes, in memory: the passes, organize imports, sorting, and `dart format` on a scratch copy. `dart fix` only works on files on disk, so for it they list the files it would change instead of showing a diff (and `--check` counts them).
+
+### Exit codes
+
+| Code | Meaning |
+|:--|:--|
+| `0` | Done. Everything it changed still compiles. |
+| `1` | It stopped on an error, or `--check` found something to change. |
+| `2` | It kept its changes but had to revert some files that no longer compiled. They are listed. |
+| `64` | Bad command line, or a bad `dart_modernize:` section in `analysis_options.yaml`. |
+
+### Older projects
+
+```sh
+# Raise the SDK constraint to ^3.13.0 first, then modernize
+dart_modernize --upgrade-sdk
+```
+
+The tool needs a project on Dart 3.13 or newer. `--upgrade-sdk` raises the `sdk:` constraint in `pubspec.yaml`, runs `pub get`, and removes the `final` and `var` that Dart 3.13 no longer allows on ordinary parameters (`dart fix --code=extraneous_modifier`), before the passes run.
+
 ### All options
 
 | Option | What it does |
@@ -698,9 +885,14 @@ dart_modernize --check --dry-run
 | `--verbose` | Print per-file progress and the passes that changed nothing. |
 | `--[no-]color` | Force color on or off. By default it follows the terminal and respects `NO_COLOR`. |
 | `--exclude <glob>` | Skip files matching this glob, relative to the project root. Repeatable. |
-| `--[no-]verify` | Re-analyze changed files and revert any that gain an error, then exit non-zero. On by default. |
+| `--[no-]verify` | Check every stage in memory and the written result with `dart analyze`, undo the changes behind any new error, and exit with code 2 if it had to. On by default. |
 | `--allow-dirty` | Run even with uncommitted changes in Git. |
 | `--line-endings <auto\|lf\|crlf>` | Line endings for rewritten files. `auto` (default) keeps what each file had. |
+| `--[no-]format` | Run `dart format` over the files the tool changed. On by default. |
+| `--line-length <columns>` | Page width for `dart format`. By default the `formatter: page_width:` of `analysis_options.yaml`, else 80. |
+| `--upgrade-sdk` | Raise the SDK constraint to `^3.13.0` first (see Older projects). |
+| `--restore` | Put back the files saved by a run that was killed before it finished. |
+| `--unmodifiable-of` | Turn on unmodifiable-of. |
 
 <br>
 
@@ -714,13 +906,25 @@ dart_modernize:
     - sort-members        # turn on an opt-in pass
   disabled:
     - organize-imports    # turn off a default pass
+    - format              # leave formatting alone
   exclude:
     - lib/generated/**    # extra files to skip
+  line_length: 120        # page width for dart format
+  options:
+    dot-shorthands:
+      constructors: false # keep InputDecoration(...), still shorten .center
+    primary-constructors:
+      super-parameters: true # also promote widgets that forward super.key
+  lint_fixes:
+    - unnecessary_underscores # apply this lint's dart fix even if not enabled
 ```
 
 - **`enabled`** turns passes on (handy for the opt-in ones).
-- **`disabled`** turns passes off.
+- **`disabled`** turns passes off. `format` turns off the final `dart format`.
 - **`exclude`** adds globs on top of `analyzer: exclude:` and any `--exclude` flags.
+- **`line_length`** sets the page width for `dart format`, like `--line-length`.
+- **`options`** tunes a pass without turning it off. `dot-shorthands` takes `constructors` (default `true`): with `false`, `Foo(...)` is never written `.new(...)`, while enum values and static members still get shortened. `primary-constructors` takes `super-parameters` (default `false`): with `true`, a class whose constructor forwards `super.` parameters is promoted too, which covers nearly every Flutter widget.
+- **`lint_fixes`** lists lints whose `dart fix` corrections the tool applies during fix-all, whether or not your `analysis_options.yaml` enables them. Your options file is put back afterwards.
 
 Command-line flags win over the file. `--only` replaces the file's selection completely. A pass's own switch beats the file for that pass. Since each pass has a switch in one direction only, use `--only` to run something the file turned off. An unknown name, or one listed under both `enabled` and `disabled`, is an error.
 
@@ -775,8 +979,11 @@ Some files are never touched, and you can add more.
 
 1. **Validate.** Checks that there's a `pubspec.yaml` with an SDK constraint that requires Dart `3.13.0` or newer.
 2. **Resolve.** Loads your project with full type information.
-3. **Transform.** Runs the passes in groups, in a fixed order. Each group finishes before the next starts, so a pass can build on what an earlier one wrote. The [ordering notes](doc/ORDERING.md) explain why each pass sits where it does.
-4. **Finalize.** Runs `dart fix`, organizes imports, sorts members, moves constructors first, then `dart format`.
+3. **Transform.** Runs the passes in groups, in a fixed order. Each group finishes before the next starts, so a pass can build on what an earlier one wrote, and is checked for new errors before the next one starts. The [ordering notes](doc/ORDERING.md) explain why each pass sits where it does.
+4. **Finalize.** Runs `dart fix`, organizes imports, sorts members, moves constructors first, then `dart format` over the files it changed.
+5. **Verify.** Runs `dart analyze` over the whole project and reverts the changes behind any new error.
+
+`--verbose` prints how long each group took.
 
 <br>
 
@@ -786,7 +993,7 @@ Dart SDK `3.13.0` or newer.
 
 The floor is 3.13 because that's where primary constructors became stable, and one of the passes writes them. The tool refuses to run on a project whose SDK constraint allows anything older, instead of producing code that can't compile.
 
-Stuck on an older SDK? Pin an older release of `dart_modernize`. It keeps working. New language features arrive with new releases of the tool.
+Stuck on an older SDK constraint? `--upgrade-sdk` raises it for you. Or pin an older release of `dart_modernize`; it keeps working. New language features arrive with new releases of the tool.
 
 <br>
 
@@ -803,6 +1010,10 @@ Or as a dev dependency:
 ```sh
 dart pub add --dev dart_modernize
 ```
+
+Or as a standalone executable: every [GitHub release](https://github.com/isyll/dart_modernize/releases) has one for Linux, macOS and Windows. It still needs a Dart SDK on the machine (it finds it through `DART_SDK`, `FLUTTER_ROOT`, or the `dart` on your `PATH`). Compiled ahead of time, it skips the warm-up of `dart pub global activate`, so it is the fastest way to run the tool, and the most robust on very large projects: under `dart pub global activate`, a deeply nested generated expression (an `operator ==` chaining hundreds of `&&`) can overflow the analyzer's stack. The tool skips such a file and says so, but the executable doesn't need to.
+
+On a large project, run one instance at a time: several runs side by side, next to a Flutter build, can exhaust memory.
 
 <br>
 

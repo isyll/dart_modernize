@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.12.0
+
+Fixes found by running the tool over eleven real projects, the Dart 3.13 syntax that was still missing, and a pipeline that can no longer leave code that does not compile. The minimum SDK stays at 3.13.0.
+
+**New passes**
+
+- `constructor-shorthands`: declares constructors without repeating the class name, `Point(...)` becomes `new(...)`, `Point.origin()` becomes `new origin()`, `factory Point.fromJson` becomes `factory fromJson`, and enum constructors drop their redundant `const` (Dart 3.13).
+- `empty-bodies`: an empty class, mixin, extension type or extension body `{}` becomes `;` (Dart 3.13).
+- `future-pause`: an awaited `Future.delayed(d)` with no callback becomes `Future.pause(d)` (Dart 3.13).
+- `wildcard-parameters`: unused `__` and `___` parameters become `_`, which can repeat since Dart 3.7.
+- `null-aware-calls`: `if (x != null) x.f();` becomes `x?.f();`, and `if (cb != null) cb!();` becomes `cb?.call();`.
+- `unmodifiable-of`, off by default: `List.unmodifiable(x)` becomes `List.unmodifiableOf(x)`, and the same for `Map`, when the result keeps its static type.
+
+**primary-constructors**
+
+- Fixed default values being dropped (`this.port = 8080` became `final int port`, and a nullable field silently lost its default) and optional positional parameters losing their `[...]`.
+- Fixed a constructor's doc comment, annotations and comments being deleted. Such a constructor is now left alone, and so is a field with a comment at the end of its line. A comment trailing the line above a member stays with the member it belongs to.
+- Now promotes a constructor with `assert`s (moved to `this : assert(...);`), a field set from a plain parameter in the initializer list (moved onto the field), a named or private constructor (`class Vec._(...)`), fields declared together (`final int x, y;`), and enums (`enum Planet(final double mass)`).
+- New `super-parameters` setting, off by default, to also promote classes whose constructor forwards `super.` parameters, which covers nearly every Flutter widget.
+- A non-const class that is or extends an `@immutable` class and keeps an initialized or late field in its body is no longer promoted: the Dart 3.13 lint `prefer_const_constructors_in_immutables` wrongly asks for `const` on the result, and `dart fix` added one that did not compile.
+
+**Other pass fixes**
+
+- `prefer-inferred-types` no longer emits `<T>const [...]`, no longer turns `double x = -1` (or `(1)`) into an `int`, and keeps the type of a field that overrides an inherited member, which would otherwise take the inherited member's type.
+- `final-locals` now sees pattern assignments (`(a, b) = pair`) and `for (x in xs)` loops over an existing variable.
+- `destructure-for-in` and `destructure-locals` no longer write a type name the file does not import (and write `prefix.Type` for a prefixed import), and no longer destructure a nullable value or a `?.` read.
+- `super-parameters` no longer folds a named parameter into a positional argument or the reverse, keeps the order of positional arguments, keeps `: super.named()` for a named super constructor, never mixes `super.` positionals with positional arguments, and no longer folds an optional parameter whose super parameter has a default.
+- `dot-shorthands` no longer shortens a record field returned from an `async` function, or an element of a collection passed to a generic call without `<...>` such as `ISetConst({...})`, where Dart gives no context type. New `constructors` setting to keep constructor calls written out while still shortening enum values and static members.
+- `null-aware-conditionals` no longer breaks a member chain written over several lines.
+- `inline-return` no longer moves an initializer whose inferred type depends on its context into a `return` where that context changes, such as a generic call in an `async` function.
+- `abstract-final-classes` leaves the public API of a published package alone, and keeps the private constructor when the project enables `avoid_classes_with_only_static_members`.
+- `sort-constructors-first` respects `// ignore: sort_constructors_first` and `ignore_for_file`, and treats a primary constructor body as a constructor (so does `sort-members`).
+- A library pinned to an older language version (`// @dart = 2.12`) is left alone by every pass.
+
+**Pipeline**
+
+- With `--verify` (the default), every stage is now checked in memory before anything is written. A stage that adds an error has the edits behind it taken back, including when the error lands in another file, and a file several passes edited keeps the passes that are safe.
+- The final `dart analyze` check now covers the whole project, not only the changed files, and repeats after each revert. An error it cannot trace reverts the rest of the run, so the tool never leaves an error it caused.
+- A run that reverts files now prints the normal summary, then the reverted files with the passes behind them and the `--no-<pass>` switches to skip them, and exits with code 2 instead of 1.
+- New warnings and infos are listed at the end, without reverting anything.
+- Copies of every file a run may rewrite are saved to `.dart_tool/dart_modernize/backup` before the first write. A failure puts them back; after a crash, the new `--restore` does.
+- `dart format` now only touches the files the tool changed. New `--no-format` (or `format` under `disabled:`) and `--line-length` (or `line_length:`). When formatting breaks a line in a way a lint the project enables then flags (an `if` body moving under its condition without braces), `dart fix` runs once more, so a second run of the tool finds nothing left to do.
+- `--check` and `--dry-run` now take the finalize steps too (organize imports, sorting, and `dart format` on a scratch copy), and list the files `dart fix` would change, so `--check` no longer passes when a real run would still change files.
+- New `--upgrade-sdk`, which raises a project's SDK constraint to `^3.13.0`, runs `pub get`, and removes the `final` and `var` that Dart 3.13 no longer allows on ordinary parameters, before modernizing.
+- New `options:` section in the `dart_modernize:` configuration to tune a pass, and `lint_fixes:` to apply chosen lints' `dart fix` corrections even when the project does not enable them.
+- A library whose resolution overflows the stack is skipped and reported instead of crashing the run.
+- Faster: a library is resolved once per stage with all its parts, the baseline `dart analyze` runs alongside the stages, and organize-imports reuses the stages' analyzer. `--verbose` prints how long each stage took.
+- A compiled executable now finds the Dart SDK (through `DART_SDK`, `FLUTTER_ROOT` or the `PATH`) and runs `dart` subcommands from it instead of relaunching itself. Every GitHub release now ships standalone executables for Linux, macOS and Windows.
+
+**Project**
+
+- Updated `analyzer` to 14.6.0 and `test` to 1.33.0.
+- Added `tool/campaign.dart` and a manual `Real-project campaign` workflow, which run the tool over pinned public projects and fail on any revert, new error, or non-idempotent second run.
+
 ## 0.11.1
 
 No behavior change. Dependency updates and a documentation pass.

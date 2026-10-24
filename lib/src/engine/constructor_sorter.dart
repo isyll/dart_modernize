@@ -2,7 +2,13 @@
 ///
 /// Satisfies the `sort_constructors_first` lint: every constructor appears
 /// before any non-constructor member in a class, mixin, enum, extension, or
-/// extension-type body.
+/// extension-type body. The body of a primary constructor (`this : ...;`)
+/// counts as a constructor.
+///
+/// A body with a `// ignore: sort_constructors_first` comment, or a file with
+/// `// ignore_for_file: sort_constructors_first`, is left as written: the
+/// author kept that order on purpose, and moving the constructors would leave
+/// the comment pointing at nothing.
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
@@ -34,29 +40,42 @@ class _ConstructorSorter {
 
   String _code;
 
+  static final _ignoreForFile = RegExp(
+    r'//\s*ignore_for_file:[^\n]*\bsort_constructors_first\b',
+  );
+  static final _ignoreLine = RegExp(
+    r'//\s*ignore:[^\n]*\bsort_constructors_first\b',
+  );
+
   String? run() {
+    if (_ignoreForFile.hasMatch(_initial)) return null;
     for (final node in _unit.declarations) {
-      if (node is ClassDeclaration) {
-        _processBody(node.body.members);
-      } else if (node is EnumDeclaration) {
-        _processBody(node.body.members);
-      } else if (node is ExtensionDeclaration) {
-        _processBody(node.body.members);
-      } else if (node is ExtensionTypeDeclaration) {
-        _processBody(node.body.members);
-      } else if (node is MixinDeclaration) {
-        _processBody(node.body.members);
+      final members = switch (node) {
+        ClassDeclaration(:final body) => body.members,
+        EnumDeclaration(:final body) => body.members,
+        ExtensionDeclaration(:final body) => body.members,
+        ExtensionTypeDeclaration(:final body) => body.members,
+        MixinDeclaration(:final body) => body.members,
+        _ => null,
+      };
+      if (members == null) continue;
+      if (_ignoreLine.hasMatch(_initial.substring(node.offset, node.end))) {
+        continue;
       }
+      _processBody(members);
     }
     return _code == _initial ? null : _code;
   }
+
+  static bool _isConstructor(ClassMember member) =>
+      member is ConstructorDeclaration || member is PrimaryConstructorBody;
 
   void _processBody(List<ClassMember> members) {
     // Fast path: only reorder if some constructor follows a non-constructor.
     var seenNonConstructor = false;
     var needsSort = false;
     for (final m in members) {
-      if (m is ConstructorDeclaration) {
+      if (_isConstructor(m)) {
         if (seenNonConstructor) {
           needsSort = true;
           break;
@@ -73,7 +92,7 @@ class _ConstructorSorter {
       final range = nodeWithComments(_lineInfo, m);
       entries.add(
         .new(
-          isConstructor: m is ConstructorDeclaration,
+          isConstructor: _isConstructor(m),
           offset: range.offset,
           end: range.end,
           text: _code.substring(range.offset, range.end),

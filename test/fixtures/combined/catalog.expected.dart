@@ -1,5 +1,5 @@
 class Book extends Item with Describable {
-  const Book(super.sku, this.cost);
+  const new(super.sku, this.cost);
 
   final double cost;
 
@@ -11,7 +11,7 @@ class Book extends Item with Describable {
 }
 
 class Bundle extends Item {
-  Bundle(super.sku, this.items);
+  new(super.sku, this.items);
 
   final List<Item> items;
 
@@ -32,7 +32,7 @@ mixin Describable {
 }
 
 sealed class Item {
-  const Item(this.sku);
+  const new(this.sku);
 
   final String sku;
 

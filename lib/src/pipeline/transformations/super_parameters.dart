@@ -14,13 +14,20 @@ import '../transformation.dart';
 ///   * the value reaches `super(...)` as a bare identifier, not an expression
 ///     like `key ?? const Key()`;
 ///   * the parameter is used exactly once, in that forward;
-///   * for a named argument, the names already match, since renaming would
-///     change the constructor's public API;
-///   * there is no local default value, which could differ from the super's.
+///   * a named parameter feeds a named argument whose name it already has,
+///     since renaming would change the constructor's public API, and a
+///     positional parameter feeds a positional argument;
+///   * positional parameters fold all together or not at all, and in the order
+///     of their arguments: `super.` positionals are passed in declaration
+///     order, and they cannot be mixed with positional arguments in the call;
+///   * there is no local default value, which could differ from the super's,
+///     and an optional parameter only feeds an optional one with no default
+///     (an omitted `super.x` would take the super's default, not null).
 ///
 /// The type is dropped only when it is identical to the super parameter's, which
 /// `super.x` then infers. If every argument is forwarded the `: super(...)` goes
-/// away; otherwise the rest stay.
+/// away, or shrinks to `: super.named()` for a named super constructor;
+/// otherwise the rest stay.
 final class SuperParameters implements Transformation {
   const SuperParameters({required this.enabled});
 
@@ -110,17 +117,47 @@ class _SuperParameterVisitor(final String source)
       final fold = _tryFold(argument, paramByElement, counter.counts);
       if (fold != null) folds.add(fold);
     }
+    if (!_positionalFoldsLineUp(node, arguments, folds)) {
+      folds.removeWhere((fold) => fold.argument is! NamedArgument);
+    }
     if (folds.isEmpty) return;
 
     for (final fold in folds) {
       edits.add(_rewriteParameter(fold));
     }
 
-    if (folds.length == arguments.length) {
+    if (folds.length == arguments.length && superCall.constructorName == null) {
       edits.add(_removeSuperCall(node, superCall));
     } else {
       edits.add(_keepRemainingArguments(superCall, folds));
     }
+  }
+
+  /// Whether the positional [folds] can all become `super.` parameters: every
+  /// positional argument folds, and the folded parameters are declared in the
+  /// same order as the arguments they feed, since `super.` positionals are
+  /// passed to the super constructor in declaration order.
+  bool _positionalFoldsLineUp(
+    ConstructorDeclaration node,
+    List<Argument> arguments,
+    List<_Fold> folds,
+  ) {
+    final positionalArguments = arguments.where((a) => a is! NamedArgument);
+    final positionalFolds = [
+      for (final fold in folds)
+        if (fold.argument is! NamedArgument) fold,
+    ];
+    if (positionalFolds.isEmpty) return true;
+    if (positionalFolds.length != positionalArguments.length) return false;
+    final folded = {for (final fold in positionalFolds) fold.param};
+    final declared = [
+      for (final param in node.parameters.parameters)
+        if (folded.contains(param)) param,
+    ];
+    for (var i = 0; i < declared.length; i++) {
+      if (!identical(declared[i], positionalFolds[i].param)) return false;
+    }
+    return true;
   }
 
   /// Rebuilds the `super(...)` argument list with only the unfolded arguments,
@@ -223,12 +260,24 @@ class _SuperParameterVisitor(final String source)
     // Used only as the forward; never read, reassigned, or used elsewhere.
     if ((counts[referenced] ?? 0) != 1) return null;
 
+    // A named `super.x` can only feed a named parameter of the super
+    // constructor, and a positional one a positional parameter.
+    if ((argument is NamedArgument) != param.isNamed) return null;
+
     // For a named argument, folding to `super.<label>` renames the parameter
     // unless its local name already matches the super parameter's name.
     if (argument is NamedArgument) {
       final label = argument.name.lexeme;
       if (param.name!.lexeme != label) return null;
       if (superParam.name != label) return null;
+    }
+
+    // An omitted optional `super.x` takes the super parameter's default, where
+    // the explicit forward passed null; and a required super parameter has no
+    // default to fall back on.
+    if (param.isOptional &&
+        (!superParam.isOptional || superParam.hasDefaultValue)) {
+      return null;
     }
 
     final localType = param.declaredFragment?.element.type;

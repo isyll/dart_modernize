@@ -38,12 +38,22 @@ const allFeatures = <String>[
   'sort_constructors_first',
   'fix_all',
   'abstract_final_classes',
+  'constructor_shorthands',
+  'empty_bodies',
+  'future_pause',
+  'wildcard_parameters',
+  'null_aware_calls',
+  'unmodifiable_of',
 ];
 
 /// A minimal, dependency-free pubspec that satisfies the tool's validator and
 /// lets the analyzer resolve SDK (`dart:`) types without a `pub get`.
+///
+/// It is an app (`publish_to: none`), like most projects the tool runs on; a
+/// published package keeps its public API untouched by abstract-final-classes.
 const defaultPubspec = '''
 name: fixture_project
+publish_to: none
 environment:
   sdk: ">=3.13.0 <4.0.0"
 ''';
@@ -51,7 +61,11 @@ environment:
 /// Passes that are off by default, by fixture-folder name.
 ///
 /// Mirrors `defaultOffTransformations` in `lib/src/cli/options.dart`.
-const defaultOffFeatures = <String>{'sort_members', 'collection_elements'};
+const defaultOffFeatures = <String>{
+  'sort_members',
+  'collection_elements',
+  'unmodifiable_of',
+};
 
 /// Fixture-folder name to CLI flag name. One entry per pass, so wiring up a new
 /// one is a single line here.
@@ -78,6 +92,12 @@ const featureFlags = <String, String>{
   'sort_constructors_first': 'sort-constructors-first',
   'fix_all': 'fix-all',
   'abstract_final_classes': 'abstract-final-classes',
+  'constructor_shorthands': 'constructor-shorthands',
+  'empty_bodies': 'empty-bodies',
+  'future_pause': 'future-pause',
+  'wildcard_parameters': 'wildcard-parameters',
+  'null_aware_calls': 'null-aware-calls',
+  'unmodifiable_of': 'unmodifiable-of',
 };
 
 /// Path to the CLI entry point, relative to [_packageRoot].

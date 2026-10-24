@@ -1,0 +1,81 @@
+name: Real-project campaign
+
+# Runs dart_modernize over public projects pinned to a commit, with
+# tool/campaign.dart, and fails when a file is reverted, a new analyzer error
+# appears, or a second run still changes something. Golden fixtures cannot see
+# what large real codebases do to the tool; this can.
+#
+# Manual only. Each project takes minutes, so it never runs on its own; start it
+# from the Actions tab before a release, or after a risky change to a pass.
+on:
+  workflow_dispatch:
+    inputs:
+      projects:
+        description: "Comma-separated names from the matrix below, or all"
+        required: false
+        default: all
+        type: string
+
+concurrency:
+  group: campaign
+  cancel-in-progress: true
+
+jobs:
+  campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: flutter_todos
+            git: https://github.com/felangel/bloc.git
+            ref: b9be1e252ee24ffbe9f2fb629edc7624b2cfbf05
+            sub: examples/flutter_todos
+          - name: flex_color_scheme
+            git: https://github.com/rydmike/flex_color_scheme.git
+            ref: c4a81795175721fd451336913b5248db77e8aa29
+            sub: ""
+          - name: saber
+            git: https://github.com/saber-notes/saber.git
+            ref: 5c4cdc70beafe91a75446b67d7318dc20e23c4c7
+            sub: ""
+    steps:
+      - name: Decide whether this project is selected
+        id: selected
+        env:
+          PROJECTS: ${{ github.event.inputs.projects }}
+        run: |
+          if [ "$PROJECTS" = "all" ] || [[ ",$PROJECTS," == *",${{ matrix.name }},"* ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.selected.outputs.run == 'true'
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+      - uses: subosito/flutter-action@v2
+        if: steps.selected.outputs.run == 'true'
+        with:
+          channel: stable
+
+      - name: Run the campaign
+        if: steps.selected.outputs.run == 'true'
+        run: |
+          dart pub get
+          dart run tool/campaign.dart \
+            --name "${{ matrix.name }}" \
+            --git "${{ matrix.git }}" \
+            --ref "${{ matrix.ref }}" \
+            --sub "${{ matrix.sub }}"
+
+      - name: Keep the report
+        if: always() && steps.selected.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: campaign-${{ matrix.name }}
+          path: .dart_tool/campaign/${{ matrix.name }}.json
+          if-no-files-found: ignore

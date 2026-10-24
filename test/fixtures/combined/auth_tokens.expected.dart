@@ -1,14 +1,11 @@
 class AuthTokens {
-  const AuthTokens({
+  const new({
     required this.accessToken,
     required this.refreshToken,
     required this.expiresAt,
   });
 
-  factory AuthTokens.fromJson(
-    Map<String, dynamic> json, {
-    String? fallbackRefreshToken,
-  }) {
+  factory fromJson(Map<String, dynamic> json, {String? fallbackRefreshToken}) {
     final accessToken = json['access_token'] as String?;
     if (accessToken == null) {
       throw const FormatException('Auth response is missing an access token');

@@ -2,7 +2,7 @@ import 'dart:collection';
 import 'dart:math';
 
 class EventStore {
-  EventStore({required this.logger});
+  new({required this.logger});
   static final _events = <String>[];
 
   final Logger logger;
@@ -21,7 +21,7 @@ class EventStore {
 enum Level { debug, info, warn }
 
 class Logger {
-  Logger({required this._prefix});
+  new({required this._prefix});
 
   final String _prefix;
 

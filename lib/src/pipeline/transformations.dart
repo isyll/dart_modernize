@@ -3,13 +3,17 @@ import 'transformation.dart';
 import 'transformations/abstract_final_classes.dart';
 import 'transformations/cascades.dart';
 import 'transformations/collection_elements.dart';
+import 'transformations/constructor_shorthands.dart';
 import 'transformations/destructure_for_in.dart';
 import 'transformations/destructure_locals.dart';
 import 'transformations/dot_shorthands.dart';
+import 'transformations/empty_bodies.dart';
 import 'transformations/expression_bodies.dart';
 import 'transformations/final_locals.dart';
 import 'transformations/fix_all.dart';
+import 'transformations/future_pause.dart';
 import 'transformations/inline_return.dart';
+import 'transformations/null_aware_calls.dart';
 import 'transformations/null_aware_conditionals.dart';
 import 'transformations/null_aware_elements.dart';
 import 'transformations/null_aware_spread.dart';
@@ -22,6 +26,8 @@ import 'transformations/sort_members.dart';
 import 'transformations/string_interpolation.dart';
 import 'transformations/super_parameters.dart';
 import 'transformations/switch_expressions.dart';
+import 'transformations/unmodifiable_of.dart';
+import 'transformations/wildcard_parameters.dart';
 
 /// The finalize passes, in order. They run after the stages have settled, over
 /// the files on disk rather than the per-unit AST loop.
@@ -62,13 +68,24 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
   //    `Config({required int r}) : _r = r` into `Config({required this._r})`,
   //    exactly the shape promotion needs. The other way round the promotion
   //    would only happen on a second run, so the tool would not be idempotent.
-  [PrimaryConstructors(enabled: options.primaryConstructors)],
+  [
+    PrimaryConstructors(
+      enabled: options.primaryConstructors,
+      superParameters: options.promoteSuperParameters,
+    ),
+  ],
 
   // 4. inline-return collapses a folded cascade that is then returned;
   //    prefer-inferred-types drops or relocates a redundant type annotation.
+  //    future-pause and null-aware-calls rewrite a statement that
+  //    expression-bodies may then arrow, and unmodifiable-of renames a
+  //    constructor that dot-shorthands may then shorten.
   [
     InlineReturn(enabled: options.inlineReturn),
     PreferInferredTypes(enabled: options.preferInferredTypes),
+    FuturePause(enabled: options.futurePause),
+    NullAwareCalls(enabled: options.nullAwareCalls),
+    UnmodifiableOf(enabled: options.unmodifiableOf),
   ],
 
   // 5. expression-bodies arrows the body inline-return just produced;
@@ -92,12 +109,20 @@ List<List<Transformation>> buildTransformationStages(CliOptions options) => [
   ],
 
   // 8. Innermost edits, run last so they see final positions. abstract-final
-  //    needs the whole project resolved to decide which classes are safe to seal.
+  //    needs the whole project resolved to decide which classes are safe to
+  //    seal. constructor-shorthands and empty-bodies run after
+  //    primary-constructors, which copies the members it keeps as written.
   [
-    DotShorthands(enabled: options.dotShorthands),
+    DotShorthands(
+      enabled: options.dotShorthands,
+      constructors: options.dotShorthandConstructors,
+    ),
     StringInterpolation(enabled: options.stringInterpolation),
     NullAwareSpread(enabled: options.nullAwareSpread),
     NullAwareElements(enabled: options.nullAwareElements),
     AbstractFinalClasses(enabled: options.abstractFinalClasses),
+    ConstructorShorthands(enabled: options.constructorShorthands),
+    EmptyBodies(enabled: options.emptyBodies),
+    WildcardParameters(enabled: options.wildcardParameters),
   ],
 ];

@@ -25,7 +25,13 @@ void main() {
           'private-named-parameters',
         ],
         ['primary-constructors'],
-        ['inline-return', 'prefer-inferred-types'],
+        [
+          'inline-return',
+          'prefer-inferred-types',
+          'future-pause',
+          'null-aware-calls',
+          'unmodifiable-of',
+        ],
         ['expression-bodies', 'final-locals'],
         ['null-aware-conditionals'],
         ['destructure-for-in', 'destructure-locals'],
@@ -35,6 +41,9 @@ void main() {
           'null-aware-spread',
           'null-aware-elements',
           'abstract-final-classes',
+          'constructor-shorthands',
+          'empty-bodies',
+          'wildcard-parameters',
         ],
       ]);
     });
@@ -64,6 +73,19 @@ void main() {
         ('prefer-inferred-types', 'dot-shorthands'),
         // a partly-forwarded super(...) is settled before its args collapse.
         ('super-parameters', 'dot-shorthands'),
+        // The promotion copies the members it keeps as written, so the
+        // shorthand rewrite of a retained factory and the `;` of an emptied
+        // body come after it.
+        ('primary-constructors', 'constructor-shorthands'),
+        ('primary-constructors', 'empty-bodies'),
+        // A rewritten call or guard is then arrowed.
+        ('future-pause', 'expression-bodies'),
+        ('null-aware-calls', 'expression-bodies'),
+        // null-aware-calls edits inside the `if` before the conditionals pass.
+        ('null-aware-calls', 'null-aware-conditionals'),
+        // The call is renamed before dot-shorthands looks at it.
+        ('future-pause', 'dot-shorthands'),
+        ('unmodifiable-of', 'dot-shorthands'),
       ];
 
       for (final (producer, consumer) in edges) {

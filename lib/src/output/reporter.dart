@@ -64,6 +64,87 @@ final class Reporter {
     _out(_rule());
   }
 
+  /// Lists the files `dart fix` would change in a preview run.
+  ///
+  /// `dart fix` only works on files on disk, so a preview cannot show its
+  /// edits as a diff; it names the files instead.
+  void dartFixPreview(List<String> files) {
+    if (files.isEmpty) return;
+    final noun = files.length == 1 ? 'file' : 'files';
+    _out('dart fix would also change ${files.length} $noun:');
+    for (final file in files) {
+      _out('  ${_bold(file)}');
+    }
+  }
+
+  /// Reports changes undone in memory because they introduced an error, keyed
+  /// by project-relative path, with the passes held back in each file.
+  void heldBack(Map<String, Set<String>> passesByFile) {
+    if (passesByFile.isEmpty) return;
+    final noun = passesByFile.length == 1 ? 'file' : 'files';
+    _out(
+      '${_yellow('!')} Held back changes in ${passesByFile.length} $noun '
+      'that would have introduced an error:',
+    );
+    for (final MapEntry(:key, :value) in passesByFile.entries) {
+      _out('  ${_bold(key)}  ${_dim('[${value.join(', ')}]')}');
+    }
+  }
+
+  /// Reports diagnostics that are not errors but appeared during the run, so
+  /// a project that runs `dart analyze --fatal-infos` in CI knows before it
+  /// pushes. Nothing is undone for them.
+  void newDiagnostics(Map<String, List<String>> byFile) {
+    if (byFile.isEmpty) return;
+    final count = byFile.values.fold(0, (sum, list) => sum + list.length);
+    final noun = count == 1 ? 'warning or info' : 'warnings or infos';
+    _out(
+      '${_yellow('!')} $count new $noun appeared (changes kept; run dart '
+      'analyze to review):',
+    );
+    for (final MapEntry(:key, :value) in byFile.entries) {
+      _out('  ${_bold(key)}');
+      for (final message in value) {
+        _out('    ${_yellow('-')} $message');
+      }
+    }
+  }
+
+  /// No interrupted run left files to put back.
+  void nothingToRestore() => _out('Nothing to restore.');
+
+  /// Reports the files `--restore` put back.
+  void restored(List<String> files) {
+    final noun = files.length == 1 ? 'file' : 'files';
+    _out('${_green('✓')} Restored ${files.length} $noun.');
+    for (final file in files) {
+      _out('  ${_bold(file)}');
+    }
+  }
+
+  /// The SDK constraint `--upgrade-sdk` raised, from [from] to [to].
+  void sdkUpgraded(String from, String to) =>
+      _out('${_green('✓')} Raised the SDK constraint from "$from" to "$to".');
+
+  /// Reports files left untouched because their library could not be
+  /// resolved (the analyzer overflowed the stack).
+  void unresolvable(List<String> files) {
+    if (files.isEmpty) return;
+    final noun = files.length == 1 ? 'file' : 'files';
+    _out(
+      '${_yellow('!')} Skipped ${files.length} $noun the analyzer could not '
+      'resolve (stack overflow on a deeply nested expression):',
+    );
+    for (final file in files) {
+      _out('  ${_bold(file)}');
+    }
+  }
+
+  /// Prints [text] only in `--verbose` mode.
+  void verboseLine(String text) {
+    if (verbose) _out(_dim(text));
+  }
+
   /// Prints the end-of-run banner: how many files changed and how many each
   /// transformation touched, in canonical pass order.
   void completionSummary({
@@ -171,9 +252,15 @@ final class Reporter {
 
   /// Reports files that were reverted because re-analysis found a new error.
   ///
-  /// [reverted] maps each project-relative path to the new error messages the
-  /// modernized file gained. Printed to stderr; the run then exits non-zero.
-  void verificationReverted(Map<String, List<String>> reverted) {
+  /// [reverted] maps each project-relative path to the new error messages
+  /// behind its revert, and [passes] to the passes that had edited it. Printed
+  /// to stderr after the completion summary; the run then exits with code 2.
+  /// The hint names the `--no-<pass>` switches that would skip those passes,
+  /// never `--no-verify`, which would keep code that does not compile.
+  void verificationReverted(
+    Map<String, List<String>> reverted, {
+    Map<String, Set<String>> passes = const {},
+  }) {
     final noun = reverted.length == 1 ? 'file' : 'files';
     _err(
       _errorText(
@@ -182,6 +269,33 @@ final class Reporter {
       ),
     );
     for (final MapEntry(:key, :value) in reverted.entries) {
+      final names = passes[key] ?? const <String>{};
+      final label = names.isEmpty ? '' : '  ${_dim('[${names.join(', ')}]')}';
+      _err('  ${_bold(key)}$label');
+      for (final message in value) {
+        _err('    ${_red('-')} $message');
+      }
+    }
+    final skip = {for (final names in passes.values) ...names};
+    _err(
+      _dim(
+        'Every other change was kept. '
+        '${skip.isEmpty ? '' : 'To leave these files alone next time, re-run '
+                  'with ${skip.map((n) => '--no-$n').join(' ')}.'}',
+      ),
+    );
+  }
+
+  /// Reports new errors the run could not trace back to a file it changed,
+  /// keyed by project-relative path.
+  void unexplainedErrors(Map<String, List<String>> byFile) {
+    if (byFile.isEmpty) return;
+    _err(
+      _errorText(
+        'These errors appeared and could not be traced to a single change:',
+      ),
+    );
+    for (final MapEntry(:key, :value) in byFile.entries) {
       _err('  ${_bold(key)}');
       for (final message in value) {
         _err('    ${_red('-')} $message');
@@ -222,6 +336,7 @@ final class Reporter {
   String _green(String s) => color ? s.green() : s;
   void _out(String s) => _outSink.writeln(s);
   String _red(String s) => color ? s.red() : s;
+  String _yellow(String s) => color ? s.yellow() : s;
 
   String _rule() {
     const line = '────────────────────────────────────────────────────────';

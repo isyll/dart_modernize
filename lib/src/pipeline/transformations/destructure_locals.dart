@@ -2,10 +2,12 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 
 import '../../engine/source_edit.dart';
 import '../transformation.dart';
+import '../type_reference.dart';
 
 /// Collapses a local that exists only to read fields off it into a single
 /// destructuring declaration.
@@ -31,7 +33,10 @@ import '../transformation.dart';
 ///     field. All the reads move up to the declaration, so a computed getter
 ///     could end up running earlier than it did;
 ///   * a statement in the run carries a comment, which the rewrite would drop;
-///   * the type has no usable name;
+///   * the type has no name that reaches it from this file (not imported, or
+///     hidden); an import prefix is written out (`dap.StackFrame(...)`);
+///   * the intermediate's type is nullable, or a read uses `?.`: the pattern
+///     would throw on null where the reads gave null;
 ///   * the record has named fields. Only the positional form is handled.
 final class DestructureLocals implements Transformation {
   const DestructureLocals({required this.enabled});
@@ -44,15 +49,17 @@ final class DestructureLocals implements Transformation {
 
   @override
   Future<List<SourceEdit>> editsFor(ResolvedUnitResult unit) async {
-    final visitor = _DestructureLocalsVisitor(unit.content);
+    final visitor = _DestructureLocalsVisitor(unit);
     unit.unit.accept(visitor);
     return visitor.edits;
   }
 }
 
-class _DestructureLocalsVisitor(final String source)
+class _DestructureLocalsVisitor(final ResolvedUnitResult unit)
     extends RecursiveAstVisitor<void> {
   final edits = <SourceEdit>[];
+
+  String get source => unit.content;
 
   @override
   void visitBlock(Block node) {
@@ -113,10 +120,13 @@ class _DestructureLocalsVisitor(final String source)
   /// Renders the pattern for the intermediate's type, or null when unsupported.
   String? _pattern(VariableDeclaration declaration, List<_FieldBinding> reads) {
     final type = declaration.declaredFragment?.element.type;
+    if (type == null || type.nullabilitySuffix != NullabilitySuffix.none) {
+      return null;
+    }
     if (type is RecordType) return _recordPattern(type, reads);
     if (type is InterfaceType) {
-      final name = type.element.name;
-      if (name == null || name.isEmpty) return null;
+      final name = typeNameInScope(unit, type.element);
+      if (name == null) return null;
       final fields = reads.map((r) => r.binding).join(', ');
       return '$name($fields)';
     }
@@ -178,7 +188,7 @@ class _DestructureLocalsVisitor(final String source)
     if (initializer is PrefixedIdentifier) {
       receiver = initializer.prefix;
       property = initializer.identifier;
-    } else if (initializer is PropertyAccess) {
+    } else if (initializer is PropertyAccess && !initializer.isNullAware) {
       final accessTarget = initializer.target;
       if (accessTarget is SimpleIdentifier) {
         receiver = accessTarget;

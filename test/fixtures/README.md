@@ -7,7 +7,7 @@ actually runs the tool in [`test/support/cli_harness.dart`](../support/cli_harne
 
 ## Folder = feature
 
-All twenty-two transformation passes have a fixtures folder. The folder name is
+All twenty-eight transformation passes have a fixtures folder. The folder name is
 the pass name with underscores in place of hyphens, and the harness selects the
 pass with `--only <name>`. Running the tool with only that pass enabled rewrites
 positive fixtures as expected and leaves negative (`.unchanged.dart`) fixtures
@@ -37,6 +37,12 @@ byte-for-byte identical.
 | `abstract_final_classes/`     | `abstract-final-classes`       |
 | `prefer_inferred_types/`      | `prefer-inferred-types`        |
 | `sort_constructors_first/`    | `sort-constructors-first`      |
+| `constructor_shorthands/`     | `constructor-shorthands`       |
+| `empty_bodies/`               | `empty-bodies`                 |
+| `future_pause/`               | `future-pause`                 |
+| `wildcard_parameters/`        | `wildcard-parameters`          |
+| `null_aware_calls/`           | `null-aware-calls`             |
+| `unmodifiable_of/`            | `unmodifiable-of`              |
 
 Two more folders are not tied to one pass. `combined/` holds cases that run
 several passes together and pin the interactions between them. `modern_syntax/`
