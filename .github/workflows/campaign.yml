@@ -74,7 +74,7 @@ jobs:
 
       - name: Keep the report
         if: always() && steps.selected.outputs.run == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: campaign-${{ matrix.name }}
           path: .dart_tool/campaign/${{ matrix.name }}.json
